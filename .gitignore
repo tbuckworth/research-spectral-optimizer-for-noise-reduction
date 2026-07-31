@@ -1,0 +1,42 @@
+# Model checkpoints and weights (GitHub 100MB hard limit)
+*.pt
+*.pth
+*.bin
+*.safetensors
+*.ckpt
+*.h5
+*.onnx
+
+# Python virtual environments
+venv/
+.venv/
+env/
+
+# Python bytecode
+__pycache__/
+*.pyc
+*.pyo
+
+# Training artifacts
+wandb/
+runs/
+tensorboard/
+*.tfevents*
+
+# Large data files
+*.tar
+*.tar.gz
+*.zip
+*.hdf5
+*.pkl
+*.npy
+*.npz
+*.parquet
+*.arrow
+
+# OS / temp files
+.DS_Store
+Thumbs.db
+*.tmp
+*.bak
+*.swp

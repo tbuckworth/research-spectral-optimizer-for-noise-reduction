@@ -1,0 +1,30 @@
+# Citation Registry
+
+- `mccandlish2018gradientnoisescale`: OpenAI blog/paper introducing the "gradient noise scale" statistic linking gradient SNR to optimal batch size; contrasts with per-sample covariance spectral filtering.
+- `martens2018kfacrnn`: K-FAC extension to RNNs modeling gradient covariance across timesteps for curvature-based preconditioning (DeepMind-affiliated, ICLR 2018).
+- `vaintrob2025memorization`: LessWrong post reframing memorization/generalization as a spectrum via Singular Learning Theory's "learning coefficient"; theoretical, no gradient-level mechanism discussed.
+- `pope2022general_circuits`: Alignment Forum post arguing SGD favors general circuits because cross-sample gradient reinforcement differentially strengthens them over memorizing circuits — an informal community restatement of the Coherent Gradients mechanism.
+- `numerai_forum2021_eras`: Numerai Forum practitioner thread on exploiting era structure — era-based/purged cross-validation, correlation-aligned loss, and random era sampling to reduce overfitting.
+- `numerai_forum2021_fnc`: Numerai Forum announcement introducing Feature Neutral Correlation, a metric separating genuine generalizable signal from feature-specific overfitting in tournament scoring.
+- `chaubard2024gradientagreementfiltering`: Gradient Agreement Filtering — filters/reweights distributed-training gradients by cross-microbatch agreement; closest known empirical precedent to the Spectral Optimizer's mechanism.
+- `chatterjee2020coherentgradients`: Coherent Gradients hypothesis — theoretical ancestor explaining generalization via reinforcement of cross-example-agreeing gradient directions.
+- `mai2026orthogonalgradient`: OrthoGrad — removes gradient component parallel to weight vector, reduces noisy-label memorization in small-data CNN settings; recent optimizer-geometry intervention.
+- `feldman2019longtailmemorization`: Shows memorization of long-tail examples can be necessary for generalization; caveat against blanket gradient/noise filtering.
+- `liu2020earlylearningregularization`: Early-learning vs. memorization phase transition in noisy-label training; loss-level regularization exploiting the early-learning phase.
+- `nobile2026persampleclipping`: Per-sample clipped SGD with optimal convergence under heavy-tailed gradient noise.
+- `zhao2026gradsentry`: Uses spectral entropy of per-sample gradients to detect backdoor/poisoned samples in LLM fine-tuning; validates spectral gradient analysis as a practical tool.
+- `xu2025dppmlf`: Combines per-sample momentum and low-pass filtering to jointly reduce DP-SGD noise and clipping bias.
+- `bouchaud2009rmtfinancereview`: Canonical review of Marchenko-Pastur RMT eigenvalue cleaning applied to financial return-correlation matrices.
+- `potters2005rmtoldlaces`: Earlier companion review of the same RMT financial-covariance-cleaning line of work.
+- `pafka2004rmtexponentialweighting`: Combines exponential weighting with RMT eigenvalue filtering for portfolio covariance estimation.
+- `lakshtanov2023denoisingcorrelation`: Modern extension of RMT correlation-matrix denoising to large-scale global portfolios.
+- `gorishniy2026benchmarkingoptimizers`: Benchmarks 15 optimizers on 17 tabular datasets for MLPs; finds Muon consistently beats AdamW — key baseline/methodology reference.
+- `gorishniy2021revisitingtabular`: Establishes fair-comparison protocol and strong baselines (incl. MLP) for deep learning on tabular data vs. GBTs.
+- `schneider2019deepobs`: DeepOBS — standardized benchmark suite for fair, reproducible deep learning optimizer comparison.
+- `blauth2024fastoptimizerbenchmark`: Lightweight/fast optimizer benchmark suite, lower-compute alternative to DeepOBS-style protocols.
+- `yu2026signheavytailed`: Theoretical analysis showing sign-based (Adam-like) optimizers are already robust under heavy-tailed gradient noise.
+- `xie2022overlookedstructure`: Empirical/theoretical study of non-Gaussian, structured properties of stochastic gradient noise.
+- `dang2025heavytailedstability`: Algorithmic stability/generalization bounds for SGD-with-momentum under heavy-tailed gradient noise.
+- `gulcehre2017robustadaptive`: Early (2017) robust adaptive gradient method designed for reduced sensitivity to gradient outliers/noise.
+- `liang2022noisylabelsurvey`: Broad 2022 survey of noisy-label learning methods (loss correction, sample selection, regularization).
+- `song2025labelnoisesurvey`: More recent (2025) comprehensive survey of DNN noisy-label learning methods.

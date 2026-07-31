@@ -1,0 +1,12 @@
+Spectral Optimizer (for noise reduction) on Financial Timeseries Data
+
+Context from issue body:
+Find some financial time series data. Ideally, a leaderboard where you could submit a model, a model using the Spectral Optimizer on training data, submit it, and see how it performs on the test data. The idea is that the Spectral Optimizer should be good at removing noise from large datasets. That's what the financial time series data generally has. It's large datasets with lots of noise, so that's what we want to try and do. Probably we want to do it with a plain MLP and also with the Stadia models, like RushCursive models or whatever. See what the Stadia architectures are for this kind of thing, or just compare it with regular architectures.
+We can do:
+- MLP on the thing: Adam vs. this or Adam W vs. this
+- Stadia architectures: this vs. this
+Also, it doesn't really need to be these data. They are necessarily really expensive, but just some models to demonstrate various architectures to see how it is across those architectures.
+
+## Checklist
+
+- [ ] Also, this is referring to the existing Spectral Optimizer, which we've done in another project, so you have to go find that because it's designed in such a way that you can take the code and reuse it somewhere else. Don't recreate it. Find it.
