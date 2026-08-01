@@ -1,0 +1,155 @@
+{
+  "test1_integration": {
+    "loss_first20": 0.05828522052615881,
+    "loss_last20": 0.0425060648471117,
+    "decreased": true,
+    "k_min": 7,
+    "k_max": 10,
+    "ratio_min": 0.13446367238865756,
+    "ratio_max": 1.2256537059652564
+  },
+  "test2_filter_off": {
+    "fp32_grad_diff": 3.725290298461914e-08,
+    "fp32_param_diff_50step": 6.821751594543457e-05,
+    "fp64_grad_diff": 5.551115123125783e-17,
+    "fp64_param_diff_50step": 9.880117557425905e-15,
+    "pass": true
+  },
+  "test3_streaming": {
+    "loss_first20": 0.046736367605626584,
+    "loss_last20": 0.024571177177131177,
+    "decreased": true
+  },
+  "test4_c1": {
+    "a_iid_noise": {
+      "hard": {
+        "k": 1,
+        "ratio": 0.0014092521979797894,
+        "top_eigs": [
+          1.484,
+          1.47,
+          1.466,
+          1.458,
+          1.448
+        ],
+        "cos_vs_mean_grad": -0.0005,
+        "n_above_MP_thr": 0
+      },
+      "soft": {
+        "k": 0,
+        "ratio": 0.14160978139429414,
+        "top_eigs": [
+          1.484,
+          1.47,
+          1.466,
+          1.458,
+          1.448
+        ],
+        "cos_vs_mean_grad": 0.9365,
+        "n_above_MP_thr": 0
+      },
+      "variance": {
+        "k": 219,
+        "ratio": 0.9496633889085471,
+        "top_eigs": [
+          1.484,
+          1.47,
+          1.466,
+          1.458,
+          1.448
+        ],
+        "cos_vs_mean_grad": 0.9496,
+        "n_above_MP_thr": 0
+      }
+    },
+    "b_planted_spike": {
+      "hard": {
+        "k": 1,
+        "ratio": 1.0000122214068596,
+        "top_eigs": [
+          12.402,
+          1.435,
+          1.416,
+          1.4,
+          1.391
+        ],
+        "cos_vs_mean_grad": 0.9995,
+        "cos_vs_planted_dir": 0.961,
+        "n_above_MP_thr": 1
+      },
+      "soft": {
+        "k": 1,
+        "ratio": 0.9999632755754462,
+        "top_eigs": [
+          12.402,
+          1.435,
+          1.416,
+          1.4,
+          1.391
+        ],
+        "cos_vs_mean_grad": 0.9996,
+        "cos_vs_planted_dir": 0.961,
+        "n_above_MP_thr": 1
+      },
+      "variance": {
+        "k": 217,
+        "ratio": 1.0000066826411893,
+        "top_eigs": [
+          12.402,
+          1.435,
+          1.416,
+          1.4,
+          1.391
+        ],
+        "cos_vs_mean_grad": 0.9999,
+        "cos_vs_planted_dir": 0.9608,
+        "n_above_MP_thr": 1
+      }
+    },
+    "c_zero_signal_confound": {
+      "hard": {
+        "k": 1,
+        "ratio": 0.014766862216020143,
+        "top_eigs": [
+          11.922,
+          1.431,
+          1.411,
+          1.399,
+          1.388
+        ],
+        "cos_vs_mean_grad": 0.0178,
+        "cos_vs_planted_dir": 0.9587,
+        "n_above_MP_thr": 1
+      },
+      "soft": {
+        "k": 1,
+        "ratio": 0.15089463092926594,
+        "top_eigs": [
+          11.922,
+          1.431,
+          1.411,
+          1.399,
+          1.388
+        ],
+        "cos_vs_mean_grad": 0.9179,
+        "cos_vs_planted_dir": 0.0964,
+        "n_above_MP_thr": 1
+      },
+      "variance": {
+        "k": 217,
+        "ratio": 0.9197965808359313,
+        "top_eigs": [
+          11.922,
+          1.431,
+          1.411,
+          1.399,
+          1.388
+        ],
+        "cos_vs_mean_grad": 0.9197,
+        "cos_vs_planted_dir": 0.016,
+        "n_above_MP_thr": 1
+      }
+    }
+  },
+  "total_seconds": 7.653134822845459
+}

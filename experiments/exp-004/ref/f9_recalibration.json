@@ -1,0 +1,30 @@
+{
+  "example_model_file": "v5.0/validation_example_preds.parquet",
+  "n_eras": 651,
+  "numerai_corr_mean": 0.03479858592559008,
+  "numerai_corr_sd": 0.021086677745429626,
+  "numerai_corr_sharpe": 1.65026403617006,
+  "spearman_mean": 0.03304466746806335,
+  "spearman_sd": 0.021255199681484357,
+  "lag1_autocorr_per_era_corr": 0.762535935491277,
+  "tuning_block_stats": {
+    "n_eras": 388,
+    "numerai_corr_mean": 0.041803173748073554,
+    "numerai_corr_sd": 0.018337639186696158,
+    "spearman_mean": 0.039808066541096726
+  },
+  "verdict_block_stats": {
+    "n_eras": 255,
+    "numerai_corr_mean": 0.023548746817782337,
+    "numerai_corr_sd": 0.020105077359794617,
+    "spearman_mean": 0.02229387342694962
+  },
+  "sanity_band_rule": "working-model mean per-era numerai_corr in [0.25x, 1.5x] of example-model mean",
+  "sanity_band": [
+    0.00869964648139752,
+    0.05219787888838512
+  ],
+  "leakage_gate_rule": "mean per-era numerai_corr > 2x example mean OR mean per-era spearman > 0.06 => leakage suspect",
+  "leakage_gate_numerai_corr": 0.06959717185118015,
+  "leakage_gate_spearman": 0.06
+}

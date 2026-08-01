@@ -1,0 +1,36 @@
+torch 2.11.0+cu128, CPU smoke test, seed 0
+
+=== TEST 1: SpectralConsensusFilter + AdamW regression, 200 steps ===
+  step   0 loss 0.08648 k   8 consensus_ratio 0.792 top_eigs [53.72, 2.92, 2.79, 2.4]
+  step  50 loss 0.04428 k   9 consensus_ratio 0.690 top_eigs [71.67, 3.77, 3.59, 2.94]
+  step 100 loss 0.04711 k   7 consensus_ratio 0.434 top_eigs [75.78, 4.09, 2.97, 2.72]
+  step 150 loss 0.03988 k   9 consensus_ratio 0.260 top_eigs [77.14, 3.65, 3.4, 3.03]
+  step 199 loss 0.03609 k   9 consensus_ratio 0.331 top_eigs [81.25, 3.57, 2.96, 2.89]
+  mean loss first-20 0.05829 last-20 0.04251 decreased=True  (4.7s, 24 ms/step CPU)
+  diagnostics emitted: k range [7,10], ratio range [0.134,1.226]
+
+=== TEST 2: filter-off path == plain AdamW (numerical tolerance) ===
+  fp32: single-step grad max diff 3.73e-08, 50-step param max diff 6.82e-05
+  fp64: single-step grad max diff 5.55e-17, 50-step param max diff 9.88e-15
+  algorithmic equivalence (fp64 traj < 1e-9, fp32 grad < 1e-6): PASS
+
+=== TEST 3: streaming variant (regression-adapted copy), 200 steps ===
+  step   0 loss 0.06546 basis_rank 0 filtering=False
+  step  50 loss 0.03797 basis_rank 50 filtering=True
+  step 100 loss 0.03189 basis_rank 50 filtering=True
+  step 150 loss 0.02785 basis_rank 50 filtering=True
+  step 199 loss 0.02681 basis_rank 50 filtering=True
+  mean loss first-20 0.04674 last-20 0.02457 decreased=True
+
+=== TEST 4 (C1): spiked-covariance unit tests on _spectral_filter ===
+  [a: iid noise      ][hard    ] k=  1 raw_above_thr=  0 ratio=0.001 cos_mean=-0.000
+  [a: iid noise      ][soft    ] k=  0 raw_above_thr=  0 ratio=0.142 cos_mean=0.937
+  [a: iid noise      ][variance] k=219 raw_above_thr=  0 ratio=0.950 cos_mean=0.950
+  [b: planted spike  ][hard    ] k=  1 raw_above_thr=  1 ratio=1.000 cos_mean=1.000 cos_planted=0.961
+  [b: planted spike  ][soft    ] k=  1 raw_above_thr=  1 ratio=1.000 cos_mean=1.000 cos_planted=0.961
+  [b: planted spike  ][variance] k=217 raw_above_thr=  1 ratio=1.000 cos_mean=1.000 cos_planted=0.961
+  [c: 0-signal conf. ][hard    ] k=  1 raw_above_thr=  1 ratio=0.015 cos_mean=0.018 cos_planted=0.959
+  [c: 0-signal conf. ][soft    ] k=  1 raw_above_thr=  1 ratio=0.151 cos_mean=0.918 cos_planted=0.096
+  [c: 0-signal conf. ][variance] k=217 raw_above_thr=  1 ratio=0.920 cos_mean=0.920 cos_planted=0.016
+
+Total: 7.7s. Results -> out/smoke_results.json

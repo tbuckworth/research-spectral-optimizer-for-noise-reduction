@@ -1,0 +1,144 @@
++ cd /mnt/nw/home/t.buckworth/researcher-runs/2026-07-31-spectral-optimizer-for-noise-reduction-on-financial-timeseri/exp-003
++ DONE=data/shard_tuning.done
+++ seq 1 90
++ for i in $(seq 1 90)
++ '[' -f data/shard_tuning.done ']'
++ break
++ '[' '!' -f data/shard_tuning.done ']'
++ EPH=/ephemeral/t.buckworth/researcher-shards
++ mkdir -p /ephemeral/t.buckworth/researcher-shards
++ '[' '!' -f /ephemeral/t.buckworth/researcher-shards/shard_train.parquet ']'
++ '[' '!' -f /ephemeral/t.buckworth/researcher-shards/shard_tuning.parquet ']'
++ cp data/shard_tuning.parquet /ephemeral/t.buckworth/researcher-shards/
++ ls -la /ephemeral/t.buckworth/researcher-shards
+total 362128
+drwxrwx--- 2 t.buckworth t.buckworth      4096 Aug  1 08:57 .
+drwx------ 5 t.buckworth t.buckworth      4096 Aug  1 08:54 ..
+-rw-rw---- 1 t.buckworth t.buckworth 103633413 Aug  1 08:54 shard_train.parquet
+-rw-rw---- 1 t.buckworth t.buckworth 267171114 Aug  1 08:57 shard_tuning.parquet
++ python -u src/sweep.py --train-shard /ephemeral/t.buckworth/researcher-shards/shard_train.parquet --tune-shard /ephemeral/t.buckworth/researcher-shards/shard_tuning.parquet --ref ref --outdir out
+device: cuda, torch 2.5.1+cu121
+gpu: NVIDIA L40
+train shard: 384000 rows, 705 features, 150 eras (0425..0574)
+tuning shard: 993280 rows, 705 features, 388 eras (0579..0966)
+
+zero-predictor: mean spearman +0.00026, mean numerai_corr -0.00016 over 388 eras
+
+### trial t00_lr0.0003_wd0_do0
+    step    0 loss 0.05547
+    step  400 loss 0.04508
+    step  800 loss 0.04704
+    step 1200 loss 0.04283
+    step 1600 loss 0.04091
+  t00_lr0.0003_wd0_do0: mean spearman +0.01348, mean numerai_corr +0.01430, train 2.6s eval 1.1s
+
+### trial t01_lr0.0003_wd0_do0.2
+    step    0 loss 0.05744
+    step  400 loss 0.04600
+    step  800 loss 0.04906
+    step 1200 loss 0.04780
+    step 1600 loss 0.04607
+  t01_lr0.0003_wd0_do0.2: mean spearman +0.01515, mean numerai_corr +0.01660, train 2.6s eval 1.1s
+
+### trial t02_lr0.0003_wd0.001_do0
+    step    0 loss 0.05547
+    step  400 loss 0.04435
+    step  800 loss 0.04659
+    step 1200 loss 0.04277
+    step 1600 loss 0.04039
+  t02_lr0.0003_wd0.001_do0: mean spearman +0.01033, mean numerai_corr +0.01143, train 2.4s eval 1.1s
+
+### trial t03_lr0.0003_wd0.001_do0.2
+    step    0 loss 0.05744
+    step  400 loss 0.04587
+    step  800 loss 0.04958
+    step 1200 loss 0.04800
+    step 1600 loss 0.04541
+  t03_lr0.0003_wd0.001_do0.2: mean spearman +0.01595, mean numerai_corr +0.01640, train 2.6s eval 1.1s
+
+### trial t04_lr0.001_wd0_do0
+    step    0 loss 0.05547
+    step  400 loss 0.04377
+    step  800 loss 0.04574
+    step 1200 loss 0.04291
+    step 1600 loss 0.04060
+  t04_lr0.001_wd0_do0: mean spearman +0.01224, mean numerai_corr +0.01129, train 2.4s eval 1.0s
+
+### trial t05_lr0.001_wd0_do0.2
+    step    0 loss 0.05744
+    step  400 loss 0.04591
+    step  800 loss 0.04862
+    step 1200 loss 0.04814
+    step 1600 loss 0.04555
+  t05_lr0.001_wd0_do0.2: mean spearman +0.01510, mean numerai_corr +0.01448, train 2.6s eval 1.0s
+
+### trial t06_lr0.001_wd0.001_do0
+    step    0 loss 0.05547
+    step  400 loss 0.04457
+    step  800 loss 0.04716
+    step 1200 loss 0.04357
+    step 1600 loss 0.04097
+  t06_lr0.001_wd0.001_do0: mean spearman +0.01149, mean numerai_corr +0.01343, train 2.4s eval 1.0s
+
+### trial t07_lr0.001_wd0.001_do0.2
+    step    0 loss 0.05744
+    step  400 loss 0.04581
+    step  800 loss 0.04846
+    step 1200 loss 0.04845
+    step 1600 loss 0.04605
+  t07_lr0.001_wd0.001_do0.2: mean spearman +0.01894, mean numerai_corr +0.01962, train 2.6s eval 1.1s
+
+### trial t08_lr0.003_wd0_do0
+    step    0 loss 0.05547
+    step  400 loss 0.04599
+    step  800 loss 0.04954
+    step 1200 loss 0.04666
+    step 1600 loss 0.04632
+  t08_lr0.003_wd0_do0: mean spearman +0.00864, mean numerai_corr +0.00859, train 2.4s eval 1.1s
+
+### trial t09_lr0.003_wd0_do0.2
+    step    0 loss 0.05744
+    step  400 loss 0.04601
+    step  800 loss 0.04893
+    step 1200 loss 0.04866
+    step 1600 loss 0.04762
+  t09_lr0.003_wd0_do0.2: mean spearman +0.00898, mean numerai_corr +0.01030, train 2.6s eval 1.0s
+
+### trial t10_lr0.003_wd0.001_do0
+    step    0 loss 0.05547
+    step  400 loss 0.04642
+    step  800 loss 0.04921
+    step 1200 loss 0.04736
+    step 1600 loss 0.04465
+  t10_lr0.003_wd0.001_do0: mean spearman +0.01027, mean numerai_corr +0.01084, train 2.4s eval 1.0s
+
+### trial t11_lr0.003_wd0.001_do0.2
+    step    0 loss 0.05744
+    step  400 loss 0.04615
+    step  800 loss 0.04904
+    step 1200 loss 0.04939
+    step 1600 loss 0.04786
+  t11_lr0.003_wd0.001_do0.2: mean spearman +0.00816, mean numerai_corr +0.00812, train 2.6s eval 1.0s
+
+BEST trial (by mean per-era spearman): t07_lr0.001_wd0.001_do0.2 spearman +0.01894 numerai_corr +0.01962
+
+### best config re-train, seed 1
+    step    0 loss 0.05582
+    step  400 loss 0.04557
+    step  800 loss 0.04489
+    step 1200 loss 0.05294
+    step 1600 loss 0.04590
+  seed 1: mean spearman +0.01315, mean numerai_corr +0.01286 (2.6s)
+
+### best config re-train, seed 2
+    step    0 loss 0.05130
+    step  400 loss 0.04930
+    step  800 loss 0.05065
+    step 1200 loss 0.04861
+    step 1600 loss 0.04765
+  seed 2: mean spearman +0.01478, mean numerai_corr +0.01533 (2.6s)
+
+F9 band [0.0087, 0.0522] (numerai_corr): best +0.01962 -> INSIDE
+leakage gate (nc>0.0696 or sp>0.0600): not fired
+
+Total sweep time: 1.1 min; wrote sweep_results.json + per-era CSVs

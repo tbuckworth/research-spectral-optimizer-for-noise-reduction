@@ -1,0 +1,26 @@
+verdict-block era count (from protocol.json): 255
+F12 axis lr: best=0.001 grid=[0.0003, 0.001, 0.003] boundary=False improving_at_boundary=None slice=[(0.0003, 0.01594661291915225), (0.001, 0.01894043981895808), (0.003, 0.008158447770326831)]
+F12 axis wd: best=0.001 grid=[0.0, 0.001] boundary=True improving_at_boundary=True slice=[(0.0, 0.015100188140575913), (0.001, 0.01894043981895808)]
+F12 axis dropout: best=0.2 grid=[0.0, 0.2] boundary=True improving_at_boundary=True slice=[(0.0, 0.011485314417814061), (0.2, 0.01894043981895808)]
+F12: boundary axes = ['wd', 'dropout']; irregular lr slices: 0/4
+F5: lag-1 acf (numerai_corr, best seed0) = +0.247; acf[1..5] = ['+0.25', '+0.10', '-0.03', '-0.11', '-0.02']; block length L = 4
+F3 realized baseline (3-seed mean): numerai_corr +0.01594, spearman +0.01562 (sweep-selection value was +0.01962)
+F3 FROZEN threshold: numerai_corr 0.00398 (spearman variant 0.00391; selection-value alternative would have been 0.00490)
+seed noise (numerai_corr): per-era seed sd 0.01968; 3-seed-mean diff sd 0.01582; diff-series lag1 acf +0.205
+power[seed_noise][null]: hw_med 0.00219 any_cat 0.910 helps* 0.052 doesnt 0.838 helps_strict 0.002
+power[seed_noise][plus_thr]: hw_med 0.00218 any_cat 0.944 helps* 0.899 doesnt 0.047 helps_strict 0.480
+power[seed_noise][minus_thr]: hw_med 0.00219 any_cat 0.951 helps* 0.000 doesnt 0.031 helps_strict 0.000
+power[2x_noise][null]: hw_med 0.00435 any_cat 0.096 helps* 0.039 doesnt 0.026 helps_strict 0.037
+power[2x_noise][plus_thr]: hw_med 0.00434 any_cat 0.462 helps* 0.454 doesnt 0.008 helps_strict 0.437
+power[2x_noise][minus_thr]: hw_med 0.00437 any_cat 0.432 helps* 0.001 doesnt 0.002 helps_strict 0.001
+
+F4 gate: min P(any verdict category) = 0.910 -> GO  (2x-noise sensitivity: 0.096)
+
+#4 budget: t_adamw 3.6s/run, t_spectral 63.1s/run (exp-001 timing.json (measured 31.0 ms/step, B=1024 filter-on, 2000 steps) + measured eval)
+  AdamW tuning compute 44s -> matched spectral trials: 1
+  exp-004 single job (tune + 2x3 arms + C4 + GAF + diag): 12.7 min (cap 25) fits=True
+  exp-004 minimum viable (drop GAF): 9.5 min
+  exp-005 sequence arm: 2-task array, 13.7 min/task (cap 25) fits=True; total 27.4 min
+  F7 cut order invoked: False
+
+wrote out/analysis.json

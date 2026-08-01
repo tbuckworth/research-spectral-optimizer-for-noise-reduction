@@ -1,0 +1,3 @@
+reading tuning-block eras 0579..0966 (388 eras), 705 medium features
+read 2350518 rows, mem 1.74 GB
+shard: 993280 rows, 388 eras, 267 MB -> /media/titus/big/researcher-output/2026-07-31-spectral-optimizer-for-noise-reduction-on-financial-timeseri/data/shard_tuning.parquet

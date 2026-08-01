@@ -1,0 +1,138 @@
++ cd /mnt/nw/home/t.buckworth/researcher-runs/2026-07-31-spectral-optimizer-for-noise-reduction-on-financial-timeseri/exp-001
++ EPH=/ephemeral/t.buckworth/researcher-shards
++ mkdir -p /ephemeral/t.buckworth/researcher-shards
++ '[' '!' -f /ephemeral/t.buckworth/researcher-shards/shard_train.parquet ']'
++ cp data/shard_train.parquet /ephemeral/t.buckworth/researcher-shards/
++ ls -la /ephemeral/t.buckworth/researcher-shards
+total 101216
+drwxrwx--- 2 t.buckworth t.buckworth      4096 Aug  1 08:54 .
+drwx------ 5 t.buckworth t.buckworth      4096 Aug  1 08:54 ..
+-rw-rw---- 1 t.buckworth t.buckworth 103633413 Aug  1 08:54 shard_train.parquet
++ python -u src/cluster_job.py --shard /ephemeral/t.buckworth/researcher-shards/shard_train.parquet --outdir out
+device: cuda, torch 2.5.1+cu121
+gpu: NVIDIA L40
+shard: 384000 rows, 705 features, 150 eras (0425..0574)
+MLP params: 197249
+
+===== #7 vmap throughput =====
+  timing_B=256_filteron: 9.9 ms/step; projected 2000-step full run: 0.3 min
+  timing_B=256_filteroff: 1.1 ms/step; projected 2000-step full run: 0.0 min
+  timing_B=1024_filteron: 31.0 ms/step; projected 2000-step full run: 1.0 min
+  timing_B=1024_filteroff: 1.2 ms/step; projected 2000-step full run: 0.0 min
+
+===== #1 spectral engagement =====
+
+### engagement run mode=hard_B=256_comp=within
+  step   0 loss 0.05698 k   11 ratio 1.028 cosF 0.765
+  step 100 loss 0.04252 k    8 ratio 0.483 cosF 0.422
+  step 200 loss 0.05394 k    4 ratio 0.694 cosF 0.940
+  step 300 loss 0.04444 k    4 ratio 1.120 cosF 0.679
+  mode=hard_B=256_comp=within: 400 steps in 4.1s (10.4 ms/step)
+
+### engagement run mode=hard_B=256_comp=mixed
+  step   0 loss 0.05451 k   12 ratio 0.876 cosF 0.807
+  step 100 loss 0.05446 k    6 ratio 0.542 cosF 0.749
+  step 200 loss 0.05095 k    5 ratio 0.892 cosF 0.063
+  step 300 loss 0.04445 k    3 ratio 1.436 cosF 0.739
+  mode=hard_B=256_comp=mixed: 400 steps in 4.0s (10.1 ms/step)
+
+### engagement run mode=hard_B=1024_comp=within
+  step   0 loss 0.05335 k   57 ratio 1.134 cosF 0.929
+  step 100 loss 0.04549 k   10 ratio 2.997 cosF 0.668
+  step 200 loss 0.05262 k    6 ratio 0.664 cosF 0.952
+  step 300 loss 0.04758 k    4 ratio 1.424 cosF -0.383
+  mode=hard_B=1024_comp=within: 400 steps in 13.0s (32.4 ms/step)
+
+### engagement run mode=hard_B=1024_comp=mixed
+  step   0 loss 0.05547 k   57 ratio 1.166 cosF 0.944
+  step 100 loss 0.04992 k    7 ratio 4.418 cosF -0.262
+  step 200 loss 0.05025 k    5 ratio 2.529 cosF 0.738
+  step 300 loss 0.04707 k    5 ratio 0.955 cosF -0.824
+  mode=hard_B=1024_comp=mixed: 400 steps in 12.8s (32.1 ms/step)
+
+### engagement run mode=soft_B=256_comp=within
+  step   0 loss 0.05698 k   11 ratio 1.000 cosF 0.799
+  step 100 loss 0.04268 k    5 ratio 0.825 cosF 0.606
+  step 200 loss 0.05403 k    3 ratio 1.007 cosF 0.954
+  step 300 loss 0.04428 k    3 ratio 2.147 cosF -0.417
+  mode=soft_B=256_comp=within: 400 steps in 4.0s (10.0 ms/step)
+
+### engagement run mode=soft_B=256_comp=mixed
+  step   0 loss 0.05451 k   12 ratio 0.859 cosF 0.843
+  step 100 loss 0.05365 k    6 ratio 0.171 cosF 0.351
+  step 200 loss 0.05064 k    4 ratio 1.694 cosF -0.510
+  step 300 loss 0.04432 k    4 ratio 1.486 cosF 0.862
+  mode=soft_B=256_comp=mixed: 400 steps in 4.1s (10.3 ms/step)
+
+### engagement run mode=soft_B=1024_comp=within
+  step   0 loss 0.05335 k   57 ratio 1.099 cosF 0.940
+  step 100 loss 0.04555 k    7 ratio 0.299 cosF 0.079
+  step 200 loss 0.05252 k    4 ratio 0.228 cosF -0.867
+  step 300 loss 0.04752 k    4 ratio 2.795 cosF 0.522
+  mode=soft_B=1024_comp=within: 400 steps in 12.9s (32.3 ms/step)
+
+### engagement run mode=soft_B=1024_comp=mixed
+  step   0 loss 0.05547 k   57 ratio 1.133 cosF 0.952
+  step 100 loss 0.04982 k    5 ratio 0.809 cosF 0.761
+  step 200 loss 0.05008 k    4 ratio 0.272 cosF -0.190
+  step 300 loss 0.04699 k    4 ratio 1.724 cosF 0.905
+  mode=soft_B=1024_comp=mixed: 400 steps in 12.9s (32.2 ms/step)
+
+### engagement run mode=variance_B=256_comp=within
+  step   0 loss 0.05698 k  202 ratio 0.983 cosF 0.963
+  step 100 loss 0.04258 k   10 ratio 1.081 cosF 0.825
+  step 200 loss 0.05366 k    3 ratio 0.269 cosF 0.960
+  step 300 loss 0.04405 k    2 ratio 0.314 cosF 0.368
+  mode=variance_B=256_comp=within: 400 steps in 4.2s (10.5 ms/step)
+
+### engagement run mode=variance_B=256_comp=mixed
+  step   0 loss 0.05451 k  203 ratio 1.012 cosF 0.962
+  step 100 loss 0.05412 k   19 ratio 1.064 cosF -0.776
+  step 200 loss 0.05071 k    3 ratio 2.084 cosF 0.836
+  step 300 loss 0.04435 k    4 ratio 2.236 cosF 0.895
+  mode=variance_B=256_comp=mixed: 400 steps in 4.3s (10.7 ms/step)
+
+### engagement run mode=variance_B=1024_comp=within
+  step   0 loss 0.05335 k  741 ratio 1.057 cosF 0.985
+  step 100 loss 0.04544 k   69 ratio 3.268 cosF 0.776
+  step 200 loss 0.05246 k    4 ratio 0.798 cosF 0.968
+  step 300 loss 0.04748 k    4 ratio 1.909 cosF -0.002
+  mode=variance_B=1024_comp=within: 400 steps in 12.8s (31.9 ms/step)
+
+### engagement run mode=variance_B=1024_comp=mixed
+  step   0 loss 0.05547 k  740 ratio 1.031 cosF 0.989
+  step 100 loss 0.04986 k   27 ratio 1.168 cosF -0.310
+  step 200 loss 0.05000 k    3 ratio 4.018 cosF -0.818
+  step 300 loss 0.04700 k    4 ratio 3.676 cosF 0.882
+  mode=variance_B=1024_comp=mixed: 400 steps in 12.8s (31.9 ms/step)
+
+### engagement run mode=hard_B=256_comp=within_permuted
+  step   0 loss 0.04999 k   11 ratio 1.064 cosF 0.693
+  step 100 loss 0.05346 k    6 ratio 1.141 cosF 0.763
+  step 200 loss 0.05526 k    6 ratio 0.370 cosF -0.167
+  step 300 loss 0.05020 k    4 ratio 0.736 cosF -0.663
+  mode=hard_B=256_comp=within_permuted: 400 steps in 4.1s (10.3 ms/step)
+
+### engagement run mode=hard_B=256_comp=mixed_permuted
+  step   0 loss 0.05354 k   12 ratio 0.754 cosF 0.688
+  step 100 loss 0.04651 k    7 ratio 1.223 cosF 0.864
+  step 200 loss 0.04399 k    4 ratio 1.300 cosF 0.410
+  step 300 loss 0.04936 k    4 ratio 1.480 cosF -0.336
+  mode=hard_B=256_comp=mixed_permuted: 400 steps in 4.0s (10.1 ms/step)
+
+### engagement run mode=hard_B=1024_comp=within_permuted
+  step   0 loss 0.04957 k   57 ratio 1.443 cosF 0.856
+  step 100 loss 0.05174 k    8 ratio 1.175 cosF 0.896
+  step 200 loss 0.05332 k    4 ratio 0.677 cosF -0.032
+  step 300 loss 0.04998 k    4 ratio 3.331 cosF 0.672
+  mode=hard_B=1024_comp=within_permuted: 400 steps in 13.0s (32.5 ms/step)
+
+### engagement run mode=hard_B=1024_comp=mixed_permuted
+  step   0 loss 0.05150 k   57 ratio 1.140 cosF 0.860
+  step 100 loss 0.04898 k    7 ratio 1.660 cosF 0.752
+  step 200 loss 0.04913 k    5 ratio 0.737 cosF 0.958
+  step 300 loss 0.04698 k    4 ratio 4.940 cosF 0.933
+  mode=hard_B=1024_comp=mixed_permuted: 400 steps in 12.9s (32.2 ms/step)
+
+Total job time: 2.5 min
+wrote timing.json, engagement.json, spectra.npz

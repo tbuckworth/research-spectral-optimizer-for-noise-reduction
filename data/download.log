@@ -1,0 +1,23 @@
+v5.0/features.json: 0.00 GB -> /media/titus/big/researcher-output/2026-07-31-spectral-optimizer-for-noise-reduction-on-financial-timeseri/data/v5.0_features.json
+  v5.0/features.json: 0.00/0.00 GB
+DONE v5.0/features.json: 290688 bytes
+v5.0/validation_example_preds.parquet: 0.10 GB -> /media/titus/big/researcher-output/2026-07-31-spectral-optimizer-for-noise-reduction-on-financial-timeseri/data/v5.0_validation_example_preds.parquet
+  v5.0/validation_example_preds.parquet: 0.00/0.10 GB
+DONE v5.0/validation_example_preds.parquet: 96732403 bytes
+v5.0/train.parquet: 2.39 GB -> /media/titus/big/researcher-output/2026-07-31-spectral-optimizer-for-noise-reduction-on-financial-timeseri/data/v5.0_train.parquet
+  v5.0/train.parquet: 0.00/2.39 GB
+  v5.0/train.parquet: 0.50/2.39 GB
+  v5.0/train.parquet: 1.00/2.39 GB
+  v5.0/train.parquet: 1.50/2.39 GB
+  v5.0/train.parquet: 2.00/2.39 GB
+DONE v5.0/train.parquet: 2386564675 bytes
+v5.0/validation.parquet: 3.83 GB -> /media/titus/big/researcher-output/2026-07-31-spectral-optimizer-for-noise-reduction-on-financial-timeseri/data/v5.0_validation.parquet
+  v5.0/validation.parquet: 0.00/3.83 GB
+  v5.0/validation.parquet: 0.50/3.83 GB
+  v5.0/validation.parquet: 1.00/3.83 GB
+  v5.0/validation.parquet: 1.50/3.83 GB
+  v5.0/validation.parquet: 2.00/3.83 GB
+  v5.0/validation.parquet: 2.50/3.83 GB
+  v5.0/validation.parquet: 3.00/3.83 GB
+  v5.0/validation.parquet: 3.50/3.83 GB
+DONE v5.0/validation.parquet: 3827289368 bytes

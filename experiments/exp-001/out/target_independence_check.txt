@@ -1,0 +1,8 @@
+/media/titus/big/researcher-output/2026-07-31-spectral-optimizer-for-noise-reduction-on-financial-timeseri/experiments/exp-001/src/verify_target_independence.py:49: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:836.)
+  print("max |eig(real) - eig(permuted)|   =", float((e1 - e2).abs().max()))
+max |eig(real) - eig(permuted)|   = 8.881784197001252e-16
+max |eig(real) - eig(unrelated)|  = 1.3322676295501878e-15
+top-3 eigenvalues (real):      [13.451166767595536, 2.6201898430944652, 2.538436514515028]
+top-3 eigenvalues (permuted):  [13.451166767595536, 2.6201898430944643, 2.538436514515027]
+CONFIRMED: spectrum is target-independent at fixed parameters (fp64).

@@ -1,0 +1,85 @@
+tag                                           0<k<B k_med(late)  rat_med rat[.1,.9]  rat>1 cosF_med cosF>.95 cosU>.95
+mode=hard_B=256_comp=within                    1.00         4.0    0.671       0.62   0.30    0.590     0.00     0.00
+mode=hard_B=256_comp=mixed                     1.00         4.0    0.772       0.68   0.28    0.356     0.03     0.00
+mode=hard_B=1024_comp=within                   1.00         4.5    1.089       0.38   0.55    0.544     0.05     0.00
+mode=hard_B=1024_comp=mixed                    1.00         5.0    1.715       0.33   0.62    0.538     0.07     0.00
+mode=soft_B=256_comp=within                    1.00         3.0    0.932       0.47   0.45    0.725     0.03     0.00
+mode=soft_B=256_comp=mixed                     1.00         4.0    0.945       0.53   0.38    0.598     0.05     0.00
+mode=soft_B=1024_comp=within                   1.00         4.0    1.330       0.40   0.60    0.443     0.05     0.00
+mode=soft_B=1024_comp=mixed                    1.00         4.0    1.516       0.45   0.55    0.561     0.07     0.00
+mode=variance_B=256_comp=within                1.00         3.0    0.959       0.42   0.50    0.826     0.15     0.20
+mode=variance_B=256_comp=mixed                 1.00         4.0    1.464       0.33   0.60    0.722     0.12     0.17
+mode=variance_B=1024_comp=within               1.00         4.0    1.130       0.38   0.62    0.758     0.12     0.17
+mode=variance_B=1024_comp=mixed                1.00         3.0    1.674       0.33   0.62    0.756     0.10     0.17
+mode=hard_B=256_comp=within_permuted           1.00         4.5    0.567       0.68   0.25    0.596     0.00     0.00
+mode=hard_B=256_comp=mixed_permuted            1.00         4.0    0.673       0.70   0.30    0.316     0.00     0.00
+mode=hard_B=1024_comp=within_permuted          1.00         5.0    1.657       0.28   0.70    0.253     0.00     0.00
+mode=hard_B=1024_comp=mixed_permuted           1.00         5.0    1.089       0.30   0.57    0.554     0.15     0.00
+
+--- C5 era-identity probes (within-era configs) ---
+mode=hard_B=256_comp=within                  filt same +0.195 other +0.308 gap -0.113 (mean-grad gap -0.026) wilcoxon p=0.546875
+mode=hard_B=1024_comp=within                 filt same +0.179 other +0.230 gap -0.050 (mean-grad gap -0.022) wilcoxon p=1.0
+mode=soft_B=256_comp=within                  filt same +0.003 other +0.073 gap -0.070 (mean-grad gap -0.017) wilcoxon p=0.7421875
+mode=soft_B=1024_comp=within                 filt same -0.262 other +0.155 gap -0.417 (mean-grad gap +0.024) wilcoxon p=0.078125
+mode=variance_B=256_comp=within              filt same -0.069 other +0.104 gap -0.173 (mean-grad gap -0.173) wilcoxon p=0.1953125
+mode=variance_B=1024_comp=within             filt same -0.076 other +0.321 gap -0.397 (mean-grad gap +0.024) wilcoxon p=0.109375
+mode=hard_B=256_comp=within_permuted         filt same +0.194 other -0.096 gap +0.290 (mean-grad gap -0.347) wilcoxon p=0.640625
+mode=hard_B=1024_comp=within_permuted        filt same +0.101 other -0.200 gap +0.300 (mean-grad gap +0.393) wilcoxon p=0.1953125
+
+--- C2 hard mode: real vs permuted (late steps >= 100) ---
+
+[B=256_comp=within]
+  k      real med    4.000 IQR 3.000-4.000 | perm med    4.500 IQR 4.000-5.000 | MWU p=0.0121
+  ratio  real med    0.671 IQR 0.395-1.109 | perm med    0.567 IQR 0.371-0.844 | MWU p=0.2581
+  top1   real med  186.117 IQR 170.846-197.172 | perm med  174.644 IQR 160.412-182.675 | MWU p=0.0327
+  loss last5: real 0.05221 perm 0.04818
+  real step0: top1   39.39 thr 2.00 n>thr  11 energyfrac 0.286 top1/thr 19.69
+  real step100: top1  128.82 thr 2.00 n>thr   8 energyfrac 0.589 top1/thr 64.41
+  real step200: top1  172.59 thr 2.00 n>thr   4 energyfrac 0.747 top1/thr 86.29
+  real step300: top1  193.18 thr 2.00 n>thr   4 energyfrac 0.812 top1/thr 96.59
+  perm step0: top1   39.39 thr 2.00 n>thr  11 energyfrac 0.286 top1/thr 19.69
+  perm step100: top1  141.99 thr 2.00 n>thr   6 energyfrac 0.627 top1/thr 70.99
+  perm step200: top1  166.79 thr 2.00 n>thr   6 energyfrac 0.752 top1/thr 83.39
+  perm step300: top1  184.28 thr 2.00 n>thr   4 energyfrac 0.800 top1/thr 92.14
+
+[B=256_comp=mixed]
+  k      real med    4.000 IQR 3.000-5.000 | perm med    4.000 IQR 4.000-5.000 | MWU p=0.3267
+  ratio  real med    0.772 IQR 0.354-1.426 | perm med    0.673 IQR 0.356-1.435 | MWU p=0.8766
+  top1   real med  182.396 IQR 173.449-190.872 | perm med  182.668 IQR 158.982-194.269 | MWU p=0.8534
+  loss last5: real 0.05048 perm 0.04821
+  real step0: top1   39.36 thr 2.00 n>thr  12 energyfrac 0.291 top1/thr 19.68
+  real step100: top1  137.25 thr 2.00 n>thr   6 energyfrac 0.620 top1/thr 68.62
+  real step200: top1  182.21 thr 2.00 n>thr   5 energyfrac 0.806 top1/thr 91.10
+  real step300: top1  186.88 thr 2.00 n>thr   3 energyfrac 0.801 top1/thr 93.44
+  perm step0: top1   39.36 thr 2.00 n>thr  12 energyfrac 0.291 top1/thr 19.68
+  perm step100: top1  122.11 thr 2.00 n>thr   7 energyfrac 0.560 top1/thr 61.05
+  perm step200: top1  175.34 thr 2.00 n>thr   4 energyfrac 0.740 top1/thr 87.67
+  perm step300: top1  194.71 thr 2.00 n>thr   4 energyfrac 0.810 top1/thr 97.35
+
+[B=1024_comp=within]
+  k      real med    4.500 IQR 4.000-6.750 | perm med    5.000 IQR 4.000-5.000 | MWU p=0.4867
+  ratio  real med    1.089 IQR 0.555-1.926 | perm med    1.657 IQR 0.946-2.582 | MWU p=0.1335
+  top1   real med  813.867 IQR 784.815-834.058 | perm med  810.288 IQR 799.736-825.629 | MWU p=1.0000
+  loss last5: real 0.05158 perm 0.05099
+  real step0: top1  153.69 thr 2.00 n>thr  57 energyfrac 0.390 top1/thr 76.84
+  real step100: top1  748.75 thr 2.00 n>thr  10 energyfrac 0.820 top1/thr 374.37
+  real step200: top1  798.23 thr 2.00 n>thr   6 energyfrac 0.846 top1/thr 399.11
+  real step300: top1  820.15 thr 2.00 n>thr   4 energyfrac 0.863 top1/thr 410.08
+  perm step0: top1  153.69 thr 2.00 n>thr  57 energyfrac 0.390 top1/thr 76.84
+  perm step100: top1  752.53 thr 2.00 n>thr   8 energyfrac 0.817 top1/thr 376.26
+  perm step200: top1  815.87 thr 2.00 n>thr   4 energyfrac 0.865 top1/thr 407.94
+  perm step300: top1  809.39 thr 2.00 n>thr   4 energyfrac 0.862 top1/thr 404.70
+
+[B=1024_comp=mixed]
+  k      real med    5.000 IQR 4.000-5.000 | perm med    5.000 IQR 4.000-5.000 | MWU p=0.8059
+  ratio  real med    1.715 IQR 0.858-3.021 | perm med    1.089 IQR 0.685-2.816 | MWU p=0.3183
+  top1   real med  840.214 IQR 829.787-860.554 | perm med  871.516 IQR 843.520-880.922 | MWU p=0.0015
+  loss last5: real 0.05029 perm 0.05122
+  real step0: top1  152.42 thr 2.00 n>thr  57 energyfrac 0.388 top1/thr 76.21
+  real step100: top1  794.33 thr 2.00 n>thr   7 energyfrac 0.837 top1/thr 397.16
+  real step200: top1  828.46 thr 2.00 n>thr   5 energyfrac 0.861 top1/thr 414.23
+  real step300: top1  857.87 thr 2.00 n>thr   5 energyfrac 0.885 top1/thr 428.94
+  perm step0: top1  152.42 thr 2.00 n>thr  57 energyfrac 0.388 top1/thr 76.21
+  perm step100: top1  813.75 thr 2.00 n>thr   7 energyfrac 0.856 top1/thr 406.87
+  perm step200: top1  861.06 thr 2.00 n>thr   5 energyfrac 0.890 top1/thr 430.53
+  perm step300: top1  883.91 thr 2.00 n>thr   4 energyfrac 0.906 top1/thr 441.96

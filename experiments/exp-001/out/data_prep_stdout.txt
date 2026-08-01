@@ -1,0 +1,12 @@
+validation.parquet: 4099982 rows, 2416 cols
+loaded validation meta: 4099982 rows, mem 0.24 GB
+validation eras: 651 total (0575..1225), 651 usable (target coverage >= 0.95)
+F1 blocks: tuning 388 eras (0579..0966), embargo drops 4 eras ['0967', '0968', '0969', '0970'], verdict 255 eras (0971..1225)
+total usable validation-side eras across blocks: 643 (PASS needs >= 100)
+wrote out/protocol.json
+example preds: 4099982 rows, cols ['prediction']
+F9 example model over 651 usable val eras: numerai_corr mean 0.0348 sd 0.0211 sharpe 1.65; spearman mean 0.0330 sd 0.0213; lag1 autocorr 0.763
+wrote out/f9_recalibration.json
+building shard: 150 eras x <= 2560 rows, 705 medium features
+read 772365 rows, mem 0.56 GB
+shard: 384000 rows, 150 eras, 104 MB -> /media/titus/big/researcher-output/2026-07-31-spectral-optimizer-for-noise-reduction-on-financial-timeseri/data/shard_train.parquet

@@ -1,0 +1,63 @@
+{
+  "frozen": {
+    "lr": 0.001,
+    "wd": 0.001,
+    "dropout": 0.2,
+    "steps": 30,
+    "batch": 256,
+    "seeds": [
+      0
+    ],
+    "mp_factor": 2.0,
+    "mode": "hard",
+    "composition": "within-era",
+    "gaf_rule": "|sum sign| >= 2.0*sqrt(B)",
+    "c4_rule": "random orthonormal sample-subspace, k(t) and consensus-ratio(t) matched to filter_on same seed"
+  },
+  "timings_s": {
+    "filter_off_s0": 0.10145235061645508,
+    "filter_on_s0": 5.50499153137207,
+    "c4_random_s0": 2.354417324066162,
+    "gaf_s0": 3.3580832481384277
+  },
+  "runs": {
+    "filter_off_s0": {
+      "log": []
+    },
+    "filter_on_s0": {
+      "log": [
+        {
+          "step": 0,
+          "loss": 0.061181362718343735,
+          "k": 8,
+          "ratio": 0.8148737474968178,
+          "cos_vs_mean": 0.7400359511375427,
+          "kept_energy_frac": 0.18320530652999878
+        }
+      ]
+    },
+    "c4_random_s0": {
+      "log": [
+        {
+          "step": 0,
+          "loss": 0.061181362718343735,
+          "k": 8,
+          "ratio": 0.8148737549781799,
+          "cos_vs_mean": 0.03528044745326042
+        }
+      ]
+    },
+    "gaf_s0": {
+      "log": [
+        {
+          "step": 0,
+          "loss": 0.061181362718343735,
+          "k": 201,
+          "ratio": 0.5347744502348465,
+          "cos_vs_mean": 0.5347744226455688,
+          "frac_coords_kept": 0.0010190165729610796
+        }
+      ]
+    }
+  }
+}

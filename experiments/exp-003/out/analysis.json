@@ -1,0 +1,338 @@
+{
+  "best": {
+    "trial": 7.0,
+    "tag": "t07_lr0.001_wd0.001_do0.2",
+    "lr": 0.001,
+    "wd": 0.001,
+    "dropout": 0.2,
+    "seed": 0.0,
+    "train_seconds": 2.6055164337158203,
+    "eval_seconds": 1.0529372692108154,
+    "mean_spearman": 0.01894043981895808,
+    "sd_spearman": 0.021207263846452683,
+    "mean_numerai_corr": 0.01961567372249779,
+    "sd_numerai_corr": 0.022731972666467527,
+    "n_eras": 388.0
+  },
+  "zero_predictor": {
+    "mean_spearman": 0.0002594396814388869,
+    "sd_spearman": 0.019223726054999384,
+    "mean_numerai_corr": -0.00016035200983989062,
+    "sd_numerai_corr": 0.0184533799085178,
+    "n_eras": 388
+  },
+  "leakage_gate_fired": false,
+  "n_verdict_eras": 255,
+  "f12_signatures": {
+    "per_axis": {
+      "lr": {
+        "best_value": 0.001,
+        "grid": [
+          0.0003,
+          0.001,
+          0.003
+        ],
+        "on_boundary": false,
+        "trend_still_improving_at_boundary": null,
+        "slice_through_best": [
+          [
+            0.0003,
+            0.01594661291915225
+          ],
+          [
+            0.001,
+            0.01894043981895808
+          ],
+          [
+            0.003,
+            0.008158447770326831
+          ]
+        ]
+      },
+      "wd": {
+        "best_value": 0.001,
+        "grid": [
+          0.0,
+          0.001
+        ],
+        "on_boundary": true,
+        "trend_still_improving_at_boundary": true,
+        "slice_through_best": [
+          [
+            0.0,
+            0.015100188140575913
+          ],
+          [
+            0.001,
+            0.01894043981895808
+          ]
+        ]
+      },
+      "dropout": {
+        "best_value": 0.2,
+        "grid": [
+          0.0,
+          0.2
+        ],
+        "on_boundary": true,
+        "trend_still_improving_at_boundary": true,
+        "slice_through_best": [
+          [
+            0.0,
+            0.011485314417814061
+          ],
+          [
+            0.2,
+            0.01894043981895808
+          ]
+        ]
+      }
+    },
+    "lr_slice_shapes": [
+      {
+        "wd": 0.0,
+        "dropout": 0.0,
+        "shape": "monotone decreasing in lr",
+        "values": [
+          0.01347694832302049,
+          0.012238935269253444,
+          0.008637105042857012
+        ]
+      },
+      {
+        "wd": 0.0,
+        "dropout": 0.2,
+        "shape": "monotone decreasing in lr",
+        "values": [
+          0.015148156953271716,
+          0.015100188140575913,
+          0.008983495658036557
+        ]
+      },
+      {
+        "wd": 0.001,
+        "dropout": 0.0,
+        "shape": "interior peak (well-behaved)",
+        "values": [
+          0.010326766429591112,
+          0.011485314417814061,
+          0.010266372401032694
+        ]
+      },
+      {
+        "wd": 0.001,
+        "dropout": 0.2,
+        "shape": "interior peak (well-behaved)",
+        "values": [
+          0.01594661291915225,
+          0.01894043981895808,
+          0.008158447770326831
+        ]
+      }
+    ],
+    "boundary_axes": [
+      "wd",
+      "dropout"
+    ],
+    "summary": "best config sits on the grid boundary for wd, dropout; these signatures carry into exp-004's F12 verdict-downgrade rule"
+  },
+  "f5": {
+    "lag1_autocorr_numerai_corr_best": 0.24654618507008844,
+    "lag1_autocorr_spearman_best": 0.27724263838308366,
+    "acf_numerai_corr_lags1to10": [
+      0.24654618507008844,
+      0.10347147563606848,
+      -0.032598062352740896,
+      -0.10528331817291847,
+      -0.020248190183400346,
+      -0.02672647565753641,
+      -0.04880487452532241,
+      0.06758130069378844,
+      0.056413703049357763,
+      0.003232969729842928
+    ],
+    "overlap_min_block": 4,
+    "first_lag_below_0.1": 3,
+    "block_length_rule": "L = max(embargo overlap, first lag with |acf|<0.1)",
+    "block_length": 4
+  },
+  "f3_frozen_threshold": {
+    "rule": "min(0.005, 0.25 x realized tuned-baseline mean per-era corr)",
+    "baseline_definition": "mean over 3 seeds of the best config (winner's-curse-adjusted), NOT the sweep-selection value",
+    "baseline_numerai_corr_3seed_mean": 0.015938232111020263,
+    "baseline_spearman_3seed_mean": 0.015620897622427502,
+    "alternative_sweep_selection_value_nc": 0.01961567372249779,
+    "alternative_threshold_if_selection_value_used": 0.004903918430624448,
+    "primary_metric": "numerai_corr",
+    "threshold_numerai_corr": 0.003984558027755066,
+    "threshold_spearman": 0.0039052244056068755,
+    "frozen_before_any_arm_comparison": true
+  },
+  "seed_noise": {
+    "per_era_seed_sd": 0.019680472198279345,
+    "per_era_diff_of_3seed_means_sd": 0.015820927860069334,
+    "diff_series_lag1_acf": 0.20484996612258485
+  },
+  "power_sim": {
+    "n_outer": 1000,
+    "n_inner": 500,
+    "block_length": 4,
+    "n_eras_simulated": 255,
+    "seeds_per_arm": 3,
+    "threshold_used": 0.003984558027755066,
+    "results": {
+      "seed_noise": {
+        "null": {
+          "helps_star": 0.052,
+          "hurts_star": 0.029,
+          "doesnt": 0.838,
+          "any_cat": 0.91,
+          "helps_strict": 0.002,
+          "hurts_strict": 0.0,
+          "ci_halfwidth_median": 0.002194799732976809,
+          "ci_halfwidth_p90": 0.002548265313687954
+        },
+        "plus_thr": {
+          "helps_star": 0.899,
+          "hurts_star": 0.0,
+          "doesnt": 0.047,
+          "any_cat": 0.944,
+          "helps_strict": 0.48,
+          "hurts_strict": 0.0,
+          "ci_halfwidth_median": 0.00218234033433771,
+          "ci_halfwidth_p90": 0.0025387584076249953
+        },
+        "minus_thr": {
+          "helps_star": 0.0,
+          "hurts_star": 0.924,
+          "doesnt": 0.031,
+          "any_cat": 0.951,
+          "helps_strict": 0.0,
+          "hurts_strict": 0.478,
+          "ci_halfwidth_median": 0.0021854804010568787,
+          "ci_halfwidth_p90": 0.002546776767059069
+        },
+        "plus_2thr": {
+          "helps_star": 1.0,
+          "hurts_star": 0.0,
+          "doesnt": 0.0,
+          "any_cat": 1.0,
+          "helps_strict": 1.0,
+          "hurts_strict": 0.0,
+          "ci_halfwidth_median": 0.002178408558467846,
+          "ci_halfwidth_p90": 0.0025311469130964975
+        },
+        "null_iid_comparison": {
+          "helps_star": 0.036,
+          "hurts_star": 0.022,
+          "doesnt": 0.954,
+          "any_cat": 0.992,
+          "helps_strict": 0.0,
+          "hurts_strict": 0.0,
+          "ci_halfwidth_median": 0.0019010262314860262,
+          "ci_halfwidth_p90": 0.002143699535791247
+        }
+      },
+      "2x_noise": {
+        "null": {
+          "helps_star": 0.039,
+          "hurts_star": 0.031,
+          "doesnt": 0.026,
+          "any_cat": 0.096,
+          "helps_strict": 0.037,
+          "hurts_strict": 0.027,
+          "ci_halfwidth_median": 0.0043535105122449996,
+          "ci_halfwidth_p90": 0.005046521912748795
+        },
+        "plus_thr": {
+          "helps_star": 0.454,
+          "hurts_star": 0.0,
+          "doesnt": 0.008,
+          "any_cat": 0.462,
+          "helps_strict": 0.437,
+          "hurts_strict": 0.0,
+          "ci_halfwidth_median": 0.004344996532300972,
+          "ci_halfwidth_p90": 0.0050681259385195595
+        },
+        "minus_thr": {
+          "helps_star": 0.001,
+          "hurts_star": 0.429,
+          "doesnt": 0.002,
+          "any_cat": 0.432,
+          "helps_strict": 0.001,
+          "hurts_strict": 0.416,
+          "ci_halfwidth_median": 0.004366958359820439,
+          "ci_halfwidth_p90": 0.00512030711624407
+        },
+        "plus_2thr": {
+          "helps_star": 0.928,
+          "hurts_star": 0.0,
+          "doesnt": 0.0,
+          "any_cat": 0.928,
+          "helps_strict": 0.926,
+          "hurts_strict": 0.0,
+          "ci_halfwidth_median": 0.004391971886271842,
+          "ci_halfwidth_p90": 0.005119634276241739
+        },
+        "null_iid_comparison": {
+          "helps_star": 0.036,
+          "hurts_star": 0.028,
+          "doesnt": 0.094,
+          "any_cat": 0.158,
+          "helps_strict": 0.026,
+          "hurts_strict": 0.022,
+          "ci_halfwidth_median": 0.003807288817944663,
+          "ci_halfwidth_p90": 0.004265190247683595
+        }
+      }
+    }
+  },
+  "c3_verdict_inputs": {
+    "ci_halfwidth_median_seed_noise": 0.002194799732976809,
+    "pass_rule": "half-width <= ~F3 threshold",
+    "thr": 0.003984558027755066,
+    "hard_fail_rule": "half-width > 0.008"
+  },
+  "f4_gate": {
+    "seed_noise": {
+      "p_any_category_by_scenario": {
+        "null": 0.91,
+        "plus_thr": 0.944,
+        "minus_thr": 0.951
+      },
+      "min_p": 0.91
+    },
+    "2x_noise": {
+      "p_any_category_by_scenario": {
+        "null": 0.096,
+        "plus_thr": 0.462,
+        "minus_thr": 0.432
+      },
+      "min_p": 0.096
+    },
+    "decision_rule": "GO if min P(any category) >= 0.6",
+    "gate_value": 0.91,
+    "decision": "GO"
+  },
+  "budget": {
+    "t_adamw_run_seconds_measured": 3.6357855796813965,
+    "t_spectral_run_seconds": 63.102355890803864,
+    "t_spectral_source": "exp-001 timing.json (measured 31.0 ms/step, B=1024 filter-on, 2000 steps) + measured eval",
+    "adamw_tuning_compute_seconds": 43.62942695617676,
+    "f12_matched_spectral_trials": 1,
+    "job_cap_seconds": 1500,
+    "exp004_single_job_seconds": 761.9309156470828,
+    "exp004_fits": true,
+    "exp004_min_viable_seconds": 572.6238479746712,
+    "exp005_seq_array_task_seconds": 822.0,
+    "exp005_seq_task_fits": true,
+    "exp005_seq_total_seconds": 1644.0,
+    "f7_cuts_needed": false,
+    "notes": [
+      "Muon and GBT: pre-designated cuts (F7 order, already future work W3) -- not scheduled",
+      "sequence arm conditional on exp-002 PASS (it passed) and on room here (there is room); cut before GAF/random-subspace under pressure (F7) -- no pressure exists",
+      "C4 random-subspace control protected (F7), co-scheduled inside the exp-004 job",
+      "F12: matched-compute tuning affords only ~1 spectral trial; spectral arm runs at the transferred prior-repo search center -- an under-exploration signature for the SPECTRAL arm, feeding exp-004's F12 downgrade rule"
+    ]
+  }
+}

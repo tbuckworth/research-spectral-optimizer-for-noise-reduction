@@ -1,0 +1,3 @@
+reading verdict-block eras 0971..1225 (255 eras), 705 medium features
+read 1663285 rows, mem 1.23 GB
+shard: 652800 rows, 255 eras, 176 MB -> /media/titus/big/researcher-output/2026-07-31-spectral-optimizer-for-noise-reduction-on-financial-timeseri/data/shard_verdict.parquet
