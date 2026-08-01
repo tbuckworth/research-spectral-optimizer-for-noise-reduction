@@ -1,0 +1,61 @@
+=== exp-002 run: 2026-08-01T09:07:01+01:00 host=titus-MS-7A59 ===
+torch 2.11.0+cu128, device=cpu, threads=4
+GRU regressor: D=100, H=64, T=16, params=31937
+
+-- correctness: vmap(grad) vs python-loop reference (B=64) --
+  w_ih       shape=(64, 192, 100)  max_abs_diff=9.537e-07  ref_max_abs=2.552e+00
+  w_hh       shape=(64, 192, 64)  max_abs_diff=2.086e-07  ref_max_abs=5.298e-01
+  b_ih       shape=(64, 192)  max_abs_diff=5.960e-07  ref_max_abs=1.221e+00
+  b_hh       shape=(64, 192)  max_abs_diff=2.384e-07  ref_max_abs=6.297e-01
+  head_w     shape=(64, 64)  max_abs_diff=1.669e-06  ref_max_abs=5.317e+00
+  head_b     shape=(64, 1)  max_abs_diff=4.768e-07  ref_max_abs=5.723e+00
+MAX ABS DIFF (all params): 1.669e-06  -> PASS (tol 1e-5)
+timing: vmap B=64: 0.805s, loop B=64: 0.302s
+
+-- CPU timing (B=1024, mean of 3) --
+  per-sample grads (vmap): 0.764s   runs: ['0.759', '0.762', '0.773']
+  eigh 1024x1024:          0.035s   runs: ['0.050', '0.027', '0.027']
+  full filtered step:      1.174s   runs: ['1.075', '1.253', '1.195']
+
+exp-001 results.md available for measured CPU->L40 scaling: False
+
+-- L40 projection (conservative 10x CPU->L40 speedup) --
+  projected step time (B=1024): 0.117s
+  projected full run (2000 steps): 3.9 min -> PASS (budget 25 min)
+  max affordable steps within 25 min: 12773
+
+-- end-to-end SpectralConsensusFilter step on GRU (B=64) --
+  loss=1.424806, k=4, consensus_ratio=0.4574
+  top eigenvalues: ['3.965', '2.507', '2.147', '2.030', '1.991']
+  params all finite: True; all params updated: True
+  max param change per tensor: w_ih=1.00e-03, w_hh=1.00e-03, b_ih=1.00e-03, b_hh=1.00e-03, head_w=1.00e-03, head_b=1.00e-03
+  end-to-end filtered step: PASS
+
+==== SUMMARY ====
+correctness (max_abs_diff<=1e-5):        PASS (1.669e-06)
+projected L40 run < 25 min:            PASS (3.9 min @ 2000 steps)
+end-to-end filtered step on GRU:         PASS
+VERDICT: PASS
+	Command being timed: "python3 -u gru_vmap_test.py"
+	User time (seconds): 20.51
+	System time (seconds): 9.70
+	Percent of CPU this job got: 321%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:09.39
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 1686560
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 153
+	Minor (reclaiming a frame) page faults: 6453015
+	Voluntary context switches: 295
+	Involuntary context switches: 43691
+	Swaps: 0
+	File system inputs: 25176
+	File system outputs: 40
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

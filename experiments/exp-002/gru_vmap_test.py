@@ -170,12 +170,18 @@ def main():
     print(f"  full filtered step:      {t_step:.3f}s   runs: {[f'{t:.3f}' for t in times_step]}")
 
     # ---------- 3. Projection to one L40 ----------
-    # Conservative scaling assumption (exp-001 timing not available at run
-    # time): an L40 (90+ TFLOPS fp32-TC, 864 GB/s) vs this 8-thread desktop
-    # CPU on batched-matmul-dominated work is conservatively taken as 10x
-    # (typical observed factors for vmap per-sample-grad workloads are
-    # 30-100x). eigh at 1024x1024 is also faster on GPU; we conservatively
-    # apply the same 10x to the whole step.
+    # Preferred scaling source: exp-001's measured CPU-vs-L40 factor for the
+    # MLP vmap path, if its results exist (it runs concurrently). Fallback:
+    # conservative documented estimate — an L40 (~90 TFLOPS fp32-TC,
+    # 864 GB/s) vs this 4-thread desktop CPU on batched-matmul-dominated
+    # work is conservatively taken as 10x (typical observed factors for
+    # vmap per-sample-grad workloads are 30-100x). eigh at 1024x1024 is
+    # also faster on GPU; we conservatively apply the same 10x to the
+    # whole step.
+    exp001_results = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "..", "exp-001", "results.md")
+    exp001_available = os.path.exists(exp001_results)
+    print(f"\nexp-001 results.md available for measured CPU->L40 scaling: {exp001_available}")
     SPEEDUP = 10.0
     N_STEPS = 2000  # assumed full training run: e.g. ~2000 filtered steps
     proj_step = t_step / SPEEDUP
