@@ -1,0 +1,88 @@
+\section{Future Work}
+\label{sec:future-work}
+
+Each item below is scoped precisely enough to seed a follow-up run: the
+experiment, the hypothesis it tests, how it builds on this round, and the
+resources required. The reference compute profile is the one this run used
+(a shared Slurm cluster's free partition of NVIDIA L40 48\,GB GPUs, jobs
+under 30 minutes); items exceeding it say so explicitly.
+
+\begin{enumerate}
+  \item \textbf{Full-scale, non-subsampled Numerai verdict (removes the
+    regime-drift scope limit).} Re-run the exp-004 protocol on the full
+    training data and feature set at $B \approx 4096$, with F1/F5/F9
+    machinery re-registered on fresh eras. \emph{Hypothesis:} the negative
+    verdict persists when the baseline edge returns to the practitioner
+    sanity band---i.e., the result is not an artifact of the low-edge
+    subsampled regime (limitation~1). \emph{Builds on:} the frozen
+    protocol, thresholds-as-code, and the audit's independent-shard
+    tooling. \emph{Resources:} est.\ 10--20 L40-hours, or A100-class
+    GPUs for comfortable $B{=}4096$ per-sample-gradient memory;
+    \textbf{exceeds} the free-partition 30-minute cap---needs a paid or
+    time-unconstrained allocation (order \$50--100 of cloud A100 time).
+  \item \textbf{Spectral operating-point sweep at a declared enlarged
+    matched budget (closes the F12 asymmetry).} Give \emph{both} arms a
+    12-trial budget (spectral: mp\_factor $\times$ mode $\times$ $B$;
+    AdamW re-swept at the same enlarged compute), pre-registered as a new
+    protocol so the matched-compute design is redefined rather than
+    broken. \emph{Hypothesis:} no spectral configuration in a reasonable
+    neighborhood of the prior-project priors recovers the baseline---
+    upgrading ``no evidence of benefit under the affordable tuning
+    budget'' toward ``no benefit at any tested operating point''.
+    \emph{Builds on:} exp-003's measured per-trial costs (63\,s/spectral
+    run) and exp-001's registered diagnostics. \emph{Resources:}
+    $\sim$30 GPU-minutes on one L40 (fits the free partition as two
+    jobs); zero new data.
+  \item \textbf{True second setting: OHLCV dataset, both architectures
+    (converts ``architecture consistency'' into ``second setting'').}
+    Build the pre-specified OHLCV protocol (public daily equities/crypto,
+    purged temporal split, $\geq$90\% coverage after cleaning) and run
+    MLP and GRU arms with the identical verdict machinery.
+    \emph{Hypothesis:} the class-level harm of agreement-style filtering
+    generalizes beyond Numerai's obfuscated within-era construct to a
+    natural sequential financial task. \emph{Builds on:} exp-002's
+    validated vmap-GRU stack and exp-005's within-era machinery.
+    \emph{Resources:} $\sim$1--2 L40-hours total across 2--4 jobs (fits
+    the free partition); data is free to download; $\sim$2--4 hours of
+    engineering for the split/cleaning protocol.
+  \item \textbf{Second loss family with target-sensitive engagement
+    diagnostics (tests the theorem's boundary).} Repeat the comparison
+    with a corr-aligned per-era loss and/or a multi-output head, where
+    Theorem~\ref{thm:target-independence} does not apply (the audit's
+    scoping controls confirm 2-output MSE breaks the invariance), using
+    new engagement diagnostics (unnormalized-gradient spectra,
+    residual-magnitude-weighted similarity, sign-pattern statistics of
+    $D$). \emph{Hypothesis:} where the engagement spectrum is
+    target-sensitive, the filter's behavior (and possibly its effect)
+    changes---directly testing whether target-blind selection is the
+    operative harm mechanism. \emph{Builds on:} the theorem and the C1
+    confound calibration. \emph{Resources:} $\sim$30--60 L40-minutes
+    across 2--3 jobs (fits the free partition).
+  \item \textbf{Muon and GBT context baselines (the designated cuts).}
+    Add a tuned Muon arm at matched budget
+    \citep{gorishniy2026benchmarkingoptimizers} and a LightGBM-class GBT
+    reference. \emph{Hypothesis:} the tuned-AdamW baseline is not the
+    weak link---the filter's deficit persists against the current tabular
+    bar. \emph{Builds on:} the frozen t07 pipeline; pure arm additions.
+    \emph{Resources:} $\sim$30--60 L40-minutes ($\approx$2 experiment
+    slots); no new data.
+  \item \textbf{MP-null theory under cross-sectional correlation.}
+    Simulation (and, where tractable, analytical) characterization of the
+    Marchenko--Pastur bulk edge for per-sample gradients with financial
+    factor structure, beyond the C2 permutation control---the shifted-edge
+    question raised at design review. \emph{Hypothesis:} the hard-mode
+    threshold systematically misclassifies factor-driven directions as
+    ``signal'' under realistic cross-sectional correlation, formalizing
+    the C1(c) confound result. \emph{Builds on:} the saved spectra
+    (\texttt{spectra.npz}) and C1 test harness. \emph{Resources:} CPU
+    only---days of workstation CPU, no GPU, no cluster constraint.
+  \item \textbf{Small closure items} (bundle into one $\sim$25-minute L40
+    job in any follow-up): (a) the $\leq$4-trial GRU tuning sweep and
+    exp-005 re-run ($\sim$10 GPU-minutes; limitation~3); (b)
+    feature-neutral correlation reporting via saved per-row predictions
+    ($\sim$6 GPU-minutes); (c) a higher-power C5 era-identity probe
+    ($\sim$5 GPU-minutes); (d) extra seed pairs to tighten the C4
+    equivalence bound below $\pm 0.002$ ($\sim$80\,s per seed pair); and
+    (e) the free held-out-seed re-bucketing of the tail-era split
+    (CPU-only re-analysis of existing CSVs).
+\end{enumerate}

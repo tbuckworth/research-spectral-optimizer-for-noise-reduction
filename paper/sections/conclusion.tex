@@ -1,0 +1,27 @@
+\section{Conclusion}
+\label{sec:conclusion}
+
+We asked whether a Marchenko--Pastur spectral filter on per-sample
+gradients---a mechanism with strong label-noise credentials in
+classification---reduces the effect of noise when training on large,
+low-SNR financial time-series data. Under a fully pre-registered protocol
+with era-purged splits, frozen thresholds, block-bootstrap inference, and
+compute-matched tuning, the answer is negative: no evidence of benefit
+under the affordable tuning budget, with the filter significantly degrading
+out-of-sample performance at the pre-registered operating point on both an
+MLP and a GRU, a result that survived independent fresh-seed re-execution
+on an independently constructed evaluation split.
+
+The run's equally valuable output is the explanation. For scalar-output
+MSE, the filter's engagement eigenspectrum is provably target-independent:
+``consensus'' measures feature/Jacobian factor structure, not signal, so
+the coherence-amplifier mechanism that worked under label noise has nothing
+to select for in this regime. Empirically, MP-eigenselection was
+statistically indistinguishable from a norm- and $k$-matched random
+subspace projection, and all agreement-style variants hurt similarly---the
+harm belongs to the intervention class, not the spectral machinery. Together
+these results delimit where coherence-amplifying optimizers can be expected
+to apply: the mechanism requires a loss whose per-sample gradient geometry
+is target-sensitive, and a regime where coherent target signal is separable
+from factor structure---conditions the low-SNR financial regression setting,
+by proof and by measurement, does not provide.

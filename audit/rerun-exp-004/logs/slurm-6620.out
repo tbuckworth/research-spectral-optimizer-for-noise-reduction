@@ -1,0 +1,151 @@
++ cd /mnt/nw/home/t.buckworth/researcher-runs/2026-07-31-spectral-optimizer-for-noise-reduction-on-financial-timeseri/audit-rerun-exp-004
++ source /mnt/nw/home/t.buckworth/venv/bin/activate
+++ deactivate nondestructive
+++ '[' -n '' ']'
+++ '[' -n '' ']'
+++ '[' -n /bin/bash -o -n '' ']'
+++ hash -r
+++ '[' -n '' ']'
+++ unset VIRTUAL_ENV
+++ unset VIRTUAL_ENV_PROMPT
+++ '[' '!' nondestructive = nondestructive ']'
+++ VIRTUAL_ENV=/mnt/nw/home/t.buckworth/venv
+++ export VIRTUAL_ENV
+++ _OLD_VIRTUAL_PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin
+++ PATH=/mnt/nw/home/t.buckworth/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin
+++ export PATH
+++ '[' -n '' ']'
+++ '[' -z '' ']'
+++ _OLD_VIRTUAL_PS1=
+++ PS1='(venv) '
+++ export PS1
+++ VIRTUAL_ENV_PROMPT='(venv) '
+++ export VIRTUAL_ENV_PROMPT
+++ '[' -n /bin/bash -o -n '' ']'
+++ hash -r
++ EPH=/ephemeral/t.buckworth/researcher-shards
++ mkdir -p /ephemeral/t.buckworth/researcher-shards
++ RUNROOT=/mnt/nw/home/t.buckworth/researcher-runs/2026-07-31-spectral-optimizer-for-noise-reduction-on-financial-timeseri
++ '[' '!' -f /ephemeral/t.buckworth/researcher-shards/shard_train.parquet ']'
++ '[' '!' -f /ephemeral/t.buckworth/researcher-shards/shard_verdict.parquet ']'
++ cp data/shard_verdict_audit.parquet /ephemeral/t.buckworth/researcher-shards/
++ ls -la /ephemeral/t.buckworth/researcher-shards
+total 705448
+drwxrwx--- 2 t.buckworth t.buckworth      4096 Aug  2 12:48 .
+drwx------ 5 t.buckworth t.buckworth      4096 Aug  1 08:54 ..
+-rw-rw---- 1 t.buckworth t.buckworth 103633413 Aug  1 08:54 shard_train.parquet
+-rw-rw---- 1 t.buckworth t.buckworth 267171114 Aug  1 08:57 shard_tuning.parquet
+-rw-rw---- 1 t.buckworth t.buckworth 175777623 Aug  1 16:31 shard_verdict.parquet
+-rw-rw---- 1 t.buckworth t.buckworth 175777602 Aug  2 13:12 shard_verdict_audit.parquet
++ python -u src/rerun_job.py --train-shard /ephemeral/t.buckworth/researcher-shards/shard_train.parquet --verdict-shard /ephemeral/t.buckworth/researcher-shards/shard_verdict.parquet --verdict-shard2 /ephemeral/t.buckworth/researcher-shards/shard_verdict_audit.parquet --ref ref --outdir out
+device: cuda, torch 2.5.1+cu121
+gpu: NVIDIA L40
+FROZEN: t07 lr=0.001 wd=0.001 do=0.2, steps=2000, B=1024, seeds=[10, 11, 12], mode=hard mp_factor=2.0 (F2), within-era batches (F6), GAF rule |sum sign|>= 2.0*sqrt(B), C4 rule = k+ratio traj matched to filter_on same seed, random orthonormal sample-subspace
+train shard: 384000 rows, 705 features, 150 eras (0425..0574)
+verdict shard: 652800 rows, 705 features, 255 eras (0971..1225)
+AUDIT shard (own subsample): 652800 rows, 705 features, 255 eras (0971..1225)
+
+zero-predictor: mean spearman +0.00057, mean numerai_corr +0.00063 over 255 eras
+
+### filter_off_s10
+    step    0 loss 0.05604
+    step  400 loss 0.05126
+    step  800 loss 0.04936
+    step 1200 loss 0.04444
+    step 1600 loss 0.04684
+  filter_off_s10: mean spearman +0.00350, mean numerai_corr +0.00293 (train 2.7s)
+
+### filter_on_s10
+    step    0 loss 0.05604 k     53 ratio 1.062 cos 0.882
+    step  400 loss 0.05115 k      6 ratio 4.985 cos 0.902
+    step  800 loss 0.05139 k      2 ratio 19.084 cos 0.836
+    step 1200 loss 0.04747 k      2 ratio 9.559 cos -0.969
+AUDIT-PATCH: eigh fell back to CPU fp64
+    step 1600 loss 0.04740 k      1 ratio 10.442 cos -0.990
+  filter_on_s10: mean spearman +0.00239, mean numerai_corr +0.00239 (train 65.0s)
+
+### c4_random_s10
+    step    0 loss 0.05604 k     53 ratio 1.062 cos 0.383
+    step  400 loss 0.05476 k      6 ratio 4.985 cos 0.467
+    step  800 loss 0.07693 k      2 ratio 19.084 cos 0.983
+    step 1200 loss 0.05027 k      2 ratio 9.559 cos 0.413
+    step 1600 loss 0.04975 k      1 ratio 10.442 cos 0.508
+  c4_random_s10: mean spearman +0.00144, mean numerai_corr +0.00236 (train 18.2s)
+
+### gaf_s10
+    step    0 loss 0.05604 k   4214 ratio 0.812 cos 0.812
+    step  400 loss 0.05161 k     72 ratio 0.032 cos 0.032
+    step  800 loss 0.05095 k     83 ratio 0.035 cos 0.035
+    step 1200 loss 0.04733 k    120 ratio 0.039 cos 0.039
+    step 1600 loss 0.04796 k     98 ratio 0.025 cos 0.025
+  gaf_s10: mean spearman -0.00144, mean numerai_corr +0.00023 (train 23.2s)
+
+### filter_off_s11
+    step    0 loss 0.05562
+    step  400 loss 0.05312
+    step  800 loss 0.04668
+    step 1200 loss 0.05056
+    step 1600 loss 0.04542
+  filter_off_s11: mean spearman +0.00808, mean numerai_corr +0.00841 (train 2.7s)
+
+### filter_on_s11
+    step    0 loss 0.05562 k     50 ratio 0.689 cos 0.641
+    step  400 loss 0.05331 k      3 ratio 6.644 cos 0.990
+    step  800 loss 0.04884 k      1 ratio 7.065 cos -0.990
+AUDIT-PATCH: eigh fell back to CPU fp64
+AUDIT-PATCH: diagnostic eigvalsh fell back to CPU fp64
+    step 1200 loss 0.05133 k      1 ratio 8.776 cos -0.998
+    step 1600 loss 0.04871 k      1 ratio 6.148 cos 0.999
+  filter_on_s11: mean spearman -0.00014, mean numerai_corr -0.00008 (train 65.3s)
+
+### c4_random_s11
+    step    0 loss 0.05562 k     50 ratio 0.689 cos 0.335
+    step  400 loss 0.05597 k      3 ratio 6.644 cos 0.722
+    step  800 loss 0.05321 k      1 ratio 7.065 cos -0.652
+    step 1200 loss 0.05345 k      1 ratio 8.776 cos -0.374
+    step 1600 loss 0.04950 k      1 ratio 6.148 cos -0.814
+  c4_random_s11: mean spearman -0.00092, mean numerai_corr +0.00019 (train 18.5s)
+
+### gaf_s11
+    step    0 loss 0.05562 k    383 ratio 0.114 cos 0.114
+    step  400 loss 0.05325 k    100 ratio 0.169 cos 0.169
+    step  800 loss 0.04900 k     57 ratio 0.020 cos 0.020
+    step 1200 loss 0.05190 k     87 ratio 0.522 cos 0.522
+    step 1600 loss 0.04870 k     77 ratio 0.022 cos 0.022
+  gaf_s11: mean spearman -0.00089, mean numerai_corr -0.00069 (train 23.4s)
+
+### filter_off_s12
+    step    0 loss 0.06383
+    step  400 loss 0.04689
+    step  800 loss 0.05220
+    step 1200 loss 0.05119
+    step 1600 loss 0.04990
+  filter_off_s12: mean spearman +0.00855, mean numerai_corr +0.00709 (train 2.7s)
+
+### filter_on_s12
+    step    0 loss 0.06383 k     52 ratio 0.836 cos 0.989
+    step  400 loss 0.04777 k     19 ratio 1.560 cos -0.174
+    step  800 loss 0.05249 k     14 ratio 21.717 cos -0.129
+    step 1200 loss 0.05191 k      4 ratio 7.568 cos 0.981
+AUDIT-PATCH: eigh fell back to CPU fp64
+    step 1600 loss 0.05152 k      1 ratio 8.697 cos -0.979
+  filter_on_s12: mean spearman -0.00073, mean numerai_corr -0.00026 (train 65.7s)
+
+### c4_random_s12
+    step    0 loss 0.06383 k     52 ratio 0.836 cos 0.601
+    step  400 loss 0.04803 k     19 ratio 1.560 cos 0.405
+    step  800 loss 0.05266 k     14 ratio 21.717 cos 0.611
+    step 1200 loss 0.05296 k      4 ratio 7.568 cos 0.325
+    step 1600 loss 0.05285 k      1 ratio 8.697 cos -0.791
+  c4_random_s12: mean spearman +0.00017, mean numerai_corr -0.00212 (train 18.4s)
+
+### gaf_s12
+    step    0 loss 0.06383 k  12955 ratio 0.963 cos 0.963
+    step  400 loss 0.04808 k     76 ratio 0.033 cos 0.033
+    step  800 loss 0.05273 k    103 ratio 0.039 cos 0.039
+    step 1200 loss 0.05258 k    116 ratio 0.031 cos 0.031
+    step 1600 loss 0.05177 k     98 ratio 0.650 cos 0.650
+  gaf_s12: mean spearman +0.00052, mean numerai_corr +0.00005 (train 23.6s)
+
+Total job time: 5.8 min
+wrote per_era_numerai_corr.csv, per_era_spearman.csv, diagnostics.json, traj_*.npz

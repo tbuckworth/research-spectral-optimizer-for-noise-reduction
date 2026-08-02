@@ -1,0 +1,117 @@
+\section{Limitations}
+\label{sec:limitations}
+
+An independent results audit reviewed every claim in this paper against
+primary artifacts, re-executed the load-bearing experiment, and exited with
+disposition \emph{honest-negative} (audit exit reason: \textbf{true-null}
+---an adequately powered genuine negative, reproduced under fresh-seed
+re-execution on an independently constructed evaluation split, with no
+claim-flipping defect found). The audit's eight unresolved-for-write-up
+findings follow, each with its triage disposition; then design-level
+limitations from the pre-mortem triage.
+
+\begin{enumerate}
+  \item \textbf{Regime drift / below-band baseline.} The verdict-block
+    baseline ($+0.0064$) sits below the pre-registered practitioner sanity
+    band $[0.0087, 0.0522]$; the frozen threshold consequently realized as
+    a $\sim$62\% relative bar rather than the intended 25\%. All claims
+    are scoped to this low-edge, subsampled regime; the baseline still
+    carries real signal (per-era $t \approx 4.9$ vs.\ the zero-predictor)
+    and the CI-excludes-zero verdict is threshold-independent.
+    \emph{Disposition: deferred to future work}---a full-scale
+    non-subsampled verdict needs 10--20 L40-hours or A100-class compute,
+    beyond this run's free-partition, sub-30-minute-job profile (item~1,
+    Section~\ref{sec:future-work}).
+  \item \textbf{Tuning-affordability asymmetry (F12).} The spectral arm
+    afforded $\sim$1 compute-matched tuning configuration vs.\ AdamW's 12
+    trials, so ``hurts'' cannot be separated from ``under-tuned spectral
+    arm''. \emph{Disposition: addressed by wording}---the pre-registered
+    downgrade rule binds the claim to ``no evidence of benefit under the
+    affordable tuning budget'' everywhere in this paper, with raw numbers
+    alongside; a declared enlarged-budget sweep is future work (item~2).
+  \item \textbf{GRU configuration not tuned.} The GRU arms ran the MLP's
+    \texttt{t07} configuration under a fallback whose premise (a wiped
+    tuning shard) was later found false on the worker node; the
+    configuration was frozen pre-unblinding and identical across arms, so
+    the paired comparison is protocol-valid. \emph{Disposition: deferred to
+    future work} with a small resource ask ($\sim$10 GPU-minutes for a
+    $\leq$4-trial tuning-block sweep plus re-run; item~7)---not
+    claim-critical, since a better-tuned baseline would likely strengthen
+    the negative, and the under-tuned-spectral direction is already covered
+    by the F12 wording.
+  \item \textbf{C5 era-identity probe inconclusive.} The probe of whether
+    the kept subspace is era-specific found no significant gap in either
+    direction at $n{=}8$ probes (all Wilcoxon $p \geq 0.078$).
+    \emph{Disposition: deferred}---a higher-power probe costs $\sim$5
+    GPU-minutes but is largely superseded by
+    Theorem~\ref{thm:target-independence}; carried as an open descriptive
+    question (item~7).
+  \item \textbf{Stochastic \texttt{eigh} non-convergence in the released
+    implementation.} Under the rank-collapse regime this study documents,
+    fp32 GPU eigendecomposition can fail to converge, crashing runs
+    seed-dependently; the audit discovered this by re-execution, meaning
+    the original 6-of-6 producer runs were lucky-complete.
+    \emph{Disposition: addressed by disclosure}---reported here as an
+    implementation note; the audit's mathematically equivalent CPU-fp64
+    fallback (which reproduced every conclusion) is preserved with the
+    audit artifacts, and any follow-up must handle \texttt{eigh}
+    non-convergence.
+  \item \textbf{MLP corr-Sharpe CI is marginal.} The upper bound of the MLP
+    corr-Sharpe difference CI straddles zero across bootstrap RNGs:
+    producer $[-0.416, -0.004]$, auditor $[-0.416, +0.003]$.
+    \emph{Disposition: addressed by wording}---reported as marginal
+    throughout; the robust GRU corr-Sharpe result ($-0.242$,
+    $[-0.414, -0.073]$) carries the stability-worsens statement.
+  \item \textbf{``Indistinguishable'' means equivalence at $\pm 0.004$.}
+    The C4 null is an equivalence claim at the resolution the design
+    affords; spectral-vs-random differences smaller than
+    $\sim$0.002--0.003 cannot be excluded. \emph{Disposition: addressed by
+    wording} (stated with its CI wherever claimed); a tighter bound needs
+    more seeds ($\sim$6 $\times$ 80\,s GPU per extra seed pair; item~7).
+  \item \textbf{The baseline-quartile tail split is descriptive only.}
+    Bucketing eras on the baseline's own realized corr induces regression
+    to the mean mechanically; the monotone gradient in that table is
+    expected artifactually. \emph{Disposition: addressed by
+    wording}---the unconditioned target-dispersion split is the
+    evidentially meaningful breakdown (it shows uniform harm and no
+    Feldman-tail pattern); a held-out-seed bucketing re-analysis of the
+    existing CSVs is a free descriptive improvement.
+\end{enumerate}
+
+\noindent Design-level limitations carried from the pre-registered triage:
+
+\begin{itemize}
+  \item \textbf{Three seeds per arm (headline).} \emph{Disposition:
+    addressed}---the audit's fresh-seed re-execution extends the MLP
+    headline to a 6-seed pool ($-0.00537$, CI $[-0.00853, -0.00222]$) with
+    replication on an independently built shard
+    (Section~\ref{sec:robustness}).
+  \item \textbf{Single spectral operating point} (hard mode, mp\_factor
+    2.0, $B{=}1024$). A wider sweep inside this run would have broken the
+    pre-registered matched-compute design. \emph{Disposition: deferred to
+    future work} (item~2, with re-registration).
+  \item \textbf{The sequence arm is a reshaped-tabular construct} (F13):
+    the GRU consumes a $15 \times 47$ reshape of tabular features. The
+    claim is architecture consistency of the optimizer effect, not
+    sequence-modeling relevance. \emph{Disposition: deferred}---a true
+    second setting (OHLCV, both architectures) is item~3.
+  \item \textbf{Single dataset, single loss.} Numerai v5 with MSE only;
+    Theorem~\ref{thm:target-independence} is loss-specific, so other losses
+    need new engagement diagnostics. \emph{Disposition: deferred}
+    (item~4). Context baselines (Muon, GBTs) were pre-designated cuts.
+    \emph{Disposition: attempted within the plan but priced out}---kept as
+    the designated cut under the 5-experiment budget; item~5.
+    Feature-neutral correlation was not reported (a solid-tier extra,
+    $\sim$6 GPU-minutes). \emph{Disposition: deferred} (item~7).
+  \item \textbf{MP-threshold null under cross-sectional correlation.} The
+    MP bulk edge assumes i.i.d.\ samples; financial per-sample gradients
+    are cross-sectionally correlated, so the threshold's calibration on
+    this data is empirical (via the C2 permutation control), not
+    analytical. \emph{Disposition: deferred} (item~6, CPU-only).
+  \item \textbf{Accepted residual risk, stated in advance.} The pre-mortem
+    priced a 1-in-4 to 1-in-3 chance of an unresolvable ``could not
+    determine''; that outcome did not occur (the F4 gate showed power
+    0.91, and a category was returned), but the neighboring risk it
+    flagged---thresholds calibrated in a regime the budget does not
+    deliver---partially materialized as the regime drift of limitation~1.
+\end{itemize}

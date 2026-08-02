@@ -1,13 +1,32 @@
 # Spectral Optimizer (for noise reduction) on Financial Timeseries Data
 
-**Status**: failed
+**Status**: complete
 **Run ID**: 2026-07-31-spectral-optimizer-for-noise-reduction-on-financial-timeseri
 **Mode**: Autonomous research
 **Agent**: Claude fable
 
 ## Summary
 
-See paper/ directory for full results.
+
+Per-sample gradient ``consensus'' filtering---eigendecomposing the $B 
+B$ inter-sample gradient similarity matrix and keeping only directions above
+a Marchenko--Pastur-style threshold---has shown strong label-noise robustness
+in classification. We ask whether this mechanism reduces the effect of noise
+when training on large, low signal-to-noise financial data. Under a fully
+pre-registered protocol on the Numerai v5 dataset (era-purged
+tuning/verdict split, frozen thresholds, moving-block-bootstrap inference,
+compute-matched tuning), the answer is negative: we find no evidence of
+benefit under the affordable tuning budget, and at the pre-registered
+operating point the filter significantly degraded out-of-sample performance
+on both architectures tested (MLP: $-0.00527$ mean per-era correlation, 95%
+CI $[-0.00886, -0.00181]$; GRU: $-0.00484$, CI $[-0.00758, -0.00211]$,
+against a $+0.0064$ baseline edge). Two mechanistic contributions explain why
+the label-noise story does not transfer. First, we prove that for
+scalar-output MSE the filter's engagement eigenspectrum is exactly
+target-independent: per-sample gradients reduce to $$(residual sign)
+$$ a target-independent Jacobian direction, so ``consensus'' measures
+feature/factor structure, not signal (verified in fp64 to $8.9 
+10^-16$; independently re-verified). Second, matched controls show
 
 ## Structure
 

@@ -1,13 +1,13 @@
 ---
 run_id: 2026-07-31-spectral-optimizer-for-noise-reduction-on-financial-timeseri
 topic: "Spectral Optimizer (for noise reduction) on Financial Timeseries Data"
-current_step: 9
-status: experiments_complete
+current_step: 11
+status: complete
 mode: autonomous
 agent_backend: claude
 agent_model: "fable"
 issue_number: 2073
-compute_profile: "MATS Slurm cluster, driven REMOTELY over SSH from wherever this run is executing (laptop or desktop) - you are NOT on the cluster. Every cluster command is prefixed: ssh mats '<cmd>' for the dev/login node, ssh mats-controller '<cmd>' for the controller (the only place gpu-avail and gpu-cost exist). AUTHORIZED COMPUTE: the FREE 'compute' partition only - one shared always-on node with 8x NVIDIA L40 (48GB VRAM each). Your concurrent cap across all your jobs is 6 GPUs, 124 CPUs, and 384GB RAM; max wall time is 24h per job. Request 1 GPU (--gres=gpu:1) unless the experiment genuinely needs more, and up to 6 when it does (single node, so torchrun/FSDP works). Sizing on 48GB: fp16 inference up to ~20B params, LoRA/QLoRA fine-tuning up to ~7B (13B with care), full fine-tuning only up to ~2-3B. Add --qos=debug for validation runs under 2h to jump the queue. PAID elastic-* partitions (A100/H100) are NOT authorized and the account is not enabled for them: if an experiment needs more than 6 L40s or more VRAM per device, do not attempt it - record a FAIL-on-affordability with the exact resource ask and continue. WORKFLOW for each experiment: (1) write the code and an sbatch script locally under experiments/exp-NNN/; (2) stage it with rsync -avP experiments/exp-NNN/ mats:/mnt/nw/home/t.buckworth/researcher-runs/<run-id>/exp-NNN/; (3) submit with ssh mats 'cd /mnt/nw/home/t.buckworth/researcher-runs/<run-id>/exp-NNN && mkdir -p logs && sbatch run.sbatch' - create logs/ BEFORE sbatch, because Slurm opens the output file at job launch and an in-script mkdir is too late; (4) poll with ssh mats 'squeue -u t.buckworth' until the job leaves the queue (PD pending, R running, CG completing), sleeping between polls rather than busy-looping; (5) pull results back with rsync -avP mats:.../exp-NNN/ experiments/exp-NNN/ and copy the full slurm log into run.log. NEVER run training, fine-tuning, heavy inference, or long CPU loops in an ssh shell on the dev node - it is the shared login node and that is the cluster's worst etiquette violation. Never run agents or jobs on the controller. The local machine this run executes on is for orchestration, plotting, and light analysis of returned results only - do not silently fall back to a local GPU for experiments under this profile. Job script requirements: all #SBATCH lines must precede the first command (any command above them silently disables every directive below); include --partition=compute, --gres=gpu:1, a realistic --time, --job-name, --cpus-per-task=8, --mem=32G, --output=logs/slurm-%j.out. Storage on the cluster: code, checkpoints, and final results under /mnt/nw/home/t.buckworth (persistent NFS, NOT backed up - pull anything irreplaceable back to this machine); HuggingFace cache, dataset shards, and intermediate outputs under /ephemeral/t.buckworth (fast local scratch, wiped on reboot) via HF_HOME=/ephemeral/t.buckworth/hf. Inside every job script: source ~/venv/bin/activate (the cluster's shared venv) and run python with -u so logs are not buffered. That venv pins torch 2.5.1+cu121 to match the workers' CUDA 12.2 driver - do NOT upgrade torch or install one from default PyPI, which breaks CUDA on every job. Diagnostics: ssh mats 'scontrol show job <jobid>' explains a stuck job; sacct works only from the controller (it errors with Connection refused on the dev node); nvidia-smi on the dev node fails because there is no GPU there, which is expected; on compute, nvidia-smi inside a job lists all 8 physical GPUs but you only own $CUDA_VISIBLE_DEVICES; an empty .out file on a running job is usually stdout buffering. scancel anything left idle. Prefer lightweight experiments (small open-weight models), each targeting under 30 min of GPU time. Max 5 experiments."
+compute_profile: "MATS Slurm cluster, driven REMOTELY over SSH from wherever this run is executing (laptop or desktop) - you are NOT on the cluster. Every cluster command is prefixed: ssh mats '<cmd>' for the dev/login node, ssh mats-controller '<cmd>' for the controller (the only place gpu-avail and gpu-cost exist). AUTHORIZED COMPUTE: the FREE 'compute' partition only - one shared always-on node with 8x NVIDIA L40 (48GB VRAM each). Your concurrent cap across all your jobs is 6 GPUs, 124 CPUs, and 384GB RAM; max wall time is 24h per job. Request 1 GPU (--gres=gpu:1) unless the experiment genuinely needs more, and up to 6 when it does (single node, so torchrun/FSDP works). Sizing on 48GB: fp16 inference up to ~20B params, LoRA/QLoRA fine-tuning up to ~7B (13B with care), full fine-tuning only up to ~2-3B. Add --qos=debug for validation runs under 2h to jump the queue. PAID elastic-* partitions (A100/H100) are NOT authorized and the account is not enabled for them: if an experiment needs more than 6 L40s or more VRAM per device, do not attempt it - record a FAIL-on-affordability with the exact resource ask and continue. WORKFLOW for each experiment: (1) write the code and an sbatch script locally under experiments/exp-NNN/; (2) stage it with rsync -avP experiments/exp-NNN/ mats:/mnt/nw/home/t.buckworth/researcher-runs/<run-id>/exp-NNN/; (3) submit with ssh mats 'cd /mnt/nw/home/t.buckworth/researcher-runs/<run-id>/exp-NNN && mkdir -p logs && sbatch run.sbatch' - create logs/ BEFORE sbatch, because Slurm opens the output file at job launch and an in-script mkdir is too late; (4) poll with ssh mats 'squeue -u t.buckworth' until the job leaves the queue (PD pending, R running, CG completing), sleeping 60s between polls rather than busy-looping - the free partition is shared and a PD (Resources) wait of tens of minutes is normal, NOT a failure, so keep waiting; do NOT end the step while a job you submitted is still queued or running - if you must stop, first record the job id and its experiment in state.md so the next attempt resumes waiting instead of resubmitting; and before submitting anything, run squeue and check whether a job for this experiment is already queued or running, because the step may be retried after an interruption and duplicate submissions waste the shared partition; (5) pull results back with rsync -avP mats:.../exp-NNN/ experiments/exp-NNN/ and copy the full slurm log into run.log. NEVER run training, fine-tuning, heavy inference, or long CPU loops in an ssh shell on the dev node - it is the shared login node and that is the cluster's worst etiquette violation. Never run agents or jobs on the controller. The local machine this run executes on is for orchestration, plotting, and light analysis of returned results only - do not silently fall back to a local GPU for experiments under this profile. Job script requirements: all #SBATCH lines must precede the first command (any command above them silently disables every directive below); include --partition=compute, --gres=gpu:1, a realistic --time, --job-name, --cpus-per-task=8, --mem=32G, --output=logs/slurm-%j.out. Storage on the cluster: code, checkpoints, and final results under /mnt/nw/home/t.buckworth (persistent NFS, NOT backed up - pull anything irreplaceable back to this machine); HuggingFace cache, dataset shards, and intermediate outputs under /ephemeral/t.buckworth (fast local scratch, wiped on reboot) via HF_HOME=/ephemeral/t.buckworth/hf. Inside every job script: source ~/venv/bin/activate (the cluster's shared venv) and run python with -u so logs are not buffered. That venv pins torch 2.5.1+cu121 to match the workers' CUDA 12.2 driver - do NOT upgrade torch or install one from default PyPI, which breaks CUDA on every job. Diagnostics: ssh mats 'scontrol show job <jobid>' explains a stuck job; sacct works only from the controller (it errors with Connection refused on the dev node); nvidia-smi on the dev node fails because there is no GPU there, which is expected; on compute, nvidia-smi inside a job lists all 8 physical GPUs but you only own $CUDA_VISIBLE_DEVICES; an empty .out file on a running job is usually stdout buffering. scancel anything left idle. Prefer lightweight experiments (small open-weight models), each targeting under 30 min of GPU time. Max 5 experiments."
 is_followup: false
 novelty_verdict: NOVEL
 criteria_approved: true
@@ -57,6 +57,8 @@ decisions:
     decision: "FINAL VERDICT (exp-004, pre-registered machinery): category HURTS — filter_on − filter_off = −0.00527 mean per-era numerai_corr, block-bootstrap 95% CI [−0.00886, −0.00181], exceeding F3=0.00398; corr-Sharpe −0.200 [−0.416, −0.004]. Mandatory F12 downgrade applies (spectral arm afforded ~1 tuning trial vs AdamW's 12): reportable claim = 'no evidence of benefit under the affordable tuning budget', raw hurts numbers reported alongside. Mechanism attribution: filter_on vs C4 norm/k-matched random subspace = −0.00116 CI [−0.00366, +0.00134] — MP-eigenselection indistinguishable from random subspace projection; all three filtered arms (spectral, random, GAF) hurt similarly; no Feldman dispersion-tail pattern; filter AMPLIFIES updates (ratio_med ~10x), not shrinkage."
   - step: 9
     decision: "exp-005 run (both authorization conditions held: exp-002 PASS, exp-003 budget room). Architecture consistency CONFIRMED on the GRU sequence arm, same data/machinery: headline −0.00484 CI [−0.00758, −0.00211] (vs MLP −0.00527), same HURTS→F12-downgrade category; spectral-vs-random null replicates (−0.00011 CI [−0.00233, +0.00215]); corr-Sharpe −0.242 [−0.414, −0.073]. F13 satisfied via within-era Numerai framing (T=15 x D=47 reshape) — 'architecture consistency' claim supported, OHLCV fallback unused. Notable: filter engages in a different regime on the GRU (k~60, mild attenuation) vs MLP (k~1, ~10x amplification) yet produces near-identical harm and the same null — strengthening the 'generic subspace projection/rescaling, not spectral selection' account. Limitation recorded: GRU used t07 fallback config (tuning-shard presence misjudged from login node — /ephemeral is node-local); config was frozen pre-unblinding and identical across arms, so the paired comparison is protocol-valid; ~10 GPU-min resource ask carried to Future Work."
+  - step: 10
+    decision: "Round-1 results audit complete (fresh results-auditor agent; audit/results-audit.md). Overall disposition: HONEST-NEGATIVE, audit_exit_reason: true-null — NO remediation round needed, advance to Step 11. The load-bearing exp-004 was RE-EXECUTED on the cluster with fresh seeds {10,11,12} and an auditor-built eval shard (independent row subsample from raw v5.0_validation.parquet; jobs 6616/6618/6620, ~9 min L40): headline REPRODUCES in category/direction/magnitude (producer shard -0.00546 CI [-0.00892,-0.00204]; audit shard -0.00562 CI [-0.00911,-0.00201]; 6-seed pool -0.00537 CI [-0.00853,-0.00222]); C4 spectral-vs-random null replicates; target-independence proof independently re-verified (2.1e-14, different construction) with two new scoping controls showing the theorem is non-vacuous. 8 findings: 5 SUPPORTED, 2 FIXABLE-DEFECT both write-up-level and non-verdict-flipping (NEW Finding 5: producer code crashes stochastically by seed via linalg.eigh non-convergence under the documented rank-collapse regime — original results are 6-of-6-seed lucky-complete, disclosure required; Finding 6: MLP corr-Sharpe CI upper bound is bootstrap-RNG fragile, word as marginal and let the robust GRU Sharpe carry the stability claim), 1 TRUE-NULL (Finding 7: verdict-block baseline +0.0064 below the F9 sanity band — regime drift, claim must be scoped to this low-edge regime; F3 realized at ~62% relative, not 25%). No gaming signatures, no criteria drift (exp-001 middle-case ruling examined and cleared as conservative/pre-unblinding/claim-narrowing — paper must keep exp-001 headline as logged FAIL-on-C2). Step 11 MUST use the audit's 8 unresolved-for-write-up items and the 15-row limitation triage (6 fix-now-free, 3 fix-now-cheap, 6 future-work with resource asks)."
 lambda_table:
   - component: "Spectral engagement on financial gradients"
     p_success: 0.40
@@ -150,8 +152,8 @@ experiments_completed: ["exp-001 (infra PASS; headline #1 FAIL on C2 conjunct on
 experiments_failed: []
 final_verdict_category: "hurts (pre-registered category) -> F12 downgrade applied"
 final_verdict_wording: "No evidence of benefit under the affordable tuning budget; at the pre-registered operating point the Spectral Optimizer significantly degraded out-of-sample performance (MLP: -0.00527 CI [-0.00886, -0.00181]; GRU: -0.00484 CI [-0.00758, -0.00211] mean per-era numerai_corr), and MP-eigenselection was indistinguishable from a norm/k-matched random-subspace control on both architectures."
-audit_round: 0
-audit_exit_reason: ""
+audit_round: 1
+audit_exit_reason: "true-null"
 ---
 
 # Workflow Progress
@@ -605,3 +607,102 @@ F8 baseline-quartile split is descriptive only; single spectral operating
 point (affordability asymmetry, F12).
 
 Step 9 complete. Next: Step 10 (results audit).
+
+## Step 10: Results Audit — COMPLETE (round 1, HONEST-NEGATIVE exit)
+
+Fresh results-auditor dispatched (round 1 of max 3). Full report:
+`audit/results-audit.md`; audit artifacts in `audit/rerun-exp-004/`;
+round-1 claim anchors frozen at `audit/claim-anchor-exp-00*.md`.
+
+**Disposition: HONEST-NEGATIVE. audit_exit_reason: true-null. No
+remediation round — exit to Step 11.** No finding could flip the verdict;
+looping further would be re-confirming a null.
+
+What the audit did:
+- **Re-executed the load-bearing exp-004** on the cluster (producer's frozen
+  code, fresh seeds {10,11,12}, plus an auditor-constructed verdict shard
+  independently subsampled from the raw parquet; jobs 6616/6618/6620, ~9 min
+  L40 total). The HURTS headline reproduces on both shards (-0.00546 /
+  -0.00562 vs original -0.00527; 6-seed pool -0.00537 CI [-0.00853,
+  -0.00222]); the C4 spectral-vs-random null replicates; the producer's
+  shard row-matches the raw parquet (no fabrication).
+- **Independently re-verified the target-independence proof** (different
+  construction, 2.1e-14) and added two scoping controls (unnormalized
+  spectrum and 2-output MSE are target-dependent) proving the theorem
+  non-vacuous and correctly scoped to the deployed code path.
+- Re-derived every results.md number from run.log/out/ artifacts with
+  independent bootstrap code; verified F3=0.00398 arithmetic,
+  freeze-before-unblinding via git commit ordering, F1 split assertions,
+  no leakage via normalization constants, no grader-gaming signatures.
+
+Findings (8): 5 SUPPORTED, 2 FIXABLE-DEFECT (write-up-level only), 1
+TRUE-NULL. Notable:
+- **NEW (found only by re-execution)**: the unmodified producer code crashes
+  stochastically by seed (`linalg.eigh` non-convergence, fp32 cuSOLVER,
+  under the rank-collapse regime the study itself documents). Original runs
+  were 6-of-6-seed lucky-complete. Disclosure required in the paper;
+  results unaffected (mathematically-equivalent CPU-fp64 fallback reproduced
+  everything; patch preserved in audit/rerun-exp-004/src/).
+- MLP corr-Sharpe CI upper bound is bootstrap-RNG fragile ([-0.416, -0.004]
+  vs auditor's [-0.416, +0.003]) — report as marginal; GRU Sharpe
+  (-0.242 CI [-0.414, -0.073]) is robust and carries the stability claim.
+- Regime drift (TRUE-NULL): verdict-block baseline +0.0064 below the F9
+  sanity band; scope the claim to this low-edge subsampled regime.
+- exp-001 middle-case ruling examined for criteria drift and CLEARED
+  (conservative, pre-unblinding, claim-narrowing); the paper must keep
+  exp-001's headline as a logged FAIL-on-C2 mechanistic finding.
+
+Step 11 (report) obligations from the audit:
+- Include ALL 8 "unresolved findings for the write-up" in Limitations (and
+  the email): regime drift/below-band baseline; F12 affordability asymmetry
+  (keep the downgraded wording everywhere); untuned GRU config (~10-GPU-min
+  ask); C5 probe inconclusive; eigh fragility; marginal MLP Sharpe; C4
+  "indistinguishable" = equivalence at +/-0.004 resolution; F8 quartile
+  split descriptive-only.
+- Use the 15-row limitation-triage table (6 fix-now-free / 3 fix-now-cheap /
+  6 future-work with concrete resource asks) for Limitations dispositions
+  and the Future Work section.
+- Robustness paragraph should cite the audit re-execution (6-seed pool,
+  audit-shard replication) as the fix-now-free strengthening of the 3-seed
+  headline.
+
+Step 10 complete. Next: Step 11 (compile research report).
+
+## Step 11: Research Report — COMPLETE
+
+Report agent compiled the full LaTeX paper: `paper/paper.pdf` (16 pages, A4,
+tectonic; all cross-references and all 28 citations resolve). Sources in
+`paper/` (paper.tex, preamble.tex, references.bib, Makefile, sections/
+abstract|introduction|related-work|methodology|experiments|discussion|
+limitations|future-work|conclusion, figures/headline_forest.pdf generated
+from the run's MBB estimates).
+
+Title: "No Evidence of Benefit from Marchenko–Pastur Spectral Gradient
+Filtering on Noisy Financial Time Series: A Pre-Registered Negative Result
+with a Target-Independence Proof".
+
+Audit obligations honored in the paper:
+- F12 downgraded wording used everywhere ("no evidence of benefit under the
+  affordable tuning budget"), raw hurts numbers always alongside — never a
+  bare "hurts" headline.
+- Results opens with the headline table (incl. audit re-runs and 6-seed
+  pool, C4 nulls, corr-Sharpe with the MLP CI worded as marginal and the
+  GRU carrying stability) plus a forest-plot summary figure.
+- exp-001 kept as a logged FAIL-on-C2 mechanistic finding; the
+  target-independence result stated as a theorem with the auditor's
+  independent re-verification and scoping controls.
+- All 8 unresolved audit findings in Limitations, each with an explicit
+  triage disposition (addressed-by-wording / addressed-by-disclosure /
+  deferred), including the linalg.eigh lucky-complete disclosure; the
+  audit exit reason (true-null) stated.
+- Future Work is a 7-item resource-scoped plan built from the 6 future-work
+  triage rows plus design-triage W-items (headline: full-scale B~4096
+  verdict run at ~10-20 L40-hours / ~$50-100 cloud; closure bundle ~25 min
+  on one L40 covering GRU re-tune, FNC, C5 probe, extra C4 seed pairs).
+
+`briefing.md` written for the interactive review command (topic, literature,
+novelty, lambda table with outcomes, challenge highlights, results table
+with the why-it-doesn't-work synthesis, abstract, surprises, follow-ups).
+
+Run complete: honest-negative deliverable with two co-primary mechanistic
+contributions (target-independence proof; spectral-vs-random equivalence).

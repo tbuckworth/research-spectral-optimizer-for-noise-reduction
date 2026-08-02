@@ -1,0 +1,153 @@
+\section{Methodology}
+\label{sec:methodology}
+
+\subsection{The Spectral Optimizer}
+\label{sec:method-optimizer}
+
+The object under test is fixed in writing (amendment F11): the
+\texttt{SpectralConsensusFilter}, the exact $B \times B$ variant from the
+prior project's \texttt{spectral\_optimizer.py}, reused byte-identically
+(verified), not re-implemented. At each step it (i) computes per-sample
+gradients $g_1,\dots,g_B$ via \texttt{torch.func} \texttt{vmap(grad)};
+(ii) row-normalizes them and forms the $B \times B$ similarity matrix
+$S_{ij} = \hat g_i^\top \hat g_j$; (iii) eigendecomposes $S$ and keeps
+eigendirections above a Marchenko--Pastur-style threshold (registered
+\emph{hard} mode: eigenvalues above $2\cdot\mathrm{trace}(S)/B$); (iv)
+projects the uniform sample-weight vector onto the kept eigensubspace and
+applies the resulting weights to the \emph{unnormalized} gradients to form
+the update passed to AdamW. Because anti-aligned (cancelling) components can
+be discarded, the filtered update norm is not bounded by the mean-gradient
+norm---the filter can amplify as well as shrink, which turns out to matter
+(Section~\ref{sec:exp004}).
+
+\subsection{Data and era-purged protocol}
+\label{sec:method-data}
+
+We use the public Numerai v5.0 dataset (obfuscated financial features,
+weekly eras, $\sim$20-day forward-return target): 705 ``medium'' features,
+per-sample MSE on the centered target. To fit the compute profile, training
+uses a subsampled shard of 384{,}000 rows (150 eras, 0425--0574,
+$\leq$2{,}560 rows/era), identical across all arms. The validation-side eras
+are split once, in advance (amendment F1), into a \textbf{tuning block}
+(eras 0579--0966; 388 eras), an \textbf{embargo} (0967--0970; 4 eras
+$= \lceil 20\,\mathrm{d}/5\,\mathrm{d}\rceil$, amendment F5), and a
+\textbf{verdict block} (0971--1225; 255 eras). All tuning, mode selection,
+and peeking touch only the tuning block; the verdict block was evaluated
+exactly once, after all arms and configurations were frozen (corroborated by
+git commit ordering). Sanity and leakage bands were recalibrated from
+current example-model statistics (amendment F9): sanity band
+$[0.0087, 0.0522]$ mean per-era \texttt{numerai\_corr}, leakage gate
+$>0.0696$. The metric is per-era \texttt{numerai\_corr} (with Spearman as a
+variant), following practitioner protocol
+\citep{numerai_forum2021_eras, numerai_forum2021_fnc}.
+
+\subsection{Pre-registered verdict machinery}
+\label{sec:method-verdict}
+
+The deliverable is a three-way verdict with teeth:
+\begin{itemize}
+  \item \textbf{Helps / hurts}: the paired per-era CI on the
+    filter-on $-$ filter-off difference excludes zero \emph{and} the point
+    estimate exceeds a practical-significance threshold $F3$, defined
+    as the minimum of $0.005$ and $0.25\times$ the realized tuned-baseline
+    mean per-era corr, and frozen before unblinding at $\mathbf{0.00398}$
+    (from the 3-seed, winner's-curse-corrected baseline mean $+0.01594$).
+  \item \textbf{Doesn't help}: an equivalence-style claim---the CI is
+    narrow enough to exclude improvements $\geq F3$---not $p > 0.05$.
+  \item \textbf{Inference}: per-era scores are autocorrelated (measured
+    lag-1 $\mathrm{acf} = +0.25$; the target horizon spans $\sim$4 eras),
+    so all CIs use a paired moving-block bootstrap with block length
+    $L = 4$ and 10{,}000 resamples (amendment F5). A corr-Sharpe secondary
+    route uses the identical machinery (amendment F10).
+  \item \textbf{Tuning-adequacy downgrade (amendment F12)}: tuning budgets
+    are matched in \emph{compute}, not trial count. AdamW received a
+    12-trial sweep ($\sim$44\,s); the same compute affords $\sim$1 spectral
+    trial (63\,s/run), so the spectral arm ran at priors transferred from
+    the prior project. This asymmetry was recorded before unblinding as an
+    under-exploration signature, with a binding rule: a ``hurts'' verdict
+    must be downgraded to \emph{``no evidence of benefit under the
+    affordable tuning budget''}, reported with the raw numbers alongside.
+    That rule fired, and the downgraded wording is used throughout this
+    paper.
+  \item \textbf{Engagement diagnostics}: every run logs the number of kept
+    eigendirections $k$, kept-energy fraction, update-norm ratio, and
+    cosine diagnostics, so a null reads ``mechanism engaged but did not
+    help'', not ``implementation no-op''.
+\end{itemize}
+
+\subsection{Fail-fast decomposition}
+\label{sec:method-decomposition}
+
+The plan was decomposed into nine components ranked by
+$\lambda = -\ln(P_{\text{success}})/T_{\text{hours}}$ (information gained
+per unit time from attacking the riskiest cheap components first), executed
+as five experiments packed along the dependency structure.
+Table~\ref{tab:lambda} shows the components with their pre-registered
+$P_{\text{success}}$ estimates and outcomes.
+
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{lcccl}
+\toprule
+Component & $P_{\text{succ}}$ & $T$ (h) & $\lambda$ & Outcome \\
+\midrule
+Spectral engagement on financial gradients & 0.40 & 0.75 & 1.22 &
+  FAIL on C2 (proof; \S\ref{sec:exp001}) \\
+Sequence-arm vmap feasibility (GRU) & 0.35 & 1.0 & 1.05 & PASS \\
+Statistical power of paired per-era design & 0.60 & 0.5 & 1.02 & PASS \\
+Design fits 5-experiment / 30-min budget & 0.80 & 0.25 & 0.89 & PASS \\
+OHLCV fallback dataset for sequence arm & 0.80 & 0.5 & 0.45 & not needed \\
+Regression integration of the filter & 0.75 & 0.75 & 0.38 & PASS \\
+vmap throughput on L40 within job cap & 0.85 & 0.5 & 0.33 & PASS \\
+Baseline sanity: tuned AdamW in corr band & 0.70 & 1.5 & 0.24 & PASS \\
+Numerai data + era-purged protocol & 0.85 & 1.0 & 0.16 & PASS \\
+\bottomrule
+\end{tabular}
+\caption{Steinhardt-style decomposition with fail-fast ordering by
+  $\lambda$. The highest-$\lambda$ component---whether spectral
+  ``engagement'' is meaningful on financial gradients---failed its C2
+  conjunct by proof, converting to the paper's co-primary mechanistic
+  finding rather than aborting the run (the pre-registered hard
+  degeneracy trigger did not fire).}
+\label{tab:lambda}
+\end{table}
+
+Before execution, three independent adversarial reviews (assumption
+analysis, mentor review, pre-mortem) produced 13 binding protocol
+amendments (F1--F13: era separation, frozen thresholds, block-bootstrap
+inference, compute-matched tuning with the downgrade rule, conditional cut
+order protecting mechanism controls, and claim-naming rules) and 5
+diagnostic additions (C1--C5), all folded into the plan before any
+comparison was unblinded. The most consequential additions were C2 (a
+permuted-target null-spectrum control) and C4 (a random-subspace control
+matched to the measured kept-$k$ and update-norm trajectories), which
+between them produced both mechanistic contributions.
+
+\subsection{Models, arms, and compute}
+\label{sec:method-models}
+
+\textbf{Architectures.} (i) MLP 705--256--64--1 (197k parameters); (ii) a
+hand-rolled functional single-layer GRU (hidden 64, 21.8k parameters,
+vmap-compatible; sequence-to-one head) consuming each row's 705 features
+reshaped to a $T{=}15 \times D{=}47$ within-era sequence. Both use
+within-era minibatches of $B{=}1024$ (amendment F6), 2000 steps, base
+configuration \texttt{t07} (lr $10^{-3}$, wd $10^{-3}$, dropout 0.2)
+selected by the AdamW sweep on tuning-block eras only.
+
+\textbf{Arms} (identical shard, seeds, and data order): \emph{filter-off}
+(tuned AdamW); \emph{filter-on} (SpectralConsensusFilter, hard mode,
+mp\_factor 2.0---registered from engagement diagnostics only, amendment
+F2); \emph{C4 random-subspace control} (random orthonormal sample-subspace
+with $k(t)$ and update-norm-ratio$(t)$ matched step-by-step to the
+same-seed filter-on run); a \emph{GAF-style sign-agreement ablation}
+(per-coordinate $|\sum_i \operatorname{sign}(g_{i})| \geq 2\sqrt{B}$; a
+sign-agreement variant, not the exact microbatch-cosine method of
+\citet{chaubard2024gradientagreementfiltering}); and a \emph{zero-predictor}
+sanity baseline. Three seeds per arm (extended to six on the headline by the
+audit re-execution, Section~\ref{sec:robustness}).
+
+\textbf{Compute.} All GPU work ran on single NVIDIA L40s (48\,GB) on a
+shared Slurm cluster's free compute partition, every job under 10 minutes;
+total producer GPU spend $\sim$15 minutes across four jobs, plus
+$\sim$9 minutes for the audit re-execution. Analysis ran on local CPU.

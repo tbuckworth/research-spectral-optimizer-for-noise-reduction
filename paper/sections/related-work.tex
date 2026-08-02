@@ -1,0 +1,88 @@
+\section{Related Work}
+\label{sec:related-work}
+
+The literature search underlying this section was conducted on 2026-07-31
+across academic, lab-blog, and community channels (28 curated references).
+No discovered work combines (a) per-sample gradient covariance
+eigendecomposition with a random-matrix-theory threshold as the training
+update rule with (b) evaluation on low-SNR financial prediction; the novelty
+claim rests on absence of evidence in an actively producing niche and is
+positioned against the nearest neighbor below rather than claimed as a
+vacuum.
+
+\paragraph{Per-sample gradient filtering (2024--2026).}
+The closest empirical precedent is Gradient Agreement Filtering
+\citep{chaubard2024gradientagreementfiltering}, which filters or reweights
+macrobatch updates by cross-microbatch gradient agreement using pairwise
+orthogonality/correlation checks, improving robustness under
+image-classification label noise. The Spectral Optimizer differs in both
+mechanism (full $B \times B$ similarity-matrix eigendecomposition with a
+Marchenko--Pastur-style threshold, rather than pairwise checks) and domain
+(low-SNR financial regression, which GAF never touched). A burst of adjacent
+work confirms per-sample gradient statistics are a live optimizer-design
+surface: orthogonal-gradient constraints against noisy-label memorization
+\citep{mai2026orthogonalgradient}, per-sample clipping with heavy-tailed
+convergence theory \citep{nobile2026persampleclipping}, gradient spectral
+entropy for backdoor-sample detection \citep{zhao2026gradsentry}, and
+per-sample momentum with low-pass filtering for DP-SGD \citep{xu2025dppmlf}.
+None uses covariance-eigenspectrum thresholding as the update rule.
+
+\paragraph{Why consensus filtering might work---and why it might not.}
+The theoretical ancestor is the Coherent Gradients hypothesis
+\citep{chatterjee2020coherentgradients}: SGD generalizes because gradient
+directions shared across many examples are reinforced more than
+idiosyncratic ones---an intuition independently articulated in the community
+\citep{pope2022general_circuits}, and related to broader treatments of the
+memorization--generalization spectrum \citep{vaintrob2025memorization}. The
+sharpest counter-hypothesis is \citet{feldman2019longtailmemorization}:
+memorization of rare long-tail examples can be \emph{necessary} for
+generalization, so a consensus filter could suppress rare genuine signal in
+heavy-tailed financial data. The noisy-label literature operates mostly at
+the loss/data level \citep{liu2020earlylearningregularization,
+liang2022noisylabelsurvey, song2025labelnoisesurvey}; optimizer-level
+gradient-covariance filtering is a comparatively unexplored corner of that
+space.
+
+\paragraph{Random matrix theory in finance.}
+Marchenko--Pastur eigenvalue cleaning of financial \emph{return} correlation
+matrices is a mature, $\sim$20-year quantitative-finance literature
+\citep{pafka2004rmtexponentialweighting, potters2005rmtoldlaces,
+bouchaud2009rmtfinancereview, lakshtanov2023denoisingcorrelation}: large
+fractions of empirical eigenspectra are indistinguishable from noise, and
+clipping them improves portfolio risk estimates. The Spectral Optimizer
+transposes this denoising logic from returns covariance (a post-hoc
+estimation step) to per-sample \emph{gradient} covariance during training;
+the transposition appears unpublished. Our results delimit it: on this task
+the analogy breaks because the gradient similarity spectrum turns out to be
+provably target-independent (Section~\ref{sec:exp001}).
+
+\paragraph{The baseline is not naive.}
+Gradient noise in deep learning is structured and heavy-tailed
+\citep{xie2022overlookedstructure, dang2025heavytailedstability}, and
+sign-based/adaptive normalization---what Adam already does---confers
+meaningful robustness in exactly this regime \citep{yu2026signheavytailed};
+robust adaptive variants date back to at least \citet{gulcehre2017robustadaptive}.
+A 2026 benchmark of 15 optimizers on tabular MLPs finds Muon consistently
+beats AdamW \citep{gorishniy2026benchmarkingoptimizers}, so ``beats
+default-hyperparameter Adam'' would be a strawman claim. We therefore adopt
+the codified fair-comparison methodology: matched tuning budgets, multiple
+seeds, standardized reporting \citep{schneider2019deepobs,
+blauth2024fastoptimizerbenchmark}, with tuned AdamW as the primary opponent
+and the filter-on/filter-off ablation at identical base configuration as the
+cleanest mechanism isolation. As a contrast at the mechanism level, the
+gradient noise scale \citep{mccandlish2018gradientnoisescale} treats
+gradient noise as a scalar SNR statistic for batch-size selection, and
+K-FAC-style methods model gradient covariance for curvature preconditioning
+\citep{martens2018kfacrnn}---neither performs noise-rejection filtering of
+the update.
+
+\paragraph{Evaluation protocol for Numerai-style data.}
+No academic Numerai literature was found; the practitioner-standard protocol
+comes from community sources: era-based purged cross-validation with
+embargo, per-era correlation as the metric \citep{numerai_forum2021_eras},
+and feature-neutral correlation to separate genuine signal from feature
+overfitting \citep{numerai_forum2021_fnc}. MLPs remain standard and
+competitive for tabular data \citep{gorishniy2021revisitingtabular}. One
+structural constraint shaped our design: Numerai asset identifiers reset
+each era, so a longitudinal recurrent arm is impossible on this dataset; the
+sequence arm uses a within-era framing (Section~\ref{sec:exp005}).

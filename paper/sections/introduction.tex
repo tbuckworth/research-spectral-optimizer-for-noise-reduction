@@ -1,0 +1,77 @@
+\section{Introduction}
+\label{sec:introduction}
+
+% Structured as bullet points for later expansion.
+
+\begin{itemize}
+  \item \textbf{Motivating question.} Can the Spectral Optimizer---a
+    gradient-filtering wrapper around AdamW that eigendecomposes the
+    $B \times B$ per-sample gradient similarity matrix and keeps only
+    directions many samples agree on (Marchenko--Pastur-style
+    threshold)---reduce the effect of noise when training on large, noisy
+    financial time-series data? Concretely: does it improve out-of-sample
+    predictive performance relative to tuned AdamW, and is any effect
+    consistent across architectures?
+
+  \item \textbf{Why the outcome was genuinely uncertain.} In prior
+    (unpublished) work the same filter delivered strong label-noise
+    robustness on MNIST at 90\% label corruption ($\sim$80\% accuracy vs.\
+    $\sim$37\% for Adam), characterized as a ``coherence amplifier''. But
+    the same work found it hurts when signal is weak and not yet
+    gradient-dominant, and Feldman's long-tail memorization theory
+    \citep{feldman2019longtailmemorization} predicts consensus filtering
+    could suppress rare genuine signal in heavy-tailed financial data. Prior
+    evidence pointed in both directions.
+
+  \item \textbf{Design.} A pre-registered, fail-fast evaluation on the
+    Numerai v5 tournament dataset (large, obfuscated, low-SNR financial
+    features with era structure): era-purged tuning/verdict block
+    separation with embargo, a frozen three-way verdict rule
+    (helps / doesn't help / hurts) with a pre-registered
+    practical-significance threshold, moving-block-bootstrap inference,
+    compute-matched tuning budgets \citep{schneider2019deepobs}, mechanism
+    controls, and engagement diagnostics on every run. Five experiments,
+    all on single L40 GPUs, $\sim$15 GPU-minutes total.
+
+  \item \textbf{Headline result (negative).} Under the pre-registered
+    protocol the reportable claim is \emph{no evidence of benefit under the
+    affordable tuning budget} (the spectral arm afforded $\sim$1
+    compute-matched tuning trial vs.\ AdamW's 12). The raw numbers behind
+    that downgraded wording: the filter significantly \emph{degraded}
+    out-of-sample performance on both architectures (MLP: $-0.00527$ mean
+    per-era \texttt{numerai\_corr}, 95\% CI $[-0.00886, -0.00181]$;
+    GRU: $-0.00484$, CI $[-0.00758, -0.00211]$), erasing $\sim$82--83\% of
+    a $+0.0064$ baseline edge.
+
+  \item \textbf{Co-primary contribution 1: a target-independence proof.}
+    For scalar-output MSE, the filter's engagement eigenspectrum is
+    \emph{exactly} target-independent at fixed parameters: row
+    normalization reduces each per-sample gradient to $\pm$(residual sign)
+    $\times$ a target-independent Jacobian direction, so permuting targets
+    conjugates the similarity matrix by an orthogonal sign matrix
+    (verified in fp64 to $8.9\times10^{-16}$; independently re-verified at
+    $2.1\times10^{-14}$ with scoping controls showing the theorem is
+    non-vacuous). ``Engagement'' therefore cannot certify that the
+    mechanism found target signal on this task class.
+
+  \item \textbf{Co-primary contribution 2: matched mechanism controls.}
+    MP-eigenselection is statistically indistinguishable from a norm- and
+    $k$-matched \emph{random}-subspace projection on both architectures
+    (MLP: $-0.00116$, CI $[-0.00366, +0.00134]$; GRU: $-0.00011$, CI
+    $[-0.00233, +0.00215]$; equivalence at $\pm 0.004$ resolution). All
+    three filtered arms (spectral, random-subspace, sign-agreement) hurt
+    similarly: the harm tracks agreement-style update modification as a
+    class, not the spectral machinery.
+
+  \item \textbf{Robustness.} An independent results audit re-executed the
+    load-bearing experiment on fresh seeds \{10, 11, 12\} and an
+    independently constructed evaluation shard; the headline reproduced in
+    category, direction, and magnitude, as did the spectral-vs-random
+    null (6-seed pooled headline $-0.00537$, CI $[-0.00853, -0.00222]$).
+
+  \item \textbf{Framing.} The contribution is the transfer verdict and its
+    mechanistic explanation, not a new optimizer. A well-supported negative
+    result was priced as a full deliverable from the outset; this paper
+    reports one, with its scope limits stated plainly (subsampled,
+    low-edge regime; single spectral operating point).
+\end{itemize}

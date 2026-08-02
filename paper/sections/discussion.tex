@@ -1,0 +1,71 @@
+\section{Discussion}
+\label{sec:discussion}
+
+\paragraph{The answer to the motivating question is no---with a precise
+scope.} On this large, noisy financial dataset, under a pre-registered
+protocol with matched compute budgets, the Spectral Optimizer did not
+reduce the effect of noise: there is no evidence of benefit under the
+affordable tuning budget, and at the pre-registered operating point the
+filter significantly degraded out-of-sample performance on both an MLP and
+a GRU, erasing $\sim$82--83\% of a small ($+0.0064$) baseline edge. The
+result survived an adversarial audit that re-executed the experiment on
+fresh seeds and an independently constructed evaluation split. The claim is
+scoped to a subsampled, low-capacity pipeline whose verdict-block edge sits
+below the practitioner sanity band, and to a single spectral operating
+point.
+
+\paragraph{Why the label-noise story does not transfer.} The two
+mechanistic results give a consistent account. By
+Theorem~\ref{thm:target-independence}, on scalar-output MSE the quantity
+the filter thresholds---the eigenspectrum of the normalized per-sample
+gradient similarity matrix---is exactly target-independent at fixed
+parameters. ``Directions many samples agree on'' are, on this task class,
+directions of the \emph{feature/Jacobian factor structure}, not of target
+signal; the coherence-amplifier interpretation from the label-noise setting
+has nothing to grip. Cross-entropy classification escapes the theorem
+(per-sample gradients are not scalar multiples of a target-independent
+vector), which explains why the same diagnostics were informative on MNIST
+label noise and are not here. Empirically, the C4 control closes the loop
+from the other end: conditioning on the kept-$k$ and update-norm
+trajectories, replacing MP-eigenselection with a random sample-subspace
+changes nothing detectable ($\pm 0.004$ resolution), on either
+architecture, in either engagement regime ($k \approx 1$ with
+10$\times$ amplification on the MLP; $k \approx 60$ with mild attenuation
+on the GRU).
+
+\paragraph{The harm is a class effect, not a spectral effect.} All three
+agreement-style arms---spectral, random-subspace, and sign-agreement---hurt
+by similar amounts. Whatever damage is done appears attributable to
+per-sample-agreement-style update restriction/rescaling itself. Two
+candidate stories for \emph{why} such interventions hurt here are already
+constrained by the data: it is not a stability trade (corr-Sharpe fell,
+robustly so on the GRU), and it is not a Feldman-style tail effect (the
+unconditioned dispersion split shows uniform harm, not harm concentrated in
+high-dispersion eras). A plausible remaining account---that in a regime
+where the mean gradient is the only weakly informative direction, replacing
+it with an amplified low-rank projection of factor structure simply
+injects variance where there is no exploitable coherent signal---is
+consistent with the prior project's own weak-signal failure mode, but our
+design does not isolate it; we flag it as interpretation, not finding.
+
+\paragraph{On the strength of the negative.} The pre-registered machinery
+was designed so that a negative would be meaningful: the F4 power gate
+showed all three verdict categories reachable (power 0.91 at the frozen
+threshold) before any slot was spent; engagement diagnostics confirm the
+mechanism did sustained, selective work during every verdict run; and the
+audit classified the outcome as an adequately powered honest negative
+(exit reason: \emph{true-null}) rather than an artifact. The main
+interpretive guard is deliberate and one-sided: because the spectral arm
+afforded only $\sim$1 compute-matched tuning trial, ``hurts'' cannot be
+distinguished from ``under-tuned spectral arm'' at this budget, so the
+paper's claim stays at ``no evidence of benefit under the affordable
+tuning budget'' with the raw numbers alongside. The mirrored signature
+(the baseline's regularization grid-boundary trend) cuts the other way:
+a better-tuned baseline would, if anything, widen the gap.
+
+\paragraph{What would change our mind.} A demonstration that a tuned
+spectral configuration (wider operating-point sweep at a declared,
+enlarged, matched budget) recovers or beats the baseline in this regime;
+or a full-scale (non-subsampled) evaluation in which the verdict-block
+edge returns to the practitioner band and the effect reverses. Both are
+concrete, costed follow-ups in Section~\ref{sec:future-work}.
