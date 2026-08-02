@@ -1,0 +1,49 @@
+verdict-block eras in eval: 255
+
+--- arm levels (mean per-era corr over verdict block) ---
+  filter_off : nc +0.00641 (seeds ['+0.00530', '+0.00660', '+0.00732']), sp +0.00698, Sharpe 0.309
+  filter_on  : nc +0.00113 (seeds ['+0.00057', '+0.00071', '+0.00211']), sp +0.00090, Sharpe 0.109
+  c4_random  : nc +0.00229 (seeds ['+0.00038', '+0.00217', '+0.00431']), sp +0.00112, Sharpe 0.178
+  gaf        : nc -0.00042 (seeds ['-0.00151', '+0.00117', '-0.00091']), sp +0.00004, Sharpe -0.032
+  zero_pred  : nc +0.00063, sp +0.00057
+
+F9: baseline nc +0.00641 vs band [0.0087, 0.0522] -> OUTSIDE; leakage gate fired: False
+
+--- paired per-era diffs, moving-block bootstrap (L=4, 10000 resamples, 95% CI) ---
+  filter_on - filter_off: nc -0.00527 CI [-0.00886, -0.00181] -> hurts; sp -0.00607 CI [-0.00927, -0.00292]
+  c4_random - filter_off: nc -0.00412 CI [-0.00794, -0.00036] -> hurts; sp -0.00586 CI [-0.00927, -0.00255]
+  gaf - filter_off: nc -0.00682 CI [-0.01011, -0.00352] -> hurts; sp -0.00694 CI [-0.01004, -0.00386]
+  filter_on - c4_random: nc -0.00116 CI [-0.00366, +0.00134] -> doesnt_help; sp -0.00022 CI [-0.00264, +0.00215]
+  filter_on - gaf: nc +0.00155 CI [-0.00081, +0.00392] -> doesnt_help; sp +0.00087 CI [-0.00138, +0.00307]
+  headline per-seed 0: nc diff -0.00473 CI [-0.00929, -0.00034]
+  headline per-seed 1: nc diff -0.00589 CI [-0.01007, -0.00172]
+  headline per-seed 2: nc diff -0.00521 CI [-0.01069, +0.00023]
+
+=== VERDICT (filter_on vs filter_off, F3=0.00398): hurts -> F12 DOWNGRADE: no evidence of benefit under the affordable tuning budget (F12 downgrade of 'hurts') ===
+    mean paired diff -0.00527, CI [-0.00886, -0.00181]
+
+F10 corr-Sharpe: on 0.109 off 0.309 diff -0.200 CI [-0.416, -0.004] (excludes 0: True)
+
+--- F8 tail-era breakdown (quartiles; iid bootstrap within bucket, descriptive) ---
+  baseline_corr Q1 (n=64): diff +0.01902 CI~[+0.01571, +0.02271]
+  baseline_corr Q2 (n=63): diff +0.00048 CI~[-0.00183, +0.00292]
+  baseline_corr Q3 (n=64): diff -0.01084 CI~[-0.01365, -0.00796]
+  baseline_corr Q4 (n=64): diff -0.02966 CI~[-0.03343, -0.02606]
+  target_dispersion Q1 (n=64): diff -0.00695 CI~[-0.01137, -0.00229]
+  target_dispersion Q2 (n=63): diff -0.00513 CI~[-0.01037, +0.00006]
+  target_dispersion Q3 (n=64): diff -0.00680 CI~[-0.01256, -0.00085]
+  target_dispersion Q4 (n=64): diff -0.00222 CI~[-0.00777, +0.00289]
+
+--- engagement diagnostics (filtered arms, verdict runs) ---
+  c4_random_s0: k_med 1, ratio_med 9.526, cos_med 0.070
+  c4_random_s1: k_med 4, ratio_med 9.455, cos_med 0.175
+  c4_random_s2: k_med 1, ratio_med 13.897, cos_med -0.120
+  filter_on_s0: k_med 1, ratio_med 9.526, cos_med -0.294, kept_energy_med 0.980
+  filter_on_s1: k_med 4, ratio_med 9.455, cos_med 0.516, kept_energy_med 0.968
+  filter_on_s2: k_med 1, ratio_med 13.897, cos_med 0.715, kept_energy_med 0.974
+  gaf_s0: k_med 76, ratio_med 0.033, cos_med 0.033, frac_coords_med 0.00039
+  gaf_s1: k_med 88, ratio_med 0.036, cos_med 0.036, frac_coords_med 0.00044
+  gaf_s2: k_med 74, ratio_med 0.032, cos_med 0.032, frac_coords_med 0.00038
+engagement_ok (filter engaged, selective, non-degenerate throughout): True
+
+wrote out/verdict_analysis.json

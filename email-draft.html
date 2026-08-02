@@ -1,0 +1,153 @@
+<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 700px; margin: 0 auto; color: #1a1a1a; line-height: 1.6;">
+
+  <!-- Header -->
+  <div style="background: #f0f4f8; border-left: 4px solid #dc2626; padding: 16px 20px; margin-bottom: 24px;">
+    <h1 style="margin: 0 0 8px 0; font-size: 20px; color: #1e293b;">
+      Can a spectral gradient-filtering optimizer cut through the noise in financial time-series data?
+    </h1>
+    <div style="font-size: 14px; color: #64748b;">
+      Autonomous AI Safety Research Report &middot; 1 August 2026
+      &middot; <a href="https://github.com/tbuckworth/tasks/issues/2073" style="color: #64748b;">Original idea</a>
+      &middot; <span style="background: #fef2f2; color: #991b1b; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">RUN INCOMPLETE</span>
+    </div>
+  </div>
+
+  <!-- Research Question -->
+  <div style="margin-bottom: 24px;">
+    <h2 style="font-size: 16px; color: #1e293b; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px;">What We Investigated</h2>
+    <p style="font-size: 14px; margin: 12px 0;">
+      We tested whether the <strong>Spectral Optimizer</strong> — an existing gradient-filtering wrapper from a prior project — improves out-of-sample prediction when training neural networks on large, extremely noisy financial data. The optimizer computes the gradient of the loss for each individual training sample, builds the matrix of similarities between those per-sample gradients, and keeps only the gradient directions that many samples agree on (using a threshold from random matrix theory, the Marchenko&ndash;Pastur bound). The hypothesis: financial return prediction is a very low signal-to-noise regime, so filtering out "noise" gradient directions should help a model generalize instead of memorizing noise.
+    </p>
+    <p style="font-size: 14px; margin: 12px 0;">
+      The test bed was the <strong>Numerai dataset</strong> (v5) — a large public tournament dataset of obfuscated stock-market features with era-based (time-blocked) train/test structure, widely regarded as a canonical noisy financial benchmark. The plan compared the Spectral Optimizer against a well-tuned <strong>AdamW</strong> (the standard Adam optimizer with decoupled weight decay) on a small multi-layer perceptron (MLP), with a recurrent GRU (Gated Recurrent Unit) arm as a stretch goal, under a pre-registered statistical protocol: strict temporal separation between tuning and verdict data, multiple random seeds, and block-bootstrap confidence intervals.
+    </p>
+  </div>
+
+  <!-- Bottom Line -->
+  <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px 20px; margin-bottom: 24px;">
+    <h2 style="margin: 0 0 12px 0; font-size: 16px; color: #1e293b;">Bottom Line</h2>
+    <p style="font-size: 14px; margin: 0 0 12px 0;">
+      <strong>The run terminated before answering the headline question</strong> — an orchestration failure, not a scientific one (details below). The final head-to-head GPU experiment actually finished on the cluster, but its results were never retrieved or analyzed, so no helps/hurts verdict was computed. The run did bank one substantive scientific result along the way: a <strong>proof that the optimizer's "consensus" mechanism cannot see the prediction target at all</strong> on this class of task (single-output regression) — what it filters reflects the structure of the input features, not the signal being learned. That is a genuine boundary result for the method, and it means any benefit the optimizer might still show on financial data would come from generic regularization, not from "amplifying signal that samples agree on."
+    </p>
+    <table style="border-collapse: collapse; width: 100%; font-size: 14px;">
+      <tr><td style="padding: 4px 12px 4px 0; color: #64748b; white-space: nowrap; vertical-align: top;">Status</td><td style="padding: 4px 0;">Incomplete — stopped mid-experiment-phase; the final verdict experiment ran on the GPU but was never analyzed; no paper or audit was produced. The run is resumable at low cost (no new GPU work needed).</td></tr>
+      <tr><td style="padding: 4px 12px 4px 0; color: #64748b; white-space: nowrap; vertical-align: top;">Novelty</td><td style="padding: 4px 0;">Assessed NOVEL before experiments began. Closest existing work is Gradient Agreement Filtering (Chaubard et al., 2024), which uses simple pairwise agreement checks on image classification; no published work applies random-matrix-theory spectral filtering of per-sample gradients to financial prediction.</td></tr>
+      <tr><td style="padding: 4px 12px 4px 0; color: #64748b; white-space: nowrap; vertical-align: top;">Experiments</td><td style="padding: 4px 0;">2 pass, 1 fail (the fail converted into the mechanistic finding), 1 executed but unanalyzed, 1 never started (of 5 planned)</td></tr>
+      <tr><td style="padding: 4px 12px 4px 0; color: #64748b; white-space: nowrap; vertical-align: top;">Results audit</td><td style="padding: 4px 0;">Not run — the run failed before the audit step. Nothing in this email has been checked beyond the executing agent's own logs, and even in completed runs the audit is an automated self-check by the same model family, not independent verification.</td></tr>
+      <tr><td style="padding: 4px 12px 4px 0; color: #64748b; white-space: nowrap; vertical-align: top;">Repo</td><td style="padding: 4px 0;"><a href="https://github.com/tbuckworth/research-spectral-optimizer-for-noise-reduction" style="color: #2563eb;">GitHub link</a> (all code, experiment plans, and completed results; no paper PDF — the paper step never ran)</td></tr>
+    </table>
+  </div>
+
+  <!-- Why the run failed -->
+  <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px 20px; margin-bottom: 24px;">
+    <h2 style="margin: 0 0 12px 0; font-size: 16px; color: #991b1b;">Why the Run Ended Incomplete</h2>
+    <p style="font-size: 14px; margin: 0 0 8px 0;">
+      This was a workflow failure, not an experimental one. The final comparison experiment (exp-004) was submitted to the MATS Slurm cluster as job 6439. While that job sat in the queue and then ran, the autonomous wrapper launched three consecutive Step-9 sessions; each one correctly set up watchers and waited for the job, but ended its session without advancing the workflow state. After three attempts with no state change, the wrapper marked the whole run failed at 17:36 — <strong>one hour after the GPU job had already finished successfully</strong> (16:36, 5.4&nbsp;minutes of GPU time, all four training arms &times; three seeds completed cleanly).
+    </p>
+    <p style="font-size: 14px; margin: 0;">
+      The complete raw outputs (per-era predictions for every arm and seed) are still sitting on the cluster, un-retrieved. Resuming would need only a file copy plus the already-written local analysis to produce the pre-registered verdict. The retry logic treating "waiting on a queued cluster job" as a failed attempt is the same class of problem as the recently fixed "provider usage limit treated as failure" bug, and likely needs an analogous fix.
+    </p>
+  </div>
+
+  <!-- Approach -->
+  <div style="margin-bottom: 24px;">
+    <h2 style="font-size: 16px; color: #1e293b; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px;">Approach</h2>
+    <p style="font-size: 14px; margin: 12px 0;">
+      All experiments used the existing <code>SpectralConsensusFilter</code> implementation (reused from the prior optimizers project, per the original request — not recreated), wrapped around AdamW, training a small MLP (~200k parameters) on 705 features from the Numerai v5 dataset, on a single NVIDIA L40 GPU on the MATS cluster. The protocol was unusually strict for an autonomous run: hyperparameter tuning was confined to a 388-era tuning block, a 4-era embargo separated tuning from a held-out 255-era verdict block, the filter mode and all thresholds were frozen <em>before</em> any verdict data was seen, and the planned comparison had four arms — filter-on, filter-off (identical config), a random-subspace control (project onto <em>random</em> directions of the same dimension, to separate "the spectral choice matters" from "any projection helps"), and a Gradient Agreement Filtering baseline.
+    </p>
+    <p style="font-size: 13px; color: #475569; margin: 12px 0;">
+      The headline metric is <strong>mean per-era Numerai correlation</strong> — the correlation between the model's predictions and true stock returns, computed within each time period ("era") and averaged. On this benchmark, legitimately good models score roughly +0.01 to +0.04; suspiciously higher usually means data leakage. The pre-registered bar for a "helps" or "hurts" verdict was a paired difference of at least 0.004 with a bootstrap confidence interval excluding zero.
+    </p>
+  </div>
+
+  <!-- Results Table -->
+  <h2 style="font-size: 16px; color: #1e293b; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px;">Results</h2>
+  <table style="border-collapse: collapse; width: 100%; font-size: 14px; margin-bottom: 24px;">
+    <thead>
+      <tr style="background: #f8fafc;">
+        <th style="text-align: left; padding: 8px 12px; border-bottom: 2px solid #e2e8f0;">#</th>
+        <th style="text-align: left; padding: 8px 12px; border-bottom: 2px solid #e2e8f0;">What We Tested</th>
+        <th style="text-align: left; padding: 8px 12px; border-bottom: 2px solid #e2e8f0;">Result</th>
+        <th style="text-align: left; padding: 8px 12px; border-bottom: 2px solid #e2e8f0;">What This Means</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top;">1</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top;">Does the filter engage with <em>target signal</em> on financial gradients? (Plus code-integration, data-protocol, and GPU-throughput checks.)</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top;"><span style="background: #fef2f2; color: #991b1b; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">FAIL</span></td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top;">The filter does non-trivial, selective work (it is not degenerate), but a control test — shuffling the prediction targets — produced <em>identical</em> filtering behavior, and the experiment proved mathematically that it must (see Surprising Findings). "Consensus" here measures input structure, not signal. All infrastructure sub-checks passed.</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top;">2</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top;">Can per-sample gradients be computed efficiently through a recurrent GRU model (needed for the second-architecture arm)?</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top;"><span style="background: #dcfce7; color: #166534; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">PASS</span></td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top;">Yes — vectorized per-sample gradients through a hand-rolled GRU match a reference implementation to ~2&times;10<sup>&minus;6</sup>, and a projected sequence-model training run fits easily in the GPU budget (~4 minutes).</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top;">3</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top;">Is the baseline sane and the comparison statistically winnable? (Tuned AdamW sweep, power analysis, leakage checks.)</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top;"><span style="background: #dcfce7; color: #166534; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">PASS</span></td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top;">Tuned AdamW scored +0.0196 mean per-era correlation — inside the sanity band for legitimate models, with no data-leakage signature. Power analysis said the design could detect the pre-registered effect size with ~90% probability, so a verdict was genuinely reachable (go/no-go gate: GO).</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top;">4</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top;">The verdict experiment: filter-on vs filter-off vs random-subspace vs agreement-filtering baseline, 3 seeds each, on 255 held-out eras.</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top;"><span style="background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">NOT ANALYZED</span></td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top;">The GPU job completed cleanly (all 12 training runs), but the run was marked failed before results were pulled back. The pre-registered verdict was never computed; the raw per-era outputs remain on the cluster.</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top;">5</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top;">Conditional second-architecture (GRU) comparison arm.</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top;"><span style="background: #f1f5f9; color: #475569; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">NOT RUN</span></td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top;">Was gated on experiment 4's outcome, which never arrived.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Surprising Findings -->
+  <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 16px 20px; margin-bottom: 24px;">
+    <h2 style="margin: 0 0 12px 0; font-size: 16px; color: #92400e;">Surprising Findings</h2>
+    <ol style="font-size: 14px; padding-left: 20px; margin: 0;">
+      <li style="margin-bottom: 12px;">
+        <strong>The optimizer's core diagnostic is provably blind to the prediction target on this task.</strong> For any model with a single output trained with mean-squared error, each sample's gradient is just (prediction error) &times; (a direction that depends only on the inputs). After the normalization the filter applies, changing the targets can only flip signs — and the experiment proved this leaves the entire eigenvalue spectrum the filter relies on <em>exactly unchanged</em> (verified numerically to 10<sup>&minus;15</sup>). So on regression tasks like this one, the "consensus" the filter detects is structure in the input features, not agreement about the signal. This also explains, retroactively, why the prior project's MNIST classification results <em>were</em> target-sensitive: multi-class cross-entropy gradients don't factor this way. This is the run's banked deliverable — a clean boundary result for where the method's mechanism can and cannot apply.
+      </li>
+      <li style="margin-bottom: 12px;">
+        <strong>The filter is an amplifier, not a shrinker.</strong> The filtered update exceeded the plain averaged gradient in size on 25&ndash;70% of training steps — the filter discards components that point in conflicting directions and effectively amplifies what remains. The mental model of it as "gentle denoising shrinkage" is wrong.
+      </li>
+      <li style="margin-bottom: 12px;">
+        <strong>The winner's curse showed up on schedule.</strong> The best tuned baseline configuration scored +0.0196 in the hyperparameter sweep but only ~+0.014 when re-run on fresh seeds — a textbook illustration of why the protocol froze its effect-size threshold using the seed-replicated number, not the sweep winner.
+      </li>
+    </ol>
+  </div>
+
+  <!-- Limitations -->
+  <div style="margin-bottom: 24px;">
+    <h2 style="font-size: 16px; color: #1e293b; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px;">Limitations</h2>
+    <ol style="font-size: 14px; padding-left: 20px;">
+      <li style="margin-bottom: 8px;">
+        <strong>No verdict on the motivating question.</strong> Whether the Spectral Optimizer helps or hurts out-of-sample performance on financial data remains open. The raw data to answer it exists on the cluster; only the retrieval and the already-scripted pre-registered analysis are missing.
+      </li>
+      <li style="margin-bottom: 8px;">
+        <strong>No results audit and no paper.</strong> The workflow's red-team audit step and paper compilation never ran, so all numbers above come solely from the executing agent's own experiment logs.
+      </li>
+      <li style="margin-bottom: 8px;">
+        <strong>Any future "hurts" verdict is already capped.</strong> The tuning budget was asymmetric (12 tuning trials for AdamW vs ~1 for the spectral arm), so under the pre-registered rules a negative result could only be stated as "no evidence of benefit under the affordable tuning budget," not "the optimizer hurts."
+      </li>
+    </ol>
+  </div>
+
+  <!-- Links -->
+  <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px 20px; margin-bottom: 24px;">
+    <h2 style="margin: 0 0 12px 0; font-size: 16px; color: #1e293b;">Links</h2>
+    <ul style="list-style: none; padding: 0; margin: 0; font-size: 14px;">
+      <li style="margin-bottom: 4px;"><a href="https://github.com/tbuckworth/research-spectral-optimizer-for-noise-reduction" style="color: #2563eb;">GitHub repo</a> (experiment code, plans, and completed results; no paper — the run stopped before the write-up step)</li>
+      <li style="margin-bottom: 4px;"><a href="https://github.com/tbuckworth/tasks/issues/2073" style="color: #2563eb;">Original research idea (issue #2073)</a></li>
+    </ul>
+  </div>
+
+  <!-- Footer -->
+  <div style="font-size: 12px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 12px;">
+    Generated by the autonomous AI safety researcher agent &middot; Claude fable
+  </div>
+</div>

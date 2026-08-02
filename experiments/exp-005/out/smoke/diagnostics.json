@@ -1,0 +1,52 @@
+{
+  "frozen": {
+    "arch": "GRU T=15 D=47 H=64 params=21761",
+    "lr": 0.001,
+    "wd": 0.001,
+    "dropout": 0.2,
+    "steps": 30,
+    "batch": 256,
+    "seeds": [
+      0
+    ],
+    "mp_factor": 2.0,
+    "mode": "hard",
+    "composition": "within-era",
+    "config_provenance": "t07 fallback (tuning shard wiped; plan-authorized; no GRU sweep, no spectral sweep)",
+    "c4_rule": "random orthonormal sample-subspace, k(t) and consensus-ratio(t) matched to filter_on same seed",
+    "gaf_arm": "cut (plan: cut first)"
+  },
+  "timings_s": {
+    "filter_off_s0": 0.2973616123199463,
+    "filter_on_s0": 2.932018995285034,
+    "c4_random_s0": 2.554947853088379
+  },
+  "runs": {
+    "filter_off_s0": {
+      "log": []
+    },
+    "filter_on_s0": {
+      "log": [
+        {
+          "step": 0,
+          "loss": 0.15675900876522064,
+          "k": 28,
+          "ratio": 0.9544989072689837,
+          "cos_vs_mean": 0.963018536567688,
+          "kept_energy_frac": 0.6320082545280457
+        }
+      ]
+    },
+    "c4_random_s0": {
+      "log": [
+        {
+          "step": 0,
+          "loss": 0.15675900876522064,
+          "k": 28,
+          "ratio": 0.9544988870620728,
+          "cos_vs_mean": 0.6423161625862122
+        }
+      ]
+    }
+  }
+}

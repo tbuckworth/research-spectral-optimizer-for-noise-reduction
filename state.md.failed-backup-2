@@ -1,8 +1,8 @@
 ---
 run_id: 2026-07-31-spectral-optimizer-for-noise-reduction-on-financial-timeseri
 topic: "Spectral Optimizer (for noise reduction) on Financial Timeseries Data"
-current_step: 9
-status: experiments_complete
+current_step: 8
+status: failed
 mode: autonomous
 agent_backend: claude
 agent_model: "fable"
@@ -51,58 +51,52 @@ decisions:
     decision: "Experiment plan auto-approved (autonomous mode). The 9 decomposition components exceed the 5-experiment cap, so they are packed into 5 experiments along the decomposition's own dependency/wave structure rather than cut top-5-by-lambda (a naive top-5 cut would keep #1 and #3 while severing their prerequisites #6/#9/#7 and #8, making the plan unexecutable). Packing: exp-001 = gate bundle #6+#9+#7+#1 (lambda driver 1.22); exp-002 = #2 (1.05, local CPU, scope decision not fail-fast); exp-003 = #8+#3+#4 with the F4 go/no-go gate; exp-004 = the seeded main comparison + C4 mechanism controls (the verdict deliverable); exp-005 = conditional sequence/second-setting arm (#5 fallback inside it). All F1-F13 amendments and C1-C5 additions from challenge/limitation-triage.md folded in as binding pass/fail modifications. Fail-fast semantics annotated per experiment: exp-001 #1-degeneracy and exp-003 leakage are genuine fail-fast triggers with pre-authorized pivots; exp-002 failure is a pre-authorized scope downgrade (continue MLP-only); exp-005 is conditional and cuttable per F7. No [SKIP] components existed to remove."
   - step: 8
     decision: "Fail-fast agreement recorded autonomously: CONDITIONAL. Blanket fail-fast (any FAIL terminates) would contradict the approved plan, in which exp-002/exp-005 failures are scope decisions and exp-004 no-verdict is a priced write-up outcome. Agreed protocol: execute in lambda order; on the two hard triggers (exp-001 mechanism degeneracy, exp-003 leakage) stop downstream work and take the pre-authorized pivot (mechanistic-finding deliverable / fix-split-first); the pre-mortem pivot indicators are adopted verbatim as kill criteria, most already binding via amendments F4 (P(verdict reachable)>=0.6 gate), C3 (degeneracy cosine + pivot rule), F5 (block-bootstrap collapse rule), F12 (hurts-verdict downgrade), F7 (never cut the last mechanism-discriminating control). No experiment is run past a tripped kill criterion."
-  - step: 9
-    decision: "exp-001 middle-case ruling (recorded for the Step 10 audit): headline #1 logged FAIL because the pre-registered PASS criterion required C2 real-vs-permuted distinguishability, which failed BY PROOF (for scalar-output MSE the engagement eigenspectrum is exactly target-independent). But the BINDING hard fail-fast trigger (all-modes degeneracy OR C3>0.95 everywhere) did NOT fire — the filter does sustained selective non-trivial work. Motivating question remained open and answerable; proceeded to exp-004 under an AMENDED INTERPRETATION FRAME: the target-independence proof is a co-primary deliverable; any verdict is attributed to target-blind spectral-subspace regularization, never 'consensus on signal'; C4 random-subspace control is load-bearing and protected. All pre-registered verdict machinery unchanged."
-  - step: 9
-    decision: "FINAL VERDICT (exp-004, pre-registered machinery): category HURTS — filter_on − filter_off = −0.00527 mean per-era numerai_corr, block-bootstrap 95% CI [−0.00886, −0.00181], exceeding F3=0.00398; corr-Sharpe −0.200 [−0.416, −0.004]. Mandatory F12 downgrade applies (spectral arm afforded ~1 tuning trial vs AdamW's 12): reportable claim = 'no evidence of benefit under the affordable tuning budget', raw hurts numbers reported alongside. Mechanism attribution: filter_on vs C4 norm/k-matched random subspace = −0.00116 CI [−0.00366, +0.00134] — MP-eigenselection indistinguishable from random subspace projection; all three filtered arms (spectral, random, GAF) hurt similarly; no Feldman dispersion-tail pattern; filter AMPLIFIES updates (ratio_med ~10x), not shrinkage."
-  - step: 9
-    decision: "exp-005 run (both authorization conditions held: exp-002 PASS, exp-003 budget room). Architecture consistency CONFIRMED on the GRU sequence arm, same data/machinery: headline −0.00484 CI [−0.00758, −0.00211] (vs MLP −0.00527), same HURTS→F12-downgrade category; spectral-vs-random null replicates (−0.00011 CI [−0.00233, +0.00215]); corr-Sharpe −0.242 [−0.414, −0.073]. F13 satisfied via within-era Numerai framing (T=15 x D=47 reshape) — 'architecture consistency' claim supported, OHLCV fallback unused. Notable: filter engages in a different regime on the GRU (k~60, mild attenuation) vs MLP (k~1, ~10x amplification) yet produces near-identical harm and the same null — strengthening the 'generic subspace projection/rescaling, not spectral selection' account. Limitation recorded: GRU used t07 fallback config (tuning-shard presence misjudged from login node — /ephemeral is node-local); config was frozen pre-unblinding and identical across arms, so the paired comparison is protocol-valid; ~10 GPU-min resource ask carried to Future Work."
 lambda_table:
   - component: "Spectral engagement on financial gradients"
     p_success: 0.40
     t_hours: 0.75
     lambda: 1.22
-    status: "FAIL on C2 conjunct only (target-independence PROOF; banked mechanistic finding — hard fail-fast trigger did NOT fire; selectivity + C3 clean)"
+    status: PENDING
   - component: "Sequence-arm vmap feasibility (recurrent model)"
     p_success: 0.35
     t_hours: 1.0
     lambda: 1.05
-    status: PASS
+    status: PENDING
   - component: "Statistical power of paired per-era design"
     p_success: 0.60
     t_hours: 0.5
     lambda: 1.02
-    status: PASS
+    status: PENDING
   - component: "Full design fits 5-experiment / 30-min budget"
     p_success: 0.80
     t_hours: 0.25
     lambda: 0.89
-    status: PASS
+    status: PENDING
   - component: "OHLCV fallback dataset for sequence arm"
     p_success: 0.80
     t_hours: 0.5
     lambda: 0.45
-    status: "NOT NEEDED (within-era Numerai framing worked for exp-005)"
+    status: PENDING
   - component: "Spectral Optimizer regression integration"
     p_success: 0.75
     t_hours: 0.75
     lambda: 0.38
-    status: PASS
+    status: PENDING
   - component: "vmap throughput on L40 within job cap"
     p_success: 0.85
     t_hours: 0.5
     lambda: 0.33
-    status: PASS
+    status: PENDING
   - component: "Baseline sanity: tuned AdamW in sane corr band"
     p_success: 0.70
     t_hours: 1.5
     lambda: 0.24
-    status: PASS
+    status: PENDING
   - component: "Numerai data + era-purged protocol"
     p_success: 0.85
     t_hours: 1.0
     lambda: 0.16
-    status: PASS
+    status: PENDING
 approved_experiments:
   - id: exp-001
     name: "Gate bundle: integration, data/protocol, throughput, spectral engagement"
@@ -146,12 +140,6 @@ approved_experiments:
     on_fail: "NOT fail-fast — cut per F7, note the removed claim explicitly as a limitation, carry to Future Work as W2 with its resource ask. Run only if exp-002 passed AND exp-003's #4 arithmetic left room."
 fail_fast_agreement: conditional
 fail_fast_conditions: "Hard fail-fast triggers (stop/pivot per pre-authorized on_fail): exp-001 #1-degeneracy (all threshold modes ~0%/~100% norm passed at both batch sizes and compositions, OR C3 mean-gradient cosine > 0.95 everywhere) and exp-003 leakage signature (fix purge/embargo before anything downstream runs). NOT fail-fast: exp-002 and exp-005 failures are pre-authorized scope decisions (MLP-only / cut per F7) and never stop the run; exp-004 no-verdict is a write-up path (honest effect estimate), never a retry loop. Kill criteria: the five pre-mortem pivot indicators recorded in the Step 8 narrative are binding stopping/pivot conditions for Step 9."
-experiments_completed: ["exp-001 (infra PASS; headline #1 FAIL on C2 conjunct only — banked mechanistic finding, no hard trigger)", "exp-002 (PASS)", "exp-003 (PASS, F4 gate GO)", "exp-004 (PASS — verdict returned)", "exp-005 (PASS — architecture consistency confirmed)"]
-experiments_failed: []
-final_verdict_category: "hurts (pre-registered category) -> F12 downgrade applied"
-final_verdict_wording: "No evidence of benefit under the affordable tuning budget; at the pre-registered operating point the Spectral Optimizer significantly degraded out-of-sample performance (MLP: -0.00527 CI [-0.00886, -0.00181]; GRU: -0.00484 CI [-0.00758, -0.00211] mean per-era numerai_corr), and MP-eigenselection was indistinguishable from a norm/k-matched random-subspace control on both architectures."
-audit_round: 0
-audit_exit_reason: ""
 ---
 
 # Workflow Progress
@@ -485,12 +473,7 @@ Step 8 complete. Next: Step 9 (execute experiments), which must honor these
 conditions, the per-experiment on_fail semantics, and the F1-F13 / C1-C5
 amendments in challenge/limitation-triage.md.
 
-## Step 9: Experiment Execution — COMPLETE
-
-All five approved experiments executed. No hard fail-fast trigger fired; no
-kill criterion tripped. Total GPU spend across the run: ~15 min on single
-L40s (jobs 6430, 6432, 6439, 6614 — all --qos=debug, free compute
-partition), far under budget.
+## Step 9: Experiment Execution (in progress)
 
 - **exp-002 (sequence-arm vmap feasibility): PASS** — vmap(grad) per-sample
   gradients through a hand-rolled functional GRU match the loop reference to
@@ -503,105 +486,89 @@ partition), far under budget.
   within-era Numerai (F13). Caveat: verified on local torch 2.11.0 vs
   cluster's 2.5.1 — re-run the seconds-long correctness assert on-cluster
   before real sequence-arm GPU runs. No GPU/cluster resources used.
-- **exp-001 (gate bundle): infra PASS; headline #1 FAIL on the C2 conjunct
-  ONLY — banked as the run's core mechanistic finding.** #6 integration
-  smoke PASS (loss decreases; filter-off == plain AdamW to fp64 precision;
-  streaming variant runs; C1 spiked-covariance tests correct in hard mode).
-  #9 data/protocol PASS: Numerai v5 downloaded, F1 split = tuning 0579-0966
-  (388 eras) / embargo 0967-0970 / verdict 0971-1225 (255 eras), F5 embargo
-  4 eras, F9 recalibrated sanity band [0.0087, 0.0522] and leakage gate
-  0.0696. #7 throughput PASS (31 ms/step filter-on at B=1024; job 6430,
-  2.5 min). #1: selectivity sustained (0<k<B on 100% of logged steps,
-  kept-energy 0.29-0.89) and C3 clean (median cosF 0.25-0.83) — the
-  pre-registered HARD fail-fast trigger did NOT fire. But real-vs-permuted-
-  target diagnostics are indistinguishable, with a PROOF: for scalar-output
-  MSE, per-sample gradients are +/-(residual sign) x a target-independent
-  Jacobian direction, so S(y')=D S(y) D with D orthogonal — the whole
-  engagement eigenspectrum is exactly target-independent at fixed parameters
-  (verified fp64 to 8.9e-16). 'Consensus' on this task measures
-  Jacobian/factor structure, not target signal. Binding registrations made
-  before any OOS peek: F2 mode = hard (mp_factor 2.0), F6 = within-era
-  composition. C5 probe inconclusive (carried as limitation). Surprise: the
-  filter often AMPLIFIES (ratio > 1 on 25-70% of steps), it is not shrinkage.
-- **ORCHESTRATOR DECISION (exp-001 middle-case ruling, for the Step 10
-  audit)**: headline #1 logged FAIL (C2 conjunct failed by proof, not
-  noise), but the binding hard fail-fast trigger did not fire and the
-  motivating question remained open and answerable. Proceeded to exp-004
-  under an AMENDED INTERPRETATION FRAME (in exp-004/plan.md): the
-  target-independence proof is a co-primary deliverable; any verdict is
-  attributed to target-blind spectral-subspace regularization, never
-  'consensus on signal'; the C4 random-subspace control is load-bearing.
-  All pre-registered verdict machinery unchanged (F1 first-unblinding, F2
-  hard mode, F3=0.00398, F5 L=4, F8, F10, F12).
-- **exp-003 (baseline sanity + power + budget + F4 gate): PASS on all
-  sub-components** (job 6432, 1.1 min). #8: 12 AdamW trials on tuning-block
-  eras only; best t07 (lr 1e-3, wd 1e-3, dropout 0.2) mean per-era
-  numerai_corr +0.0196 INSIDE the F9 band; zero-predictor ~+0.0003; leakage
-  gate NOT fired. Two extra seeds: +0.0129, +0.0153. #3 power PASS: F5
-  moving-block bootstrap (L=4), paired 3-seed design at 255 verdict eras
-  gives median CI half-width 0.00219; detection ~0.90-0.92 at +/-threshold.
-  F3 FROZEN at 0.00398 (0.25 x 3-seed mean +0.01594, winner's-curse-
-  corrected). F4 gate: P(any verdict category reachable) = 0.910 >= 0.6 ->
-  GO. #4 budget PASS, no F7 cuts: exp-004 packs into one ~12.7-min job;
-  exp-005 fits at ~13.7 min/task. F12 signatures RECORDED (binding): wd and
+- exp-001 (gate bundle): in progress. Local sub-components DONE and healthy:
+  #6 integration smoke PASS (loss decreases; filter-off == plain AdamW to
+  fp64 precision; streaming variant runs; C1 spiked-covariance tests correct
+  in hard mode — iid noise keeps ~0.1% norm, planted spike kept at cos 0.96,
+  confound case measured: hard mode keeps the correlated zero-signal confound,
+  calibrating the 'engaged != meaningful' caveat). #9 data/protocol DONE:
+  Numerai v5 downloaded (~6GB local), 643 usable validation eras, F1 split =
+  tuning 0579-0966 (388 eras) / embargo 0967-0970 / verdict 0971-1225 (255
+  eras), F5 embargo 4 eras (=ceil(20d/5d)), F9 recalibrated sanity band
+  [0.0087, 0.0522] and leakage gate 0.0696 from current v5 example preds
+  (out/protocol.json, out/f9_recalibration.json). Train shard (150 eras, 705
+  medium features) staged on cluster. #7+#1 GPU debug job = Slurm job 6430,
+  queued PD(Resources) since 08:18, being watched.
+- exp-003: #8 GPU sweep SUBMITTED and COMPLETED as Slurm job 6432 (1.1 min on
+  one L40). Raw outcome: 12 AdamW trials on the 388 tuning-block eras only;
+  best trial t07 (lr 0.001, wd 0.001, dropout 0.2) mean per-era numerai_corr
+  +0.0196 — INSIDE the F9 band [0.0087, 0.0522]; zero-predictor ~+0.0003;
+  leakage gate NOT fired (no hard fail-fast). Two extra seeds of the best
+  config: +0.0129, +0.0153 (winner's-curse shrinkage visible). Local analysis
+  COMPLETE (results.md written): exp-003 = PASS on all sub-components.
+  #3 power PASS: F5 moving-block bootstrap (L=4, from lag-1 acf +0.247 and
+  the 4-era embargo), paired 3-seed design at 255 verdict eras gives median
+  CI half-width 0.00219 <= F3; detection ~0.90-0.92 at +/-threshold. F3
+  FROZEN at 0.00398 mean per-era numerai_corr (rule: 0.25 x the 3-seed mean
+  +0.01594 of the best config — the conservative winner's-curse-corrected
+  choice; sweep-selection alternative 0.00490 recorded but not used). F4
+  gate: P(any verdict category reachable) = 0.910 >= 0.6 -> GO (sensitivity:
+  at 2x measured seed noise it would read 0.096; that contingency lands in
+  exp-004's pre-authorized no-verdict path). #4 budget PASS, no F7 cuts:
+  exp-004 packs into ONE ~12.7-min GPU job (spectral tuning trial +
+  filter-on x3 + filter-off x3 + C4 random-subspace x3 + GAF ablation x3,
+  2000 steps @ B=1024); conditional exp-005 = 2-task array at ~13.7
+  min/task. F12 signatures RECORDED (binding on exp-004 wording): wd and
   dropout best at grid boundary with improving trends; spectral arm affords
-  ~1 tuning trial vs AdamW's 12.
-- **exp-004 (THE VERDICT EXPERIMENT): PASS — verdict returned** (job 6439,
-  5.4 min on one L40; local block-bootstrap analysis in
-  exp-004/out/verdict_analysis.json; full write-up in exp-004/results.md).
-  First and only unblinding of the 255 verdict eras; all arms/configs frozen
-  beforehand. **Pre-registered category: HURTS. Mandatory F12 downgrade
-  applied: "no evidence of benefit under the affordable tuning budget."**
-  Headline (filter_on − filter_off): −0.00527 mean per-era numerai_corr,
-  95% CI [−0.00886, −0.00181] (spearman −0.00607 [−0.00927, −0.00292]);
-  all three per-seed diffs negative; corr-Sharpe diff −0.200 [−0.416,
-  −0.004]. Arm levels: filter_off +0.00641, filter_on +0.00113, C4 random
-  subspace +0.00229, GAF −0.00042, zero-pred +0.00063. **Mechanism
-  attribution (load-bearing): filter_on vs C4 = −0.00116 CI [−0.00366,
-  +0.00134] — MP-eigenselection statistically indistinguishable from a
-  norm/k-matched random subspace**; all three filtered arms hurt similarly
-  (agreement-style update modification as a class). F8 tail breakdown:
-  monotone helps-on-worst-eras / hurts-on-best-eras gradient (Q1 +0.019 →
-  Q4 −0.0297) but flagged as regression-to-the-mean-contaminated
-  (outcome-conditioned bucketing); the unconditioned target-dispersion
-  split shows uniform hurt — no Feldman-tail pattern. Engagement confirmed
-  (selective on 100% of steps; k_med 1-4; update norm ~10x mean gradient —
-  amplification, not shrinkage). F9: verdict-block baseline +0.00641 is
-  BELOW the tuning-band [0.0087, 0.0522] — regime drift, reported;
-  leakage gate not fired; F3-vs-realized-baseline calibration gap (~62%
-  relative bar vs intended 25%) carried as a limitation.
-- **exp-005 (sequence-arm architecture consistency): PASS** (job 6614,
-  6.6 min on one L40; both authorization conditions held). GRU (hand-rolled
-  functional cell; within-era Numerai framing, T=15 x D=47 reshape of the
-  705 features — F13 'architecture consistency' claim supported, OHLCV
-  unused). On-cluster torch 2.5.1 correctness assert passed (4.77e-07).
-  **The MLP verdict REPLICATES on the GRU: same category (HURTS → F12
-  downgrade), headline −0.00484 CI [−0.00758, −0.00211]; spectral-vs-random
-  null replicates (−0.00011 CI [−0.00233, +0.00215]); corr-Sharpe −0.242
-  [−0.414, −0.073]; no dispersion-tail pattern.** Notable: the filter
-  engages in a different regime on the GRU (k~60, mild attenuation) vs the
-  MLP (k~1, ~10x amplification) yet produces near-identical harm and the
-  same null — strengthening the 'generic subspace projection/rescaling,
-  not spectral selection' account. Limitation: GRU used the t07 fallback
-  config — the tuning-shard 'wiped' determination was made from the login
-  node but /ephemeral is node-local, so the premise was false on the
-  execution node; config was frozen pre-unblinding and identical across
-  arms (protocol-valid), ~10 GPU-min re-tuning ask carried to Future Work.
-
-**Run-level answer to the motivating question** (for Steps 10-11): the
-Spectral Optimizer does NOT reduce the effect of noise on this large noisy
-financial dataset. Under the pre-registered protocol it significantly
-degraded out-of-sample performance on BOTH architectures (MLP and GRU),
-with the F12-mandated conservative wording "no evidence of benefit under
-the affordable tuning budget". The run's co-primary mechanistic
-contributions: (1) a proof that for scalar-output MSE the filter's
-eigenselection is exactly target-independent, and (2) matched controls
-showing MP-eigenselection is empirically indistinguishable from random
-subspace projection at the same kept-k/norm — together explaining WHY the
-label-noise 'coherence amplifier' story does not transfer to low-SNR
-financial regression. Carried limitations for the audit/report: C5 probe
-inconclusive; F3 calibration gap under regime drift; GRU config fallback;
-F8 baseline-quartile split is descriptive only; single spectral operating
-point (affordability asymmetry, F12).
-
-Step 9 complete. Next: Step 10 (results audit).
+  ~1 tuning trial vs AdamW's 12 -> any 'hurts' verdict must be downgraded
+  to 'no evidence of benefit under the affordable tuning budget'.
+- exp-001 GPU debug job 6430 COMPLETED (2.5 min on one L40, 08:57). Raw
+  outcome: #7 throughput healthy (31 ms/step filter-on at B=1024; projected
+  2000-step run ~1 min — far under the 20-min cap, no F11 scope change
+  needed). #1 engagement raw logs show selective k (4-57 of B) across all
+  modes/batch sizes/compositions with varying C3 cosines; the pass/fail crux
+  is C2 (permuted-target runs look qualitatively similar to real-target runs
+  in the coarse log — quantitative distinguishability analysis required).
+  Verdict analysis COMPLETE (results.md written): #6/#9/#7 all PASS;
+  headline #1 = FAIL on the C2 conjunct ONLY. Selectivity sustained (0<k<B on
+  100% of logged steps, kept-energy 0.29-0.89) and C3 clean (median cosF
+  0.25-0.83; >0.95 on <=15% of steps) — the pre-registered HARD fail-fast
+  trigger (all-modes degeneracy OR cosF>0.95 everywhere) did NOT fire. But
+  real-vs-permuted-target diagnostics are indistinguishable, with a PROOF:
+  for scalar-output MSE, per-sample gradients are +/-(residual sign) x a
+  target-independent Jacobian direction, so the row-normalized similarity
+  matrix satisfies S(y')=D S(y) D with D orthogonal — the whole engagement
+  eigenspectrum is exactly target-independent at fixed parameters (verified
+  fp64 to 8.9e-16; explains why MNIST cross-entropy in the prior project WAS
+  target-sensitive). 'Consensus' on this task measures Jacobian/factor
+  structure, not target signal — the core mechanistic finding of the run.
+  Binding registrations made before any OOS peek: F2 mode = hard (mp_factor
+  2.0; only mode passing C1 calibration), F6 = within-era composition. C5
+  probe inconclusive (carried as limitation). Surprise: ratio =
+  ||filtered||/||mean_grad|| exceeds 1 on 25-70% of steps — the filter often
+  AMPLIFIES (discards anti-aligned components), it is not shrinkage.
+- ORCHESTRATOR DECISION (exp-001 middle-case ruling, recorded for the Step
+  10 audit): exp-001's headline #1 is logged FAIL because the pre-registered
+  PASS criterion required C2 real-vs-permuted distinguishability, which
+  failed (by proof, not by noise). However the BINDING hard fail-fast
+  trigger in fail_fast_conditions (all-modes degeneracy OR C3>0.95
+  everywhere) did NOT fire — the filter does sustained selective
+  non-trivial work. The motivating question (does the optimizer improve OOS
+  performance vs tuned AdamW?) therefore remains open and answerable: a
+  target-blind spectral subspace projection can still help or hurt
+  generalization, like any structured regularizer. DECISION: proceed to
+  exp-004 under an AMENDED INTERPRETATION FRAME (recorded in
+  exp-004/plan.md): the target-independence proof is a co-primary
+  deliverable; any verdict is attributed to target-blind spectral-subspace
+  regularization, never 'consensus on signal'; the C4 random-subspace
+  control is load-bearing and protected. All pre-registered verdict
+  machinery unchanged (F1 first-unblinding, F2 hard mode, F3=0.00398, F5
+  L=4, F8, F10, F12). exp-001's mechanistic-pivot deliverable is BANKED
+  regardless of exp-004's outcome.
+- exp-004: plan.md written; experiment agent dispatched (~10:00) to build
+  the verdict shard (eras 0971-1225, first unblinding), run ONE ~13-min GPU
+  job (4 arms x 3 seeds), and compute the verdict locally.
+- exp-005 decision deferred until exp-004 returns (exp-002 PASS and budget
+  arithmetic both permit it; F13 naming rules apply).
+- Session note: resumed Step 9 session #2 (2026-08-01 ~09:40). exp-001 and
+  exp-003 results.md complete; exp-004 agent running.

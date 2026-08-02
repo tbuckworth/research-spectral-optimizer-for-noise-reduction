@@ -1,0 +1,54 @@
+verdict-block eras in eval: 255
+
+--- arm levels (mean per-era corr over verdict block) ---
+  filter_off : nc +0.00586 (seeds ['+0.00623', '+0.00674', '+0.00461']), sp +0.00677, Sharpe 0.328
+  filter_on  : nc +0.00102 (seeds ['+0.00298', '-0.00118', '+0.00127']), sp +0.00047, Sharpe 0.086
+  c4_random  : nc +0.00113 (seeds ['-0.00202', '+0.00448', '+0.00093']), sp +0.00113, Sharpe 0.111
+  zero_pred  : nc +0.00063, sp +0.00057
+
+F9: GRU baseline nc +0.00586 vs band [0.0087, 0.0522] -> OUTSIDE; leakage gate fired: False
+
+--- paired per-era diffs, moving-block bootstrap (L=4, 10000 resamples, 95% CI) ---
+  filter_on - filter_off: nc -0.00484 CI [-0.00758, -0.00211] -> hurts; sp -0.00630 CI [-0.00915, -0.00342]
+  c4_random - filter_off: nc -0.00473 CI [-0.00776, -0.00175] -> hurts; sp -0.00564 CI [-0.00854, -0.00270]
+  filter_on - c4_random: nc -0.00011 CI [-0.00233, +0.00215] -> doesnt_help; sp -0.00066 CI [-0.00285, +0.00150]
+  headline per-seed 0: nc diff -0.00325 CI [-0.00642, -0.00006]
+  headline per-seed 1: nc diff -0.00792 CI [-0.01248, -0.00328]
+  headline per-seed 2: nc diff -0.00335 CI [-0.00681, -0.00001]
+
+=== GRU-ARM VERDICT (filter_on vs filter_off, F3=0.00398): hurts -> F12 DOWNGRADE: no evidence of benefit under the affordable tuning budget (F12 downgrade of 'hurts') ===
+    mean paired diff -0.00484, CI [-0.00758, -0.00211]
+
+F10 corr-Sharpe: on 0.086 off 0.328 diff -0.242 CI [-0.414, -0.073] (excludes 0: True)
+
+--- F8 tail-era breakdown (quartiles; iid bootstrap within bucket, descriptive) ---
+  baseline_corr Q1 (n=64): diff +0.01277 CI~[+0.00982, +0.01575]
+  baseline_corr Q2 (n=63): diff -0.00058 CI~[-0.00390, +0.00263]
+  baseline_corr Q3 (n=64): diff -0.00944 CI~[-0.01234, -0.00654]
+  baseline_corr Q4 (n=64): diff -0.02204 CI~[-0.02485, -0.01921]
+  target_dispersion Q1 (n=64): diff -0.00977 CI~[-0.01348, -0.00573]
+  target_dispersion Q2 (n=63): diff -0.00140 CI~[-0.00597, +0.00321]
+  target_dispersion Q3 (n=64): diff -0.00398 CI~[-0.00799, +0.00020]
+  target_dispersion Q4 (n=64): diff -0.00415 CI~[-0.00837, +0.00012]
+
+--- engagement diagnostics (filtered arms, verdict runs) ---
+  c4_random_s0: k_med 60, ratio_med 0.810, cos_med 0.315
+  c4_random_s1: k_med 63, ratio_med 0.802, cos_med 0.336
+  c4_random_s2: k_med 60, ratio_med 0.846, cos_med 0.293
+  filter_on_s0: k_med 60, ratio_med 0.810, cos_med 0.780, kept_energy_med 0.973
+  filter_on_s1: k_med 63, ratio_med 0.802, cos_med 0.658, kept_energy_med 0.985
+  filter_on_s2: k_med 60, ratio_med 0.846, cos_med 0.758, kept_energy_med 0.946
+engagement_ok (filter engaged, selective, non-degenerate throughout): True
+
+--- architecture consistency: GRU (this exp) vs MLP (exp-004) ---
+  quantity                    MLP (exp-004)  GRU (exp-005)
+  baseline nc (filter_off)         +0.00641       +0.00586
+  filter_on nc                     +0.00113       +0.00102
+  c4_random nc                     +0.00229       +0.00113
+  headline diff (on-off)           -0.00527       -0.00484
+  on-c4 diff                       -0.00116       -0.00011
+  MLP headline: -0.00527 CI [-0.00886, -0.00181] -> hurts
+  GRU headline: -0.00484 CI [-0.00758, -0.00211] -> hurts
+  same category: True; same direction: True
+
+wrote out/seq_analysis.json

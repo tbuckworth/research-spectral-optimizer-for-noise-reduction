@@ -1,0 +1,104 @@
++ cd /mnt/nw/home/t.buckworth/researcher-runs/2026-07-31-spectral-optimizer-for-noise-reduction-on-financial-timeseri/exp-005
++ EPH=/ephemeral/t.buckworth/researcher-shards
++ mkdir -p /ephemeral/t.buckworth/researcher-shards
++ '[' '!' -f /ephemeral/t.buckworth/researcher-shards/shard_train.parquet ']'
++ '[' '!' -f /ephemeral/t.buckworth/researcher-shards/shard_verdict.parquet ']'
++ ls -la /ephemeral/t.buckworth/researcher-shards
+total 533788
+drwxrwx--- 2 t.buckworth t.buckworth      4096 Aug  1 16:31 .
+drwx------ 5 t.buckworth t.buckworth      4096 Aug  1 08:54 ..
+-rw-rw---- 1 t.buckworth t.buckworth 103633413 Aug  1 08:54 shard_train.parquet
+-rw-rw---- 1 t.buckworth t.buckworth 267171114 Aug  1 08:57 shard_tuning.parquet
+-rw-rw---- 1 t.buckworth t.buckworth 175777623 Aug  1 16:31 shard_verdict.parquet
++ python -u src/seq_job.py --train-shard /ephemeral/t.buckworth/researcher-shards/shard_train.parquet --verdict-shard /ephemeral/t.buckworth/researcher-shards/shard_verdict.parquet --ref ref --outdir out
+device: cuda, torch 2.5.1+cu121
+gpu: NVIDIA L40
+FROZEN: GRU T=15 D=47 (15x47=705, no padding) H=64 params=21761; t07 lr=0.001 wd=0.001 do=0.2 (FALLBACK: tuning shard wiped -> plan-authorized reuse of t07, NO GRU sweep; spectral arm has no sweep either, F12 asymmetry recorded), steps=2000, B=1024, seeds=[0, 1, 2], mode=hard mp_factor=2.0 (F2), within-era batches (F6), C4 rule = k+ratio traj matched to filter_on same seed, random orthonormal sample-subspace; GAF arm CUT (plan: cut first). F13: within-era Numerai framing -> architecture-consistency claim.
+train shard: 384000 rows, 705 features, 150 eras (0425..0574)
+verdict shard: 652800 rows, 705 features, 255 eras (0971..1225)
+
+-- correctness guard: vmap(grad) vs python-loop reference (GRU, B=64, eval mode, real train rows) --
+  w_ih     shape=(64, 192, 47)  max_abs_diff=1.192e-07  ref_max_abs=4.785e-01
+  w_hh     shape=(64, 192, 64)  max_abs_diff=4.470e-08  ref_max_abs=1.823e-01
+  b_ih     shape=(64, 192)  max_abs_diff=1.788e-07  ref_max_abs=5.092e-01
+  b_hh     shape=(64, 192)  max_abs_diff=5.960e-08  ref_max_abs=2.701e-01
+  head_w   shape=(64, 64)  max_abs_diff=4.768e-07  ref_max_abs=1.596e+00
+  head_b   shape=(64, 1)  max_abs_diff=3.576e-07  ref_max_abs=2.086e+00
+GUARD max abs diff (all params): 4.768e-07 -> PASS (tol 1e-05) [4.6s]
+
+zero-predictor: mean spearman +0.00057, mean numerai_corr +0.00063 over 255 eras
+
+### filter_off_s0
+    step    0 loss 0.14303
+    step  400 loss 0.05097
+    step  800 loss 0.05046
+    step 1200 loss 0.05105
+    step 1600 loss 0.04863
+  filter_off_s0: mean spearman +0.00739, mean numerai_corr +0.00623 (train 19.4s)
+
+### filter_on_s0
+    step    0 loss 0.14303 k     72 ratio 0.990 cos 0.991
+    step  400 loss 0.05324 k     64 ratio 0.915 cos 0.642
+    step  800 loss 0.05086 k     61 ratio 0.870 cos 0.764
+    step 1200 loss 0.05112 k     58 ratio 1.569 cos 0.580
+    step 1600 loss 0.04914 k     58 ratio 1.394 cos 0.958
+  filter_on_s0: mean spearman +0.00287, mean numerai_corr +0.00298 (train 60.2s)
+
+### c4_random_s0
+    step    0 loss 0.14303 k     72 ratio 0.990 cos 0.589
+    step  400 loss 0.05685 k     64 ratio 0.915 cos 0.361
+    step  800 loss 0.05025 k     61 ratio 0.870 cos 0.477
+    step 1200 loss 0.05125 k     58 ratio 1.569 cos 0.432
+    step 1600 loss 0.04883 k     58 ratio 1.394 cos -0.062
+  c4_random_s0: mean spearman -0.00138, mean numerai_corr -0.00202 (train 39.1s)
+
+### filter_off_s1
+    step    0 loss 0.16808
+    step  400 loss 0.05325
+    step  800 loss 0.05258
+    step 1200 loss 0.04871
+    step 1600 loss 0.05141
+  filter_off_s1: mean spearman +0.00817, mean numerai_corr +0.00674 (train 21.7s)
+
+### filter_on_s1
+    step    0 loss 0.16808 k     70 ratio 1.007 cos 0.990
+    step  400 loss 0.05424 k     64 ratio 0.880 cos 0.660
+    step  800 loss 0.05316 k     63 ratio 0.697 cos 0.844
+    step 1200 loss 0.04886 k     62 ratio 0.980 cos 0.347
+    step 1600 loss 0.05124 k     62 ratio 1.640 cos 0.334
+  filter_on_s1: mean spearman -0.00200, mean numerai_corr -0.00118 (train 59.2s)
+
+### c4_random_s1
+    step    0 loss 0.16808 k     70 ratio 1.007 cos 0.565
+    step  400 loss 0.06110 k     64 ratio 0.880 cos 0.064
+    step  800 loss 0.05380 k     63 ratio 0.697 cos 0.647
+    step 1200 loss 0.04914 k     62 ratio 0.980 cos 0.142
+    step 1600 loss 0.05200 k     62 ratio 1.640 cos 0.296
+  c4_random_s1: mean spearman +0.00408, mean numerai_corr +0.00448 (train 43.1s)
+
+### filter_off_s2
+    step    0 loss 0.27325
+    step  400 loss 0.05397
+    step  800 loss 0.05203
+    step 1200 loss 0.04874
+    step 1600 loss 0.05024
+  filter_off_s2: mean spearman +0.00475, mean numerai_corr +0.00461 (train 22.9s)
+
+### filter_on_s2
+    step    0 loss 0.27325 k     73 ratio 1.118 cos 0.997
+    step  400 loss 0.05748 k     65 ratio 0.622 cos 0.678
+    step  800 loss 0.05397 k     62 ratio 0.771 cos 0.840
+    step 1200 loss 0.05001 k     59 ratio 0.900 cos 0.680
+    step 1600 loss 0.05140 k     58 ratio 0.730 cos 0.636
+  filter_on_s2: mean spearman +0.00053, mean numerai_corr +0.00127 (train 67.2s)
+
+### c4_random_s2
+    step    0 loss 0.27325 k     73 ratio 1.118 cos 0.863
+    step  400 loss 0.06342 k     65 ratio 0.622 cos 0.328
+    step  800 loss 0.05669 k     62 ratio 0.771 cos 0.181
+    step 1200 loss 0.05032 k     59 ratio 0.900 cos 0.090
+    step 1600 loss 0.05114 k     58 ratio 0.730 cos 0.389
+  c4_random_s2: mean spearman +0.00071, mean numerai_corr +0.00093 (train 40.5s)
+
+Total job time: 6.6 min
+wrote per_era_numerai_corr.csv, per_era_spearman.csv, diagnostics.json, traj_*.npz
