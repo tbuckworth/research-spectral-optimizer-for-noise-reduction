@@ -1,1 +1,1 @@
-[Auto-Research] Spectral gradient-filtering optimizer on noisy financial data — Run Incomplete (verdict experiment ran but was never analyzed) — 2 pass, 1 fail
+[Auto-Research] Spectral gradient filtering on noisy financial data — Negative Result (audit-reproduced true null, filter provably target-blind)
