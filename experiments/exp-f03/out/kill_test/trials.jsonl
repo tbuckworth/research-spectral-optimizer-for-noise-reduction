@@ -1,0 +1,6 @@
+{"completed_at": 1785836583.1286104, "final_loss": 0.35796534119867074, "lr": 0.0003, "seed": 0, "tag": "t01_lr0.0003_wd0", "train_seconds": 1.935361385345459, "trial_id": 1, "wd": 0.0}
+{"completed_at": 1785836585.10716, "final_loss": 0.3580395203588272, "lr": 0.0003, "seed": 0, "tag": "t02_lr0.0003_wd0.001", "train_seconds": 1.9374804496765137, "trial_id": 2, "wd": 0.001}
+{"completed_at": 1785836587.0330775, "final_loss": 0.33723159239412803, "lr": 0.001, "seed": 0, "tag": "t03_lr0.001_wd0", "train_seconds": 1.8971211910247803, "trial_id": 3, "wd": 0.0}
+{"completed_at": 1785836591.2632508, "final_loss": 0.33707297006935344, "lr": 0.001, "seed": 0, "tag": "t04_lr0.001_wd0.001", "train_seconds": 1.8964407444000244, "trial_id": 4, "wd": 0.001}
+{"completed_at": 1785836593.1219401, "final_loss": 0.31697648162112446, "lr": 0.003, "seed": 0, "tag": "t05_lr0.003_wd0", "train_seconds": 1.8187599182128906, "trial_id": 5, "wd": 0.0}
+{"completed_at": 1785836595.020334, "final_loss": 0.31288350396500164, "lr": 0.003, "seed": 0, "tag": "t06_lr0.003_wd0.001", "train_seconds": 1.8591761589050293, "trial_id": 6, "wd": 0.001}

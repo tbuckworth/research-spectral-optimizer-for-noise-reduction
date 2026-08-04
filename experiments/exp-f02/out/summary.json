@@ -1,0 +1,175 @@
+{
+  "a": {
+    "pass": true,
+    "loss_first20": 0.3690326474606991,
+    "loss_last20": 0.06692493110895156,
+    "diagnostics_sane": true,
+    "sanity_problems": [],
+    "required_fields_present": true,
+    "n_rotation_measurements": 19,
+    "d1_series_ok": true,
+    "d1_valid_scores": [
+      {
+        "step": 25,
+        "valid_score": 0.09038472491012345
+      },
+      {
+        "step": 50,
+        "valid_score": 0.09840135129817604
+      },
+      {
+        "step": 75,
+        "valid_score": 0.08576549824905177
+      },
+      {
+        "step": 100,
+        "valid_score": 0.08040393308443386
+      },
+      {
+        "step": 125,
+        "valid_score": 0.08077884851834449
+      },
+      {
+        "step": 150,
+        "valid_score": 0.07368418900607793
+      },
+      {
+        "step": 175,
+        "valid_score": 0.07952043804481096
+      },
+      {
+        "step": 200,
+        "valid_score": 0.07684166472164032
+      }
+    ],
+    "knob_smoke_ok": true,
+    "knob_report": [
+      {
+        "rank": 4,
+        "weighting": "hard",
+        "final_loss": 0.06370382010936737,
+        "realized_k_last": 4,
+        "ok": true
+      },
+      {
+        "rank": 16,
+        "decay": 0.999,
+        "warmup": 5,
+        "weighting": "hard",
+        "final_loss": 0.07151256501674652,
+        "realized_k_last": 16,
+        "ok": true
+      },
+      {
+        "rank": 8,
+        "weighting": "soft",
+        "alpha": 1.0,
+        "soft_residual": true,
+        "final_loss": 0.2193242907524109,
+        "realized_k_last": 8,
+        "ok": true
+      },
+      {
+        "rank": 8,
+        "weighting": "soft",
+        "alpha": 0.5,
+        "soft_residual": false,
+        "final_loss": 0.05933748930692673,
+        "realized_k_last": 8,
+        "ok": true
+      },
+      {
+        "rank": 16,
+        "weighting": "hard",
+        "energy_threshold": 0.9,
+        "final_loss": 0.16043052077293396,
+        "realized_k_last": 1,
+        "ok": true
+      },
+      {
+        "rank": 16,
+        "weighting": "hard",
+        "adaptive": "effrank",
+        "final_loss": 0.12708760797977448,
+        "realized_k_last": 2,
+        "ok": true
+      },
+      {
+        "rank": 16,
+        "weighting": "hard",
+        "adaptive": "gap",
+        "final_loss": 0.19350484013557434,
+        "realized_k_last": 2,
+        "ok": true
+      }
+    ],
+    "summary": {
+      "n_steps": 200,
+      "n_active_steps": 180,
+      "eigh_fallback_count": 0,
+      "n_valid_scores": 8,
+      "mean_cosine": 0.657974300289484,
+      "min_cosine": 0.42798318280977393,
+      "mean_kept_norm_fraction": 0.6579723224043846,
+      "min_kept_norm_fraction": 0.4279797077178955,
+      "max_kept_norm_fraction": 0.9430773854255676,
+      "mean_distance_from_identity": 0.342025699710516,
+      "realized_k_first": 8,
+      "realized_k_last": 8,
+      "realized_k_min": 8,
+      "realized_k_max": 8,
+      "n_rotation_measurements": 19,
+      "mean_rotation_angle": 0.09977372092214681,
+      "max_rotation_angle": 0.34257129484113047
+    },
+    "seconds": 0.6073048114776611
+  },
+  "b": {
+    "pass": true,
+    "max_abs_diff": 0.0,
+    "bit_identical": true,
+    "structural_failure": false,
+    "seconds": 0.07373356819152832
+  },
+  "c": {
+    "pass": true,
+    "cos_top": 0.9769813418388367,
+    "cos_filtered_vs_u": 0.9944514036178589,
+    "probe_kept_norm_fraction": 0.7077205777168274,
+    "diagnostics_sane": true,
+    "seconds": 0.18048858642578125
+  },
+  "d": {
+    "pass": true,
+    "fallback_count": 3,
+    "expected_count": 3,
+    "error": null,
+    "final_loss": 0.0820261538028717,
+    "params_finite": true,
+    "count_in_diagnostics": 3,
+    "seconds": 0.11174511909484863
+  },
+  "e": {
+    "pass": true,
+    "mean_zero": 0.0,
+    "mean_random": 0.004623098220914614,
+    "mean_signal": 0.9881637487945888,
+    "n_eras": 40,
+    "seconds": 0.03011012077331543
+  },
+  "rng": {
+    "pass": true,
+    "paired_identical": true,
+    "negative_control_diverges": true,
+    "first_divergent_step": 1,
+    "seconds": 0.0009198188781738281
+  },
+  "overall_pass": true,
+  "total_seconds": 1.0084800720214844,
+  "env": {
+    "torch": "2.11.0+cu128",
+    "numpy": "1.26.4",
+    "python": "3.12.3",
+    "device": "cpu"
+  }
+}

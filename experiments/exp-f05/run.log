@@ -1,0 +1,74 @@
+=== exp-f05 run.log (resumed session) ===
+Tue  4 Aug 11:06:16 BST 2026
+Python: Python 3.12.3, torch 2.11.0+cu128 (CPU-only use), numpy 1.26.4, nproc=8, TORCH_THREADS=6
+
+[resume-verify] Prior session state check:
+  - out/part1_main.json was from a T=620 SMOKE run (code default T=2200):
+    * Cb k512 entries all null (r=2048 span tracker fills at t~2048 > 620)
+    * B k2048 basis unfilled (k_real_last=600)
+    * out/part1_planted.json missing (criterion 7 never ran)
+  -> part1 verdict: NOT complete against plan; full re-run required.
+  - Preserved smoke output as out/part1_main_T620_smoke.json
+  - T=620 smoke signal: Cb(k=8,eta=0) rotation 65.3 deg/25steps vs B8 17.3 deg -> ratio 3.8, outside pre-declared [0.5,2.0].
+    Fix under test: slower span-tracker decay (0.999) = larger history span (consistent with D2); adding decay dimension to part1.
+  - part2_descent.py never run; defects found on review:
+    * Cb k=128 (r=256>warmup=100): steps 101-255 measured on partially-filled span (clone-degenerate) -> contaminate medians; fix = steady-state (span-full) aggregation
+    * no C-arm rotation-rate logging (criterion 3 in real p-space); fix = log every 25 steps
+    * Cb tracker decay/eta hardcoded; fix = parametrize from part1 winner
+
+
+=== part1_stream.py FULL RUN (T=2400 main + T=600 planted) start Tue  4 Aug 11:07:49 BST 2026 ===
+[part1/main] T=2400 stream p=600000 r_true=64 r_amb=128 sig/noise energy = 1.0/1.0 (SNR 1:1), B decay=0.99, C span-tracker decay in {0.99, 0.999}
+  t=  200  k_real={8: 8, 512: 200, 2048: 200}  wall=    1.3s
+  t=  400  k_real={8: 8, 512: 400, 2048: 400}  wall=    5.7s
+  t=  600  k_real={8: 8, 512: 512, 2048: 600}  wall=   14.5s
+  t=  800  k_real={8: 8, 512: 512, 2048: 800}  wall=   28.1s
+  t= 1000  k_real={8: 8, 512: 512, 2048: 1000}  wall=   48.3s
+  t= 1200  k_real={8: 8, 512: 512, 2048: 1200}  wall=   77.9s
+  t= 1400  k_real={8: 8, 512: 512, 2048: 1399}  wall=  119.5s
+  t= 1600  k_real={8: 8, 512: 512, 2048: 1520}  wall=  444.5s
+  t= 1800  k_real={8: 8, 512: 512, 2048: 1569}  wall=  517.1s
+
+=== RESUME (new session) Tue  4 Aug 11:22:15 BST 2026 ===
+[resume-verify-2] out/part1_main.json (mtime 11:07) inspected: T=260 debug run
+  (B t_last=250, only k8 Cb entries non-null) -> NOT the full run; renamed to
+  out/part1_main_T260_stale.json. Prior FULL run (launched 11:07:49) was KILLED
+  at t=1800/2400 when the session ended; part1_stream.py has no checkpoint ->
+  clean restart below. part2_descent.py (mtime 11:09) already contains the three
+  recorded fixes: (1) Cb steady-state span-full aggregation, (2) C-arm rotation
+  logging every 25 steps, (3) Cb decay/eta parametrized from part1 winner via
+  select_cb_config(). Verified by code read; no rewrite needed.
+
+=== part1_stream.py FULL RUN RESTART (T=2400 main + T=600 planted) start Tue  4 Aug 11:22:15 BST 2026 ===
+[part1/main] T=2400 stream p=600000 r_true=64 r_amb=128 sig/noise energy = 1.0/1.0 (SNR 1:1), B decay=0.99, C span-tracker decay in {0.99, 0.999}
+  t=  200  k_real={8: 8, 512: 200, 2048: 200}  wall=    1.2s
+  t=  400  k_real={8: 8, 512: 400, 2048: 400}  wall=    5.2s
+  t=  600  k_real={8: 8, 512: 512, 2048: 600}  wall=   13.6s
+  t=  800  k_real={8: 8, 512: 512, 2048: 800}  wall=   26.8s
+  t= 1000  k_real={8: 8, 512: 512, 2048: 1000}  wall=   47.0s
+
+=== part2_smoke.py (code-path check, STEPS=120) Tue  4 Aug 11:23:30 BST 2026 ===
+/media/titus/big/researcher-output/2026-08-03-followup-follow-up-spectral-optimizer-redo-pxp-filter-walk-/experiments/exp-f05/src/part2_descent.py:125: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:836.)
+  losses.append(float(loss))
+  [A] step  100 loss=0.6245 wall=  16.8s
+  [A] final_loss=0.6614 excess=0.1614 wall=19.4s
+  [B_k8] step  100 loss=0.7405 wall=  23.8s
+  [B_k8] final_loss=0.7727 excess=0.2727 wall=29.0s
+  [Ca_k8] step  100 loss=0.7372 wall=  51.3s
+  [Ca_k8] final_loss=0.7750 excess=0.2750 wall=56.0s
+  t= 1200  k_real={8: 8, 512: 512, 2048: 1200}  wall=  178.7s
+  [Cb_k8_r32] step  100 loss=0.7812 wall=  25.1s
+  [Cb_k8_r32] final_loss=0.8237 excess=0.3237 wall=32.2s
+  [Cc_k8] step  100 loss=0.7386 wall=  36.5s
+  [Cc_k8] final_loss=0.7755 excess=0.2755 wall=43.0s
+[smoke] A      final=0.6614 rot25=None steady=None/None amp_med=None
+[smoke] B_k8   final=0.7727 rot25=20.99165153503418 steady=None/None amp_med=None
+[smoke] Ca_k8  final=0.7750 rot25=13.028136730194092 steady=80/80 amp_med=104.04534402712918
+[smoke] Cb_k8  final=0.8237 rot25=62.71525955200195 steady=80/80 amp_med=2.2622013251185393
+[smoke] Cc_k8  final=0.7755 rot25=4.196692705154419 steady=80/80 amp_med=99.14528421061294
+[smoke] all arm code paths executed OK
+  t= 1400  k_real={8: 8, 512: 512, 2048: 1399}  wall=  286.5s
+  t= 1600  k_real={8: 8, 512: 512, 2048: 1520}  wall=  344.0s
+  t= 1800  k_real={8: 8, 512: 512, 2048: 1569}  wall=  416.6s
+  t= 2000  k_real={8: 8, 512: 512, 2048: 1536}  wall=  504.6s

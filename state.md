@@ -1,708 +1,475 @@
 ---
-run_id: 2026-07-31-spectral-optimizer-for-noise-reduction-on-financial-timeseri
-topic: "Spectral Optimizer (for noise reduction) on Financial Timeseries Data"
-current_step: 11
-status: complete
+run_id: 2026-08-03-followup-follow-up-spectral-optimizer-redo-pxp-filter-walk-
+topic: "Spectral Optimizer redo: pxp filter, walk-forward split, rank sweep"
+current_step: 8
+status: failed
+fail_fast_agreement: true
+criteria_approved: true
 mode: autonomous
 agent_backend: claude
 agent_model: "fable"
-issue_number: 2073
+issue_number: 2080
 compute_profile: "MATS Slurm cluster, driven REMOTELY over SSH from wherever this run is executing (laptop or desktop) - you are NOT on the cluster. Every cluster command is prefixed: ssh mats '<cmd>' for the dev/login node, ssh mats-controller '<cmd>' for the controller (the only place gpu-avail and gpu-cost exist). AUTHORIZED COMPUTE: the FREE 'compute' partition only - one shared always-on node with 8x NVIDIA L40 (48GB VRAM each). Your concurrent cap across all your jobs is 6 GPUs, 124 CPUs, and 384GB RAM; max wall time is 24h per job. Request 1 GPU (--gres=gpu:1) unless the experiment genuinely needs more, and up to 6 when it does (single node, so torchrun/FSDP works). Sizing on 48GB: fp16 inference up to ~20B params, LoRA/QLoRA fine-tuning up to ~7B (13B with care), full fine-tuning only up to ~2-3B. Add --qos=debug for validation runs under 2h to jump the queue. PAID elastic-* partitions (A100/H100) are NOT authorized and the account is not enabled for them: if an experiment needs more than 6 L40s or more VRAM per device, do not attempt it - record a FAIL-on-affordability with the exact resource ask and continue. WORKFLOW for each experiment: (1) write the code and an sbatch script locally under experiments/exp-NNN/; (2) stage it with rsync -avP experiments/exp-NNN/ mats:/mnt/nw/home/t.buckworth/researcher-runs/<run-id>/exp-NNN/; (3) submit with ssh mats 'cd /mnt/nw/home/t.buckworth/researcher-runs/<run-id>/exp-NNN && mkdir -p logs && sbatch run.sbatch' - create logs/ BEFORE sbatch, because Slurm opens the output file at job launch and an in-script mkdir is too late; (4) poll with ssh mats 'squeue -u t.buckworth' until the job leaves the queue (PD pending, R running, CG completing), sleeping 60s between polls rather than busy-looping - the free partition is shared and a PD (Resources) wait of tens of minutes is normal, NOT a failure, so keep waiting; do NOT end the step while a job you submitted is still queued or running - if you must stop, first record the job id and its experiment in state.md so the next attempt resumes waiting instead of resubmitting; and before submitting anything, run squeue and check whether a job for this experiment is already queued or running, because the step may be retried after an interruption and duplicate submissions waste the shared partition; (5) pull results back with rsync -avP mats:.../exp-NNN/ experiments/exp-NNN/ and copy the full slurm log into run.log. NEVER run training, fine-tuning, heavy inference, or long CPU loops in an ssh shell on the dev node - it is the shared login node and that is the cluster's worst etiquette violation. Never run agents or jobs on the controller. The local machine this run executes on is for orchestration, plotting, and light analysis of returned results only - do not silently fall back to a local GPU for experiments under this profile. Job script requirements: all #SBATCH lines must precede the first command (any command above them silently disables every directive below); include --partition=compute, --gres=gpu:1, a realistic --time, --job-name, --cpus-per-task=8, --mem=32G, --output=logs/slurm-%j.out. Storage on the cluster: code, checkpoints, and final results under /mnt/nw/home/t.buckworth (persistent NFS, NOT backed up - pull anything irreplaceable back to this machine); HuggingFace cache, dataset shards, and intermediate outputs under /ephemeral/t.buckworth (fast local scratch, wiped on reboot) via HF_HOME=/ephemeral/t.buckworth/hf. Inside every job script: source ~/venv/bin/activate (the cluster's shared venv) and run python with -u so logs are not buffered. That venv pins torch 2.5.1+cu121 to match the workers' CUDA 12.2 driver - do NOT upgrade torch or install one from default PyPI, which breaks CUDA on every job. Diagnostics: ssh mats 'scontrol show job <jobid>' explains a stuck job; sacct works only from the controller (it errors with Connection refused on the dev node); nvidia-smi on the dev node fails because there is no GPU there, which is expected; on compute, nvidia-smi inside a job lists all 8 physical GPUs but you only own $CUDA_VISIBLE_DEVICES; an empty .out file on a running job is usually stdout buffering. scancel anything left idle. Prefer lightweight experiments (small open-weight models), each targeting under 30 min of GPU time. Max 5 experiments."
-is_followup: false
+knowledge_base: "none"
+is_followup: true
+parent_issue: 2073
+prior_repo: https://github.com/tbuckworth/research-spectral-optimizer-for-noise-reduction
+prior_run_id: 2026-07-31-spectral-optimizer-for-noise-reduction-on-financial-timeseri
+followup_focus: from_decomposition
 novelty_verdict: NOVEL
-criteria_approved: true
-challenge_outcome: proceed_with_revisions
-mentor_verdict: MAJOR_REVISIONS
+challenge_verdict: MINOR_REVISIONS
+challenge_outcome: proceed_with_notes
+design_triage: written
+challenge_loop_count: 1
+construct_validity: ok
 clarifications:
   - q: "What is the motivating question (in the topic's own framing)?"
-    a: "Can the existing Spectral Optimizer (a gradient-filtering wrapper around Adam/AdamW) be used to reduce the effect of noise when training models on large, noisy financial time-series data — i.e., does it improve out-of-sample (test-set) predictive performance relative to plain Adam/AdamW? The deliverable must return a verdict on whether the Spectral Optimizer HELPS on this data regime, not merely measure differences. Secondary question: is any benefit consistent across architectures — a plain MLP and at least one recurrent/state-of-the-art time-series architecture?"
+    a: "This is a follow-up to run 2026-07-31-spectral-optimizer-for-noise-reduction-on-financial-timeseri. The motivating question is unchanged and directional: does the Spectral Optimizer improve out-of-sample predictive performance versus tuned AdamW on large, noisy financial time-series data (Numerai v5)? The prior run found a rigorous, audited negative — but on the wrong optimizer (the per-sample B×B SpectralConsensusFilter instead of the actual p×p SpectralGradientFilter) and on a broken temporal split (~5.4-year train→test gap, no refit, baseline at 27% of Numerai's example model), so the answer does not count. The user's feedback: redo it correctly — same question, correct object, correct protocol. This run must return WINS / HURTS / NULL per the pre-registered decision rule: (B−A) 95% CI excluding zero with the same sign on >= 2 of 3 walk-forward folds."
   - q: "What do key terms mean?"
-    a: "'Spectral Optimizer' = the EXISTING implementation from the prior project at /home/titus/pyg/optimizers (GitHub tbuckworth; do NOT recreate it — reuse the code). Two reusable variants exist: (1) experiments/spectral_optimizer.py — SpectralConsensusFilter, which computes per-sample gradients via torch.func vmap, eigendecomposes the B x B inter-sample gradient similarity matrix, and keeps only gradient directions many samples agree on (Marchenko-Pastur-style threshold, hard/soft/variance modes), wrapping any base optimizer; (2) experiments/weight_cov_optimizer_v2.py — a streaming rank-k gradient-covariance filter (~2x Adam cost, no B x B or p x p matrix formed). Prior findings (README.md): strongest result is label-noise robustness (MNIST @ 90% label noise: ~80% accuracy vs ~37% for Adam); mechanism characterized as a 'coherence amplifier' — helps when useful signal is the gradient-coherent component, hurts when signal is weak/not yet dominant (sparse parity). 'Noise reduction on financial time series' = financial return prediction is a low signal-to-noise regime; the hypothesis is that consensus/covariance filtering suppresses fitting of idiosyncratic noise and improves generalization. 'Stadia models / RushCursive models' in the issue is speech-to-text garbling, interpreted as: state-of-the-art / state-space time-series architectures, like recursive (recurrent) models — i.e., compare on a plain MLP AND on whatever architectures are standard for this task (e.g., LSTM/GRU, or a small state-space/Mamba-style or transformer model); the literature step should confirm what is standard for noisy financial tabular/time-series prediction."
+    a: "'Spectral Optimizer' = SpectralGradientFilter at the REPO ROOT of ~/pyg/optimizers in spectral_filter.py (verified present 2026-08-03: class at line 52, filter_grad() at line 303; repo pulled, up to date). It keeps a streaming rank-k factorization of the p×p gradient covariance (p = parameter count), updated by rank-1 SVD each step, projecting the batch-mean gradient onto top-k eigendirections; never materializes p×p; only a (k+1)×(k+1) eigh on CPU; ~2× a bare Adam step. Usage: filt = SpectralGradientFilter(model, base_opt, rank=k); loss.backward(); filt.filter_grad(); base_opt.step(). Key knobs: rank, decay, warmup, weighting (hard/soft), alpha, soft_residual, energy_threshold, adaptive (none/effrank/gap), normalize — use normalize='none' per prior finding H7. DO NOT USE experiments/spectral_optimizer.py (SpectralConsensusFilter, the B×B per-sample variant): prior work already recorded its H4 failure, and the parent's fp64-verified proof that its engagement eigenspectrum is exactly target-independent for scalar-output MSE is fatal — for that variant only. That theorem depends on row normalization and does NOT bind SpectralGradientFilter; do not re-derive or transfer it; cite it only as a scoped side-note. 'Walk-forward split' = 3-fold expanding-window: TRAIN (all usable eras to T) / embargo E / VALID (hp selection only) / embargo E / TEST, then REFIT from scratch on train+embargo+valid at VALID-selected hps before evaluating TEST once. E = ceil(20/5) = 4. 'Rank sweep' = the retained-eigendirection count is a hyperparameter tuned on VALID (fixed log grid ~{8,32,128,512,2048} capped by p, adaptive effrank/gap, energy_threshold {0.90,0.99}, soft alpha {0.5,1,2}), never a frozen operating point — freezing one from a diagnostic proxy was the parent's fatal process error."
   - q: "What is the implanted/target construct, and is it a faithful goal (not a fixed string)?"
-    a: "N/A — this is not a covert/misaligned-behaviour topic. It is an empirical optimizer-evaluation study. The analogous validity concern: the evaluation must use genuinely noisy real (or realistically noisy) financial data with strict temporal train/test separation, so the outcome is not knowable a priori. The prior project's MNIST label-noise result does NOT predetermine the result here — financial noise is feature/target noise in a low-SNR regression regime, not synthetic label flips, and the prior work found the filter HURTS when signal is weak and not yet gradient-dominant, which is plausibly the financial regime. The outcome is genuinely uncertain in either direction."
+    a: "N/A — empirical optimizer-evaluation study, not a covert-behaviour topic. The analogous validity requirements, all mandated by the feedback: (1) THE assertion of the run, hard-asserted and printed per fold: min(test_eras) - max(refit_train_eras) == E + 1 == 5 — the test period begins one embargo after training ends, preventing the parent's 5.4-year-gap failure; (2) hard baseline gate: tuned AdamW must reach >= 0.60× the Numerai example model's mean per-era corr on each fold's TEST eras (from data/v5.0_validation_example_preds.parquet), else the comparison does not run on that fold and remaining budget goes to fixing the baseline; (3) matched tuning budget: 12 trials per arm, arm B's search space includes learning rate; (4) the norm/k-matched random-subspace control (arm C) separates 'spectral selection matters' from 'any low-rank projection does this'; (5) alpha=0 soft identity must reproduce plain AdamW, plus a seeded zero-predictor control. With these, the outcome is genuinely uncertain in both directions."
   - q: "What prior work is known?"
-    a: "The prior project itself: /home/titus/pyg/optimizers (README.md findings table H1-H7, research/spectral_filter_blog.html, research/literature_review.md). Related known lines: per-sample gradient agreement methods (e.g., gradient sign agreement / Agree-to-Disagree-style filtering, coherent gradients), random matrix theory / Marchenko-Pastur denoising of covariance matrices (well-established in quantitative finance for portfolio covariance, but there applied to RETURNS covariance, not per-sample GRADIENT covariance during training), and noisy-label robust training. The issue mentions the idea of a public leaderboard for financial prediction — the Numerai tournament dataset is the canonical large, noisy, obfuscated financial dataset with era-based out-of-sample evaluation and public downloads; plain stock/crypto return prediction with temporal splits is the fallback. Literature review (Step 2) should discover the rest."
+    a: "The parent run's 28-reference literature base carries over unchanged (copied to literature/; references.bib and citation-registry.md copied): closest neighbor Gradient Agreement Filtering (Chaubard et al. 2024); RMT/Marchenko-Pastur covariance cleaning in finance (returns covariance, not training gradients); Feldman long-tail memorization as counter-hypothesis; Gorishniy et al. matched-tuning-budget methodology. Parent-run empirical priors that inform THIS run: H7 (raw covariance beats var/degree normalization), H3 (rank <= 4 destabilizes; ~10 fastest on sparse parity), H5 (adaptive effective-rank was the only parity-grokking variant — 'adaptive spectral rank helps iff the solution is genuinely low-dimensional'), parent audit Finding 5 (fp32 cuSOLVER eigh fails stochastically under rank collapse — wrap the per-step eigh in a CPU-fp64 fallback from the start, log and report every firing; working patch in parent audit/rerun-exp-004/src/), and the parent's measured per-era corr autocorrelation (recompute per fold, do not inherit). Parent's exp-004 negative is a fact about the B×B variant on a broken split — 'Not Worth Pursuing' items from parent next-steps.md remain binding."
   - q: "What does success look like?"
-    a: "A proof of concept that returns a verdict on the motivating question: either (a) the Spectral Optimizer measurably improves out-of-sample performance vs tuned Adam/AdamW on at least one large noisy financial time-series task (with matched compute/hyperparameter budget and multiple seeds), characterized across at least two architectures (MLP + one recurrent/SOTA-style model), or (b) a well-documented negative result explaining why the coherence-amplification mechanism does not transfer to the low-SNR financial regime. A leaderboard-style held-out evaluation (e.g., Numerai validation eras) is desirable but a strict temporal test split suffices. Both outcomes are equally valuable."
+    a: "A verdict on the motivating question delivered against a baseline that demonstrably works (gate >= 0.60× example model passed per fold), with rank tuned on VALID rather than guessed, on a split where TEST begins one embargo after the refit training data ends. Decision rule: WINS if (B−A) > 0 with 95% CI excluding zero on >= 2 of 3 folds same sign; HURTS if the mirror; NULL otherwise; effect sizes with CIs reported regardless. Mechanism honesty: if B beats A but is statistically indistinguishable from C (random subspace), the conclusion is 'low-rank projection helps; spectral selection is not the active ingredient'. KILL CRITERION: if the gate passes, the rank sweep genuinely ran at matched budget, and the result is NULL or HURTS on >= 2 of 3 folds, the line is dead for financial tabular regression — write the clean negative and STOP; no fourth epicycle, no new dataset, no full-scale-rerun rescue. A well-evidenced negative counts only if the gate passed and the sweep actually happened. Pre-register the PROTOCOL (splits, embargo E=4, metrics, moving-block bootstrap, decision rule, baseline gate) before touching TEST; do NOT pre-register a filter operating point. Metrics: primary mean per-era numerai_corr on TEST; secondary mean per-era Spearman and corr-Sharpe (fixed stated bootstrap RNG, stability checked across >= 2 RNG seeds); >= 3 paired seeds per arm per fold; report (B−A), (B−C), (C−A) per fold with 95% moving-block-bootstrap CIs, block length from per-fold lag-1 ACF. [Step 6 challenge added binding amendments to the kill criterion and sweep spec — see decisions step 6.]"
   - q: "What is the scope and compute profile?"
-    a: "Experiments run within the run's compute profile: the MATS Slurm cluster free 'compute' partition (8x L40 48GB node), driven remotely over SSH, max 6 concurrent GPUs, jobs sized to under ~30 min GPU time each, max 5 experiments. Do not exceed it; components needing more become future work. The workloads here (MLPs and small recurrent models on tabular/time-series data, per-sample gradients via vmap at moderate batch sizes) fit comfortably on a single L40 per job. Prefer computationally lightweight experiments: small models, subsampled eras/assets where needed. No paid data sources — use freely downloadable datasets (e.g., Numerai public dataset, Yahoo Finance-style OHLCV, or standard public benchmarks). No live leaderboard submission is required (submission portals need accounts/keys); a held-out leaderboard-equivalent split is acceptable."
+    a: "Experiments run within the run's compute profile: MATS Slurm free 'compute' partition (L40s), driven remotely over SSH, 1 GPU per job, jobs targeting under ~30 GPU-min, max 5 experiments; do not exceed it — components needing more become future work. The p×p filter is ~2× Adam and parent AdamW runs were ~3 s, so this fits; the cost drivers are the full v5.0 feature set (mandatory unless VRAM forces reduction — then document as limitation) and longer re-tuned schedules on the much larger expanding-window training sets (parent's 2000 steps @ B=1024 must NOT be inherited). If a fold will not fit, reduce seeds before folds, and say so. Data (~6.3 GB) already on local disk in the parent run's data/ — copy or symlink, DO NOT re-download. Scope: MLP is the primary and probably only architecture; DO NOT rebuild the GRU arm (reshaped-tabular construct); 'Stadia/RushCursive' garble is ignored; no live leaderboard submission — walk-forward TEST blocks are the leaderboard equivalent. Reuse parent code: exp-001/src (download, data_prep era-purge/embargo arithmetic), exp-003/src (shard build, AdamW sweep harness), exp-004/src (random-subspace control, per-era eval, moving-block bootstrap), audit/rerun-exp-004 (independent bootstrap + eigh-fallback patch). Realized fold boundaries written to protocol.json (V ~= 96, S ~= 110, 3 contiguous TEST blocks covering the most recent data, coverage >= 0.95, computed from the realized usable-era list)."
   - q: "What assumptions are being made?"
-    a: "Standard ML assumptions, plus: (1) the existing Spectral Optimizer code is reusable outside its home repo as designed (it wraps any base optimizer; SpectralConsensusFilter assumes a per-sample loss signature — regression losses like MSE need a small loss_fn swap, and its step(inputs, targets) interface must be integrated into the new training loop); (2) per-sample gradient computation via torch.func vmap works for the chosen architectures (recurrent models may need care); (3) a public noisy financial dataset with a defensible out-of-sample protocol is freely downloadable; (4) noise in financial data is predominantly gradient-incoherent, so the consensus filter's mechanism applies. All will be challenged in Step 6."
+    a: "(1) SpectralGradientFilter integrates as documented (filter_grad() filters .grad in place between backward() and step()) — checked by the free alpha=0 identity test before any comparison is trusted; (2) the expanding-window training sets fit L40 VRAM/time budgets with the full feature set at re-tuned step counts; (3) the 0.60× example-model baseline gate is reachable with more data + refit + full features (the parent's shortfall was protocol-induced, not intrinsic) — if not, budget goes to baseline fixes (features, steps, network size, LR schedule, target transform, regularization) before any comparison; (4) per-fold moving-block bootstrap with recomputed block length gives valid CIs for era-autocorrelated per-era corr; (5) the (k+1)×(k+1) eigh fallback keeps numerics sound (parent audit Finding 5); (6) rank-1 SVD covariance updates remain well-conditioned over the longer schedules. All challenged in Step 6 — see challenge/ and the step 6 decision for outcomes."
 decisions:
   - step: 1
-    decision: "Located the existing Spectral Optimizer (per issue checklist): /home/titus/pyg/optimizers/experiments/spectral_optimizer.py (SpectralConsensusFilter) and weight_cov_optimizer_v2.py (streaming variant). Reuse, do not recreate."
+    decision: "Follow-up scope: from_decomposition. The feedback changes the research design (p×p SpectralGradientFilter instead of B×B variant; 3-fold expanding-window walk-forward with refit instead of the broken gap split; rank swept on VALID instead of frozen; baseline gate; matched 12-trial tuning) but not the framing, literature, or novelty. Copied from parent: literature/ (4 files), novelty-assessment.md, references.bib, citation-registry.md. Regenerating: success-criteria.md (Step 4), decomposition.md (Step 5), challenge/ (Step 6)."
   - step: 1
-    decision: "Interpreted garbled issue terms 'Stadia/RushCursive models' as state-of-the-art / recurrent (and possibly state-space) time-series architectures; literature review to confirm the standard comparison set."
+    decision: "Deliberate deviation from the from_decomposition default of current_step: 4 — set current_step: 3 so Step 4 REGENERATES success-criteria.md instead of copying the parent's. Rationale: the parent's criteria are anchored to the B×B variant and the broken split, and success-criteria.md is the frozen anchor for the Step 10 audit; reusing it would audit this run against the defects the run exists to fix. The brief's baseline gate (>= 0.60× example model), decision rule (>= 2/3 folds, CI excluding zero), matched tuning budget, and walk-forward protocol are the new criteria's core and are binding on the criteria agent."
   - step: 1
-    decision: "Leaderboard requirement relaxed to a leaderboard-equivalent held-out evaluation (e.g., Numerai validation eras or strict temporal test split); no live submission required."
-  - step: 2
-    decision: "Literature review complete: 28 curated references. Closest prior work is Gradient Agreement Filtering (Chaubard et al. 2024, simple agreement checks, no RMT thresholding); no published work combines per-sample gradient MP-spectral filtering with financial prediction. Evaluation protocol must follow Numerai practitioner standards (era-purged CV, per-era correlation, FNC) and DeepOBS-style matched tuning budgets. Feldman's long-tail memorization theory identified as the sharpest counter-hypothesis."
-  - step: 2
-    decision: "Architecture note discovered: Numerai asset IDs reset each era, so a longitudinal recurrent arm cannot run on Numerai directly — the sequence-architecture arm needs within-era framing or an OHLCV-style dataset. Flagged for Steps 4-5 design."
-  - step: 3
-    decision: "Novelty verdict: NOVEL. Proceeding. Closest neighbor is Gradient Agreement Filtering (Chaubard et al. 2024) — same intervention level but pairwise orthogonality checks on image classification, not MP-spectral thresholding on financial regression. The combination of per-sample gradient covariance eigenspectrum filtering + low-SNR financial evaluation is unoccupied across all 28 references from three search channels. Caveats: novelty rests on absence of evidence in an active niche (date the search, position against GAF, don't claim a vacuum); the contribution is the transfer verdict, not the optimizer itself (author's own unpublished prior work)."
+    decision: "Mandatory precondition verified before anything else (per the brief): git -C ~/pyg/optimizers pull → already up to date; ~/pyg/optimizers/spectral_filter.py exists and exposes SpectralGradientFilter (line 52) with filter_grad() (line 303). No file substitution needed."
+  - step: 1
+    decision: "novelty_verdict: NOVEL carried from parent — the contribution remains the transfer verdict (does gradient-covariance spectral filtering help low-SNR financial regression), now measured on the correct object; the niche was unoccupied across 28 references and nothing in the feedback changes the novelty position. The parent's negative is scoped to the B×B variant and does not pre-answer this run (its theorem depends on row normalization, which SpectralGradientFilter does not do). [Step 6 caveat: parent A4/F11 classified the B×B→p×p swap as a scope change requiring a novelty re-check against GaLore-style low-rank gradient projection, K-FAC lineage, and momentum-subspace methods; a targeted mini-search is REQUIRED before write-up (Step 11) — risk is to positioning, not experimental validity.]"
+  - step: 1
+    decision: "Binding constraints carried into all downstream steps: (a) hard per-fold assert min(test_eras) - max(refit_train_eras) == 5, printed in every fold's log — a run without this assertion firing is not answering the question; (b) baseline gate is a hard gate — no optimizer comparison on a fold whose gate fails; (c) kill criterion — gate passed + genuine matched-budget rank sweep + NULL/HURTS on >= 2/3 folds ⇒ clean negative, STOP, no rescue proposals; (d) DO NOT rebuild the GRU arm; (e) cite the parent's target-independence proof only as a scoped side-note about the B×B variant; (f) CPU-fp64 eigh fallback with logged firing count from the start; (g) protocol pre-registered before TEST is touched, filter operating point NOT pre-registered."
+  - step: 1
+    decision: "No knowledge base for this run (knowledge_base: none) — all KB actions skipped silently per workflow. Parent has no prior/knowledge/ directory (predates repo KBs); parent next-steps.md read directly from the parent run dir instead — this brief is its ranked step #1."
   - step: 4
-    decision: "Success criteria defined and auto-approved (autonomous mode). Task-side SOTA treated as Numerai practitioner sanity ranges (mean per-era corr ~0.01-0.04, corr-Sharpe ~0.5-1.0; far-above-band numbers signal leakage, not success). Comparison-side bar is methodological: tuned AdamW at DeepOBS-style matched tuning budget, >=3 seeds, filter-on vs filter-off at identical base config as the cleanest mechanism isolation. Verdicts have teeth: 'helps'/'hurts' require paired per-era CI excluding zero plus practical significance (>= ~0.005 mean per-era corr); 'doesn't help' is an equivalence-style claim (CI excludes >=0.005 improvement), not p>0.05. Every verdict requires spectral engagement diagnostics (eigendirections kept vs MP bulk, gradient-norm fraction passed) so a null reads 'mechanism engaged but didn't help', not 'implementation no-op'. Venues: TMLR primary, ICAIF secondary, NeurIPS OPT workshop fallback. Minimum viable contribution (Numerai + MLP, 2 arms + ablation) fits in <=3 of 5 experiment slots. Designated cuts under budget pressure: Muon and GBT baselines — never seeds or matched tuning."
+    decision: "success-criteria.md REGENERATED from scratch (not copied from parent) and auto-approved (autonomous mode). It is the frozen Step 10 audit anchor. All 10 binding elements from the follow-up brief are embedded: directional WINS/HURTS/NULL deliverable; pre-registered decision rule (95% CI excluding zero, same sign, >= 2 of 3 folds); hard baseline gate (arm A >= 0.60x example model per-fold TEST mean per-era corr, no comparison on a failed-gate fold); per-fold hard assert min(test_eras) - max(refit_train_eras) == E + 1 == 5 with E=4; matched 12-trial budget with LR in arm B's space and rank swept on VALID (never frozen); arm C norm/k-matched random-subspace mechanism control with the honesty clause; alpha=0 identity + zero-predictor sanity controls; metrics spec (per-era numerai_corr primary, Spearman + corr-Sharpe secondary, >= 3 paired seeds, per-fold moving-block bootstrap with recomputed block length, RNG fixed and stability-checked across >= 2 seeds, (B-A)/(B-C)/(C-A) per fold); kill criterion (clean negative = success, valid only if gate passed and sweep ran); protocol pre-registered before TEST, filter operating point NOT pre-registered. Notable design choices: an 'uninterpretable outcome' definition (failed gate on >= 2 unfixable folds, truncated sweep, assertion never fired) so the audit can distinguish a clean negative from a broken run; compute feasibility as a binding section (Muon baseline, second architecture, extra folds = future work, not criteria, and their absence is not an audit finding); the 5-experiment cap read as submitted experiment units with short trials batched inside jobs — Step 5 must size the decomposition to this. SOTA reference points: example model +0.0235 on parent test eras; parent AdamW +0.0064 (below its own sanity band, protocol-induced); parent B-x-B negative scoped as a side-note only. [SUPERSEDED by Step 6 loop-back: regeneration round 2 must preserve ALL of the above AND add the A-series amendments from the step 6 decision.]"
   - step: 5
-    decision: "Steinhardt decomposition complete: 9 components, no SHOWSTOPPERs, no SKIPs. Highest-lambda component is spectral engagement on financial gradients (P=0.40, lambda=1.22) — the prior project's weak-signal failure mode and Feldman's long-tail theory both predict possible degeneracy in the low-SNR regime; a fail pivots to a reportable mechanistic finding, not project death. Pre-experiment gate (~4-6h wall-clock, two --qos=debug GPU jobs ~25 min combined) spends zero of the 5 experiment slots. Overall P: ~0.07 for the full clean verdict, ~0.30 for an informative publishable outcome (since #1-fail and #3-fail convert to countable deliverables); sequence arm (P=0.35 on vmap feasibility) is a stretch goal, not plan of record."
+    decision: "Decomposition REGENERATED for the corrected design (agent read prior/decomposition.md, all 5 prior results.md files, and the follow-up brief). Parent PASS infrastructure banked as reuse, not re-tested: data (#9 marked SKIP — symlink from parent data/, never re-download), era arithmetic, sweep harness, bootstrap machinery, eigh-fallback patch (src/ from parent run dir or repo clone since prior/experiments/ holds only results/plans). 8 active components; no SHOWSTOPPERS. Dominant genuine uncertainty is #5 the baseline gate (P=0.55, untested assumption 3) — plan is structured to buy that bit early: fold 1 runs alone, gate-first (A sweep → refit → single TEST eval → gate ratio + the ==5 assertion) before folds 2-3 are spent. New risk surfaced: rank-2048 grid point's per-step (k+1)x(k+1) CPU eigh is cubic in k — the '~2x Adam' figure is unverified there; pre-flight debug job measures s/step across the whole rank grid and sets the realized grid (capping = documented design realization under the brief's 'feasible for p' clause, not a failure). Experiment-unit packing honors the criteria's sizing note: EU-1 pre-flight debug (throughput/VRAM/rank grid/identity re-assert), EU-2 fold 1 gate-first, EU-3/EU-4 folds 2-3 in parallel after fold-1 gate passes, EU-5 reserve for baseline-fix retry. Cut order if overflow: cap rank grid → reduce seeds (floor 3) → reduce folds, reported. P_success ~0.09 full verdict deliverable, ~0.23 any informative outcome (gate failure converts to the criteria's defined baseline-construction negative). Binding: a structural alpha=0 identity failure (#3) is STOP-and-report per the brief, not a component to engineer around; kill criterion means no rescue components exist downstream of a clean NULL/HURTS. [To be REGENERATED after Step 6 loop-back with the B-series amendments from the step 6 decision.]"
   - step: 6
-    decision: "Three independent challenge passes complete (assumption-challenger, mentor-review, pre-mortem). Construct-validity gate PASSED: mentor-review explicitly confirms the construct is sound (outcome genuinely uncertain in both directions, faithful real-data evaluation, plan commits to a directional verdict) — no rethink, no loop to Step 1. Mentor verdict: MAJOR_REVISIONS, all revisions protocol-level and cheap; folded into the plan as 13 binding fix-now-free amendments + 5 fix-now-cheap additions in challenge/limitation-triage.md (no decomposition re-run needed — lambda ordering unchanged). Load-bearing fix: tuning/verdict era separation (F1). Other key amendments: pre-registered threshold-mode rule (F2), relative practical-significance threshold min(0.005, 25% of realized baseline) (F3), joint P(verdict reachable)>=0.6 go/no-go gate (F4), block-bootstrap inference with horizon-sized embargo (F5), cut order inverted so mechanism-discriminating controls outrank the sequence arm (F7), spiked-covariance + permuted-target diagnostics calibration (C1/C2), update-cosine degeneracy detector with pivot rule (C3). Steps 7 and 9 MUST read challenge/limitation-triage.md. Proceeding to Step 7."
-  - step: 7
-    decision: "Experiment plan auto-approved (autonomous mode). The 9 decomposition components exceed the 5-experiment cap, so they are packed into 5 experiments along the decomposition's own dependency/wave structure rather than cut top-5-by-lambda (a naive top-5 cut would keep #1 and #3 while severing their prerequisites #6/#9/#7 and #8, making the plan unexecutable). Packing: exp-001 = gate bundle #6+#9+#7+#1 (lambda driver 1.22); exp-002 = #2 (1.05, local CPU, scope decision not fail-fast); exp-003 = #8+#3+#4 with the F4 go/no-go gate; exp-004 = the seeded main comparison + C4 mechanism controls (the verdict deliverable); exp-005 = conditional sequence/second-setting arm (#5 fallback inside it). All F1-F13 amendments and C1-C5 additions from challenge/limitation-triage.md folded in as binding pass/fail modifications. Fail-fast semantics annotated per experiment: exp-001 #1-degeneracy and exp-003 leakage are genuine fail-fast triggers with pre-authorized pivots; exp-002 failure is a pre-authorized scope downgrade (continue MLP-only); exp-005 is conditional and cuttable per F7. No [SKIP] components existed to remove."
+    decision: "Challenge complete: three independent passes dispatched in parallel (assumption-analysis.md: 13 assumptions, 5 critical; mentor-review.md: verdict MAJOR_REVISIONS; pre-mortem.md: 5 scenarios, gate-unreachable Critical). CONSTRUCT-VALIDITY GATE: ok — mentor-review explicitly verified the outcome is not statable a priori (parent's target-independence theorem correctly scoped away from SpectralGradientFilter; literature predicts both directions), the object is the real p×p filter via its documented API, and the plan returns a committed WINS/HURTS/NULL verdict; no strawman, no redesign loop. VERDICT MAPPING: MAJOR_REVISIONS with challenge_loop_count 0 → loop back once; challenge_loop_count set to 1 (no further challenge loops permitted). DELIBERATE DEVIATION from the executor default (current_step: 4 → Step 5 only): current_step set to 3 so Step 4 ALSO re-runs, because the convergent load-bearing defects live in success-criteria.md — the frozen Step 10 audit anchor (missing F12 guard, unqualified kill criterion, unspecified trial allocation). Re-running decomposition alone cannot fix the anchor; this mirrors the documented step-1 precedent that auditing against defective criteria is wrong. BINDING AMENDMENTS — Step 4 regeneration round 2 must preserve every element listed in the step 4 decision AND add (A-series, criteria/protocol): A1 power-qualified kill: NULL is terminal only if the realized per-fold MDE (from the fold's own moving-block bootstrap) <= 0.005 on the qualifying folds, else the verdict is 'NULL (power-limited): |B−A| bounded within ±MDE; line not declared dead' with a resourced decisive-test ask in Future Work; per-fold MDE reported next to every CI as a standing table. A2 kill-scope floor: the kill verdict is auto-scoped to the realized rank grid; if realized K_max < 512, NULL/HURTS reports 'no evidence at feasible ranks' plus a costed future-work ask instead of killing the line; adaptive arms' realized k(t) logged so 'the cap binds the adaptive arms' is checkable from artifacts. A3 F12 under-exploration guard reinstated as binding: pre-registered signatures (arm-B best config on grid boundary; non-monotone/high-variance sweep across rank; sharp arm-B optimal-LR shift vs arm A) downgrade a HURTS to 'no evidence of benefit under the affordable tuning budget'. A4 pre-registered arm-B trial allocation: staged design over a PRUNED space (stage 1: one trial per rank/adaptive point at transferred LR, centered on H3/H5; stage 2: 4-5 trials refining LR/alpha around the stage-1 winner); pruning (e.g. drop 'gap' or one energy_threshold) documented under the brief's feasibility clause; converged step count is NOT inside the 12 trials — fixed by the EU-1 full-length arm-A convergence run; refit stopping rule (e.g. steps scaled by rows_refit/rows_train) pre-registered in protocol.json. A5 gate semantics: example-model denominator computed LOCALLY per prospective TEST block before protocol freeze (free — parent out/example_per_era_corr.csv); degenerate-yardstick fallback pre-registered now (denominator floor ~0.010 → absolute floor or all-validation-mean ratio); near-miss band: realized ratio in [0.50,0.60) → one targeted fix then accept; < 0.45 → structural gap, reserve buys diagnosis + data-scaling learning curve (converts to evidence on assumption 3), not repair; pre-specified baseline-fix ladder with per-rung trial budgets and a stopping rule (regularization/network size first per parent F12 signatures); gate retries select on the gate ratio ONLY, comparison hps re-selected on VALID after any baseline fix, TEST-touch count logged per fold and reported; gate fixes restricted to p-preserving levers unless EU-1 also timed arm B at the larger architecture; era-recency WEIGHTING declared an authorized gate-fix lever compatible with the no-subsampling mandate. A6 inference spec: seed-variance handling in the bootstrap CI stated explicitly (hierarchical/seed-block resampling, or a reported check that seed variance << era variance); paired seeds raised to 5 if EU packing permits (the only upward power lever); fold non-independence acknowledged in claim language ('consistent across 3 nested folds covering [dates]', not independent replications) with cross-fold correlation of per-era (B−A) reported. A7 arm C re-derived for parameter space: matching invariants are k(t), update-norm ratio, AND the basis-rotation rate — preferred design: random orthogonal rotation of B's own realized basis (matches everything except spectral identity of directions); ~20-min local CPU sim (captured-energy fraction + realized norm-amplification at k in {8,512,2048}, p=600k) REQUIRED before porting code; C reported in absolute terms (own loss curves + TEST scores); mechanism-honesty clause made symmetric (B >> C claim requires fair-control evidence, else downgrades to 'adaptive low-rank projection helps'). A8 verification depth: alpha=0 identity supplemented by a planted-subspace correctness check (hard top-k recovers a planted dominant direction) and per-step filtered-vs-unfiltered cosine + kept-norm-fraction logging in all arm-B runs; selected config's distance-from-identity reported per fold; assert every TEST era of every fold present in example preds, alongside THE ==5 assertion with the raw-era↔usable-index mapping recorded in protocol.json; decay/warmup fixed at repo defaults declared a limitation NOW (or one grid dimension swapped for decay in {0.99,0.999}). B-series (Step 5 re-decomposition): B1 EU-1 additionally runs one FULL-LENGTH arm-A convergence run (real steps-to-convergence + proxy gate ratio on a VALID slice — collapses the ~500x-extrapolated cost anchor and buys the gate bit one unit earlier), times arm B at the largest plausible gate-fix architecture (or the p-preserving restriction of A5 applies), and times the eigh-every-N-steps and GPU-fp32-eigh variants (named documented variants if ever used). B2 fold jobs made resumable BEFORE any submission: per-trial result persistence to NFS (verify parent exp-003 harness append survives), refit checkpoints, --time at 2-3x projection, folds 2-3 re-projected from fold-1 REALIZED wall not EU-1 numbers; fold projecting > ~16h → split into sweep-job + refit/eval-job. B3 arm C component redesigned per A7 with the CPU sim as its quick test and a basis-rotation-rate (principal-angle) diagnostic logged in B runs. B4 component #2 power sim: if P(CI excludes 0 | true effect ±0.005) < 0.6 on >= 2 prospective folds, A1's power-qualified wording is load-bearing and MUST be in the frozen protocol (it is mandatory regardless). C-series (Step 11 write-up notes, carried forward): C1 targeted novelty mini-search (GaLore-style low-rank gradient projection, momentum-subspace/low-pass optimizers 2024-2026, K-FAC lineage, applied to regression/finance) before write-up; C2 mechanism described as TEMPORAL mean-gradient-subspace filtering (EMA over steps), not per-sample consensus — interpretive claims gated on the A8 diagnostics. Accepted risks (no design change): fold correlation (claim calibration only), interpretive-frame transfer (write-up gating), torch 2.5.1 compat (EU-1 re-assert covers it)."
+  - step: 4
+    decision: "ROUND 2: success-criteria.md regenerated after the Step 6 MAJOR_REVISIONS loop-back and auto-approved (autonomous mode). Replaces round 1 as the frozen Step 10 audit anchor. All round-1 binding elements preserved in force; amendments A1-A8 integrated in place as binding criteria: A1 power-qualified kill (NULL terminal only if per-fold MDE <= 0.005 on >= 2 gated folds, else 'NULL (power-limited)' with a resourced decisive-test ask; MDE reported as a standing table next to every CI); A2 kill-scope floor (realized K_max < 512 => 'no evidence at feasible ranks' + costed ask, not a kill; adaptive arms' realized k(t) logged); A3 F12 under-exploration guard with operationalized signatures (arm-B best config on grid boundary; non-monotone sweep with range < ~2x across-seed sd; >= 4x optimal-LR shift vs arm A) downgrading HURTS to 'no evidence of benefit under the affordable tuning budget'; A4 staged arm-B allocation over a pruned space (stage 1: one trial per rank/adaptive point at transferred LR centered on H3/H5, 7-8 trials; stage 2: 4-5 trials refining LR/alpha around the winner; pruning documented: drop 'gap' and energy_threshold 0.99; converged step count fixed by the EU-1 full-length arm-A convergence run, NOT inside the 12; refit stopping rule steps scaled by rows_refit/rows_train pre-registered in protocol.json); A5 full gate semantics (example-model denominator computed locally per prospective TEST block before protocol freeze; degenerate-yardstick fallback pre-registered as a denominator floor at 0.010 with a low-signal flag — the 'absolute floor' option, chosen over all-validation-mean for monotonicity; bands: [0.50,0.60) one targeted fix then accept, [0.45,0.50) fix ladder, < 0.45 structural gap => reserve buys diagnosis + data-scaling learning curve; 5-rung fix ladder with per-rung trial budgets 4/4/2/1/1 and a stopping rule, regularization/network-size first; retries select on gate ratio ONLY, comparison hps re-selected on VALID after any fix, TEST-touch count logged per fold; p-preserving levers only unless EU-1 timed arm B at the larger architecture; era-recency weighting authorized); A6 inference spec (hierarchical era-block x seed bootstrap as headline CI with negligibility-check alternative reported; paired seeds target 5 if packing permits, floor 3; nested-fold claim language, cross-fold correlation of per-era (B-A) reported); A7 arm C re-derived for parameter space (matching invariants k(t) + update-norm ratio + basis-rotation rate; preferred design: random orthogonal rotation of B's own realized basis; ~20-min local CPU sim REQUIRED before porting code; C reported in absolute terms; symmetric mechanism-honesty clause); A8 verification depth (planted-subspace correctness check; per-step filtered-vs-unfiltered cosine + kept-norm-fraction logging in all arm-B runs; selected config's distance-from-identity per fold; example-preds coverage assertion for every TEST era beside THE ==5 assertion; raw-era<->usable-index mapping in protocol.json; decay/warmup at repo defaults declared a limitation NOW, with Step 5 permitted to swap one pruned grid dimension for decay in {0.99,0.999}). Verdict taxonomy extended so the qualified forms (power-limited, scope-limited, budget-limited, baseline-construction negative) are pre-registered outcomes the audit can check claims against. Next: Step 5 re-decomposition under the B-series amendments."
+  - step: 5
+    decision: "ROUND 2: decomposition.md REGENERATED after the Step 6 MAJOR_REVISIONS loop-back (agent handed the round-1 file as base, all three challenge/ files, the round-2 frozen criteria, prior decomposition + prior experiment results, and the B1-B4 amendment list). Replaces round 1, which it records as superseded. All four B-series amendments visibly implemented and indexed in a change-log table: B1 — EU-1 expanded with one FULL-LENGTH arm-A convergence run (real steps-to-convergence + VALID-slice proxy gate ratio, buying the gate bit one unit before fold 1), arm-B timing at the fix-ladder rung-2 architecture (~2.5-3M params; without it A5's p-preserving restriction applies and rung 2 is skipped), and eigh-every-N / GPU-fp32-eigh variant timings (named documented variants if ever used); packing arithmetic (#1) re-anchored on measured steps-to-convergence instead of the ~500x-extrapolated parent 3s anchor. B2 — new component #7 fold-job resumability BEFORE any submission: kill-test of the parent exp-003 harness's append survival, refit checkpoints including filter state, --time at 2-3x projection, folds 2-3 re-projected from fold-1 REALIZED wall, >~16h folds split into sweep-job + refit/eval-job with the reserve absorbing the extra submission. B3 — arm C (#2) rewritten from mechanical port to re-derived control: invariants k(t) + update-norm ratio + basis-rotation rate; preferred design random orthogonal rotation of B's own realized basis (with the honest caveat a Haar-rotated basis may still capture ~k/p energy — exactly what the REQUIRED ~20-min local CPU sim at k in {8,512,2048}, p~600k decides before any code is ported); principal-angle diagnostic logged in all arm-B runs; round-1's fixed-subspace fallback explicitly retired as unacceptable (norm-matched noise injection). B4 — component #3's fail branch wired, not narrative: A1 power-qualified kill wording goes into frozen protocol.json regardless; sim FAIL (P(detect +/-0.005) < 0.6 on >= 2 prospective folds) makes it load-bearing for the write-up; P for #3 lowered 0.85 -> 0.70 per the pre-mortem's ACF evidence. A-series touchpoints landed: per-fold gate denominators + 0.010 floor + example-preds coverage assertion in #9; planted-subspace check + cosine/kept-norm/distance-from-identity logging in #5; staged 12-trial A4 allocation, 5-seed A6 target (floor 3), and an 11-item protocol-freeze checklist gating EU-2. Delegated decay/warmup decision EXERCISED: one stage-2 trial runs the stage-1 winner at decay=0.999 (warmup stays repo default, remains a declared limitation). Preserved from round 1: gate-first fold-1, EU-1..EU-5 packing, cut order (cap rank grid -> seeds floor 3 -> folds), alpha=0 structural failure = STOP-and-report, no rescue downstream of a clean kill, data SKIP. 9 active components + 1 SKIP; no SHOWSTOPPERS. P ~0.06 unqualified verdict (down from round 1's 0.09 — honestly so: round 1 counted outcomes the challenge showed could be artifacts), ~0.23 any informative outcome (unchanged — amendments converted those failure shapes into pre-registered qualified findings). Dominant uncertainty remains #4 the baseline gate (P=0.55), bought earliest via EU-1 proxy ratio then gate-first fold 1."
+  - step: 6
+    decision: "ROUND 2 challenge complete: three fresh independent passes dispatched in parallel against the round-2 artefacts (round-1 files preserved as challenge/round1-*.md). Amendment verification requested from each: assumption-analysis confirms all twelve amendments A1-A8/B1-B4 are genuinely implemented in the documents (located file-by-file in its table), and mentor-review independently confirms the same defect-by-defect; the round-2 P drop 0.09 -> 0.06 is judged honest accounting. CONSTRUCT-VALIDITY GATE: ok - mentor-review re-verified the headline outcome is not statable a priori (filter never run on this data; parent theorem correctly scoped away; literature predicts both directions), the object is the real p-x-p filter via its documented API, and the plan returns a committed verdict; the one baked-in-outcome risk found (a degenerate arm C - noise or clone - would predetermine the mechanism sub-claim in either direction) is cheaply fixable inside the plan (D2) and does not trigger redesign. construct_validity stays ok; construct_loop_count untouched. VERDICT MAPPING: mentor-review verdict MINOR_REVISIONS -> proceed with notes (challenge_loop_count already 1; no further loops available and none needed). challenge_outcome: proceed_with_notes. FINDINGS SNAPSHOT: assumption-analysis 13 assumptions (4 critical - risk migrated from missing machinery into what the new machinery assumes: arm-A-defined step count fair to arm B; a fair arm C exists between the noise and clone degeneracies; MDE-as-half-width is ~50-percent-power and 0.005 is ~35 percent of the gated baseline; transferred LR ranks the rank grid); pre-mortem 5 scenarios (gate-unreachable-and-proxy-miscalls High/High Critical, EU-1 amendment-cargo collapse High/Medium, freeze-locked LR defect self-triggering A3 Medium/High, clean-run triple-hedged non-answer High/Medium systemic, arm-C noise-or-clone Medium/Medium; cross-cutting: single-shot inputs feed an irreversible freeze, interpretability bought but not decisiveness, both new early-warning instruments uncalibrated - both calibrations free). LIMITATION TRIAGE (design-time, per shared rubric): written to challenge/limitation-triage.md - 13 fix-now-free items D1-D13 (every one a zero-GPU pre-freeze wording/logging/sim-extension/job-structuring change: 4th under-exploration signature + matched-step-budget claim language; arm-C distinctness + planted-task discriminability + empty-middle fallback; MDE derivation/renaming/P-detect linkage + CI coverage check; kept-norm-scaled stage-1 LR + LR-probe trial; refit-extension rule; EU-1 phase-persistence with convergence run last + EU-1b fallback charged to reserve; proxy calibrated with example-model VALID-vs-TEST offset + reserve pre-commitment; pooled cross-fold secondary estimand + pre-freeze decisiveness checkpoint; signature-2 sd source + trial-count reconciliation; flagged-fold role pre-registration; post-hoc invariant-match report; kill-scope instantiation axes; protocol.json as single operational spec with per-job checklist logging + decay-probe priority rule) - ALL folded into decomposition.md as the binding Round-2 Challenge Addendum (D-series), extending the protocol-freeze checklist to 16 items; 4 future-work rows FW1-FW4 (era-level power ceiling with a costed decisive-test ask, dataset/architecture/scale generality, rank-grid ceiling beyond K_max, decay/warmup study) carry to Step 11; accepted risks stated (gate reachability genuinely ~50/50 and only running tests it; calibrated proxy still heuristic; B4 sim input provenance; fold correlation as claim language; torch pin via EU-1 re-assert; C1 novelty mini-search stays deferred to Step 11). CAP ACCOUNTING: no fix adds an experiment unit; D4/D9 trials live inside the 12-trial budget per A4 slack; EU-1b and fold splits charge to the EU-5 reserve as already accounted - the 5-experiment cap stands. design_triage: written. Next: Step 7 (report planned experiments)."
   - step: 8
-    decision: "Fail-fast agreement recorded autonomously: CONDITIONAL. Blanket fail-fast (any FAIL terminates) would contradict the approved plan, in which exp-002/exp-005 failures are scope decisions and exp-004 no-verdict is a priced write-up outcome. Agreed protocol: execute in lambda order; on the two hard triggers (exp-001 mechanism degeneracy, exp-003 leakage) stop downstream work and take the pre-authorized pivot (mechanistic-finding deliverable / fix-split-first); the pre-mortem pivot indicators are adopted verbatim as kill criteria, most already binding via amendments F4 (P(verdict reachable)>=0.6 gate), C3 (degeneracy cosine + pivot rule), F5 (block-bootstrap collapse rule), F12 (hurts-verdict downgrade), F7 (never cut the last mechanism-discriminating control). No experiment is run past a tripped kill criterion."
-  - step: 9
-    decision: "exp-001 middle-case ruling (recorded for the Step 10 audit): headline #1 logged FAIL because the pre-registered PASS criterion required C2 real-vs-permuted distinguishability, which failed BY PROOF (for scalar-output MSE the engagement eigenspectrum is exactly target-independent). But the BINDING hard fail-fast trigger (all-modes degeneracy OR C3>0.95 everywhere) did NOT fire — the filter does sustained selective non-trivial work. Motivating question remained open and answerable; proceeded to exp-004 under an AMENDED INTERPRETATION FRAME: the target-independence proof is a co-primary deliverable; any verdict is attributed to target-blind spectral-subspace regularization, never 'consensus on signal'; C4 random-subspace control is load-bearing and protected. All pre-registered verdict machinery unchanged."
-  - step: 9
-    decision: "FINAL VERDICT (exp-004, pre-registered machinery): category HURTS — filter_on − filter_off = −0.00527 mean per-era numerai_corr, block-bootstrap 95% CI [−0.00886, −0.00181], exceeding F3=0.00398; corr-Sharpe −0.200 [−0.416, −0.004]. Mandatory F12 downgrade applies (spectral arm afforded ~1 tuning trial vs AdamW's 12): reportable claim = 'no evidence of benefit under the affordable tuning budget', raw hurts numbers reported alongside. Mechanism attribution: filter_on vs C4 norm/k-matched random subspace = −0.00116 CI [−0.00366, +0.00134] — MP-eigenselection indistinguishable from random subspace projection; all three filtered arms (spectral, random, GAF) hurt similarly; no Feldman dispersion-tail pattern; filter AMPLIFIES updates (ratio_med ~10x), not shrinkage."
-  - step: 9
-    decision: "exp-005 run (both authorization conditions held: exp-002 PASS, exp-003 budget room). Architecture consistency CONFIRMED on the GRU sequence arm, same data/machinery: headline −0.00484 CI [−0.00758, −0.00211] (vs MLP −0.00527), same HURTS→F12-downgrade category; spectral-vs-random null replicates (−0.00011 CI [−0.00233, +0.00215]); corr-Sharpe −0.242 [−0.414, −0.073]. F13 satisfied via within-era Numerai framing (T=15 x D=47 reshape) — 'architecture consistency' claim supported, OHLCV fallback unused. Notable: filter engages in a different regime on the GRU (k~60, mild attenuation) vs MLP (k~1, ~10x amplification) yet produces near-identical harm and the same null — strengthening the 'generic subspace projection/rescaling, not spectral selection' account. Limitation recorded: GRU used t07 fallback config (tuning-shard presence misjudged from login node — /ephemeral is node-local); config was frozen pre-unblinding and identical across arms, so the paired comparison is protocol-valid; ~10 GPU-min resource ask carried to Future Work."
-  - step: 10
-    decision: "Round-1 results audit complete (fresh results-auditor agent; audit/results-audit.md). Overall disposition: HONEST-NEGATIVE, audit_exit_reason: true-null — NO remediation round needed, advance to Step 11. The load-bearing exp-004 was RE-EXECUTED on the cluster with fresh seeds {10,11,12} and an auditor-built eval shard (independent row subsample from raw v5.0_validation.parquet; jobs 6616/6618/6620, ~9 min L40): headline REPRODUCES in category/direction/magnitude (producer shard -0.00546 CI [-0.00892,-0.00204]; audit shard -0.00562 CI [-0.00911,-0.00201]; 6-seed pool -0.00537 CI [-0.00853,-0.00222]); C4 spectral-vs-random null replicates; target-independence proof independently re-verified (2.1e-14, different construction) with two new scoping controls showing the theorem is non-vacuous. 8 findings: 5 SUPPORTED, 2 FIXABLE-DEFECT both write-up-level and non-verdict-flipping (NEW Finding 5: producer code crashes stochastically by seed via linalg.eigh non-convergence under the documented rank-collapse regime — original results are 6-of-6-seed lucky-complete, disclosure required; Finding 6: MLP corr-Sharpe CI upper bound is bootstrap-RNG fragile, word as marginal and let the robust GRU Sharpe carry the stability claim), 1 TRUE-NULL (Finding 7: verdict-block baseline +0.0064 below the F9 sanity band — regime drift, claim must be scoped to this low-edge regime; F3 realized at ~62% relative, not 25%). No gaming signatures, no criteria drift (exp-001 middle-case ruling examined and cleared as conservative/pre-unblinding/claim-narrowing — paper must keep exp-001 headline as logged FAIL-on-C2). Step 11 MUST use the audit's 8 unresolved-for-write-up items and the 15-row limitation triage (6 fix-now-free, 3 fix-now-cheap, 6 future-work with resource asks)."
+    decision: "Fail-fast agreement confirmed (trivial in autonomous mode): fail_fast_agreement set true. Binding on Step 9: a FAIL result stops further experiments per the run-level bite points recorded at Step 7 (structural alpha=0 identity failure -> STOP-and-report; EU-1 infeasibility -> FAIL-on-affordability with exact resource ask; fold-1 terminal gate failure -> pre-registered baseline-construction negative, folds 2-3 gate-first phase only if failure mode is plausibly fold-specific). Note the plan's own structure already encodes fail-fast ordering: EU-1 before the 16-item protocol freeze, freeze before EU-2, EU-2 alone before EU-3/EU-4, EU-5 reserve on pre-registered triggers only."
+  - step: 7
+    decision: "Experiment plan auto-approved (autonomous mode) from the round-2 decomposition. Rules applied: (1) SKIP removal — component #10 (Numerai v5 data + example preds, P=0.97, banked by parent) excluded from the plan; its action (symlink + row/era sanity check) is a Wave-1 setup task, not an experiment. (2) Cap — the plan counts cluster submissions per the criteria's binding sizing note: exactly 5 experiment units (EU-1 pre-flight, EU-2 fold 1 gate-first, EU-3 fold 2, EU-4 fold 3, EU-5 reserve), at the cap with zero headroom; contingency submissions (EU-1b convergence-run continuation per D6, B2 fold splits) are pre-authorized charges AGAINST the EU-5 reserve, not additions — if the reserve is consumed by one contingency it is not available for another, and the cut order (cap rank grid -> seeds floor 3 -> reduce folds) applies before any thought of a 6th unit. (3) rethink_disproof: not set — full plan stands. The 6 zero-GPU local components (#9 fold arithmetic + protocol.json + denominators, #5 filter integration + identity + planted-subspace, #7 resumability kill-test, #3 power sim + MDE, #2 arm-C design sim, #1 packing arithmetic) are prerequisites inside the plan, not units — Waves 1-3 of the parallelisation plan, all gating the 16-item protocol freeze that must complete before EU-2 touches TEST. Execution-order constraints binding on Step 9: EU-1 before freeze; freeze before EU-2; EU-2 (fold 1) runs ALONE and its realized gate ratio + wall time size EU-3/EU-4; EU-3/EU-4 submit only after fold-1 gate passes (parallel, 2 GPUs, within cap); EU-5 spends only per its pre-registered triggers (A5 ladder bands / structural-gap learning curve / forced rerun / D6-D7-B2 absorptions). Fail-fast semantics per unit recorded in the plan table; the run-level fail-fast bite points are: alpha=0 structural identity failure (STOP-and-report), EU-1 infeasibility (FAIL-on-affordability with exact resource ask), fold-1 gate terminal failure after band-appropriate ladder spend (baseline-construction negative — folds 2-3 still run their OWN gate-first phase 1 only if fold-1's failure mode suggests fold-specific rather than structural causes; a structural < 0.45 diagnosis redirects EU-5 to the learning curve and the run reports the pre-registered negative without spending folds 2-3). No reordering: lambda order within waves is preserved from the decomposition; the EU sequence is dependency-forced. current_step: 7, status: experiments_planned."
+experiment_plan:
+  - unit: EU-1
+    name: "Pre-flight (--qos=debug): throughput/VRAM/realized rank grid + B1 additions"
+    components: "#8 (lambda 0.18), #6 short-schedule check (lambda 0.22), #5 on-cluster alpha=0 re-assert"
+    tests: "Full-scale feasibility: shard build; s/step for arms A and B at rank {8,32,128,512,2048} at planned AND rung-2 gate-fix architectures; eigh-every-N + GPU-fp32-eigh variant timings; VRAM peaks; 500-step stability + fallback count; D6 ordered persisted phases with the FULL-LENGTH arm-A convergence run LAST (checkpointed, VALID-score streamed, plateau stop) yielding measured steps-to-convergence + D7-calibrated proxy gate ratio; adaptive k(t) + rotation-rate logging"
+    pass: "Arm A trains at full scale; convergence run plateaus (or EU-1b continuation per D6, charged to EU-5); realized grid keeps >= 4 points incl >= 512 (else A2 wording pre-registered immediately); VRAM <= 44GB; no unexplained NaN; second-architecture + variant timings recorded"
+    fail: "Full feature set unfittable even with int8 residency + reduced batch (-> documented feature reduction, mandated limitation), or arm B > 10x arm A at every rank >= 32 (-> symmetric trial shrink, else FAIL-on-affordability with exact ask)"
+    est_wall: "~1-2 h"
+  - unit: EU-2
+    name: "Fold 1, gate-first, B2-resumable"
+    components: "#4 baseline gate (lambda 0.24, P=0.55 — the dominant genuine uncertainty), #6 long-schedule retirement"
+    tests: "Phase 1 (unconditional): 12-trial arm-A VALID sweep -> refit under pre-registered stopping/extension rules -> single TEST eval -> realized gate ratio vs floored local denominator + THE ==5 assertion + coverage assertion printed. Phase 2 (conditional on gate, wired into sbatch per D7): A4 staged arm-B sweep (12 trials incl kept-norm LR probe D4 + decay=0.999 probe) -> refits A/B/C x paired seeds (target 5, floor 3) -> one TEST pass with all A8/D1 diagnostics"
+    pass: "Gate: realized ratio >= 0.60 ([0.50,0.60) resolves per near-miss band: one targeted rung, one re-check, accept). Unit: phases complete with per-trial NFS persistence intact, assertions green, TEST-touch count logged"
+    fail: "Ratio < 0.60 after genuine sweep + refit + band-appropriate ladder spend (per-band: [0.45,0.50) ladder within EU-5 budgets 4/4/2/1/1 + futility rule; < 0.45 structural -> EU-5 buys diagnosis + data-scaling learning curve, not repair). Terminal gate failure on >= 2 folds = pre-registered baseline-construction negative; no optimizer comparison on failed-gate folds"
+    est_wall: "~3-6 h projected from EU-1 measurements; --time at 2-3x"
+  - unit: EU-3
+    name: "Fold 2 (submitted only after fold-1 gate pass)"
+    components: "#4 continued; main comparison"
+    tests: "Same gate-first two-phase structure as EU-2; sized from fold-1 REALIZED wall (B2), not EU-1 numbers"
+    pass: "Own gate >= 0.60 and phases complete; contributes its fold to the >= 2/3 decision rule"
+    fail: "Own gate failure handled per A5 bands; fold recorded as failed-gate for the decision rule's gated-fold accounting"
+    est_wall: "re-projected from fold-1 realized wall"
+  - unit: EU-4
+    name: "Fold 3 (largest shard; parallel with EU-3)"
+    components: "#4 continued; main comparison"
+    tests: "Same structure; largest expanding-window shard; split into sweep-job + refit/eval-job if > ~16 h projected (B2, absorbing EU-5)"
+    pass: "Own gate >= 0.60 and phases complete; verdict computable per pre-registered rule (four-condition kill: execution + A1 power + A2 scope + A3 under-exploration)"
+    fail: "As EU-3; if a split is needed AND EU-5 is already spent, cut order applies (cap grid -> 3 seeds -> reduce folds, reported)"
+    est_wall: "re-projected from fold-1 realized wall"
+  - unit: EU-5
+    name: "Reserve (conditional; pre-registered triggers only)"
+    components: "contingency for #4/#8"
+    tests: "One of: A5 fix-ladder retry on a near-miss/ladder-band fold; structural-gap diagnosis + data-scaling learning curve (converts gate failure into evidence on assumption 3); forced rerun; absorption of EU-1b (D6) or a B2 fold split"
+    pass: "Reserve spent only on a pre-registered trigger, spend and trigger logged"
+    fail: "N/A — unspent reserve is a fine outcome"
+    est_wall: "<= 4 h"
+local_prerequisites: "Zero-GPU, no unit cost, all before protocol freeze: Wave 1 [#9 fold arithmetic + protocol.json + THE assertion + gate denominators w/ 0.010 floor (P=0.85); #5 filter integration + alpha=0 fp64 identity + planted-subspace + eigh fallback + diagnostics (P=0.80, structural identity failure = STOP-and-report); #7 resumability kill-test + refit checkpoint roundtrip (P=0.85)]; then [#3 hierarchical-bootstrap power sim + per-fold MDE + B4 wiring (P=0.70); #2 arm-C B3/D2 design sim, REQUIRED before porting control code (P=0.65)]; Wave 3 after EU-1 [#1 packing arithmetic, seeds 5-vs-3 decided (P=0.70)]; then 16-item protocol freeze gating EU-2"
 lambda_table:
-  - component: "Spectral engagement on financial gradients"
-    p_success: 0.40
-    t_hours: 0.75
-    lambda: 1.22
-    status: "FAIL on C2 conjunct only (target-independence PROOF; banked mechanistic finding — hard fail-fast trigger did NOT fire; selectivity + C3 clean)"
-  - component: "Sequence-arm vmap feasibility (recurrent model)"
-    p_success: 0.35
-    t_hours: 1.0
-    lambda: 1.05
-    status: PASS
-  - component: "Statistical power of paired per-era design"
-    p_success: 0.60
-    t_hours: 0.5
-    lambda: 1.02
-    status: PASS
-  - component: "Full design fits 5-experiment / 30-min budget"
-    p_success: 0.80
-    t_hours: 0.25
-    lambda: 0.89
-    status: PASS
-  - component: "OHLCV fallback dataset for sequence arm"
-    p_success: 0.80
-    t_hours: 0.5
-    lambda: 0.45
-    status: "NOT NEEDED (within-era Numerai framing worked for exp-005)"
-  - component: "Spectral Optimizer regression integration"
-    p_success: 0.75
-    t_hours: 0.75
-    lambda: 0.38
-    status: PASS
-  - component: "vmap throughput on L40 within job cap"
-    p_success: 0.85
-    t_hours: 0.5
-    lambda: 0.33
-    status: PASS
-  - component: "Baseline sanity: tuned AdamW in sane corr band"
+  - component: "Design packs into <=5 experiment units (5-seed option, staged sweep, resumable structure)"
     p_success: 0.70
-    t_hours: 1.5
+    t_hours: 0.25
+    lambda: 1.43
+    status: PENDING
+  - component: "Arm C re-derived for parameter space (k(t), norm ratio, basis-rotation rate) [B3/A7]"
+    p_success: 0.65
+    t_hours: 0.75
+    lambda: 0.57
+    status: PENDING
+  - component: "Per-fold inference power at ~110 TEST eras + MDE machinery (A6 hierarchical bootstrap) [B4]"
+    p_success: 0.70
+    t_hours: 0.75
+    lambda: 0.48
+    status: PENDING
+  - component: "Baseline gate: tuned AdamW >= 0.60x floored example-model denominator (>=2 of 3 folds) [A5]"
+    p_success: 0.55
+    t_hours: 2.5
     lambda: 0.24
-    status: PASS
-  - component: "Numerai data + era-purged protocol"
+    status: PENDING
+  - component: "SpectralGradientFilter integration + alpha=0 identity + planted-subspace + eigh fallback + A8 diagnostics"
+    p_success: 0.80
+    t_hours: 1.0
+    lambda: 0.22
+    status: PENDING
+  - component: "Numerical stability over long re-tuned schedules"
+    p_success: 0.80
+    t_hours: 1.0
+    lambda: 0.22
+    status: PENDING
+  - component: "Fold-job resumability + realized-wall projection [B2, new in round 2]"
+    p_success: 0.85
+    t_hours: 0.75
+    lambda: 0.22
+    status: PENDING
+  - component: "Full-scale throughput/VRAM + realized rank grid + B1 additions (convergence run, 2nd architecture, eigh variants)"
+    p_success: 0.70
+    t_hours: 2.0
+    lambda: 0.18
+    status: PENDING
+  - component: "Walk-forward fold arithmetic + protocol.json + THE assertion + gate denominators + coverage assertion [A5/A8]"
     p_success: 0.85
     t_hours: 1.0
     lambda: 0.16
-    status: PASS
-approved_experiments:
-  - id: exp-001
-    name: "Gate bundle: integration, data/protocol, throughput, spectral engagement"
-    components: "#6 (lambda 0.38), #9 (0.16), #7 (0.33), #1 (1.22 — lambda driver)"
-    compute: "Local CPU (#6, #9) + one shared --qos=debug GPU job (#7 + #1), ~15-20 min GPU"
-    amendments: "F1 (tuning/verdict era split built at #9), F2 (threshold mode fixed from engagement diagnostics only, before any OOS performance seen), F5 (embargo >= ceil(horizon/era-spacing)), F6 (diagnostics under BOTH within-era and mixed-era batch compositions), F9 (sanity/leakage bands recalibrated from current Numerai v5 example-model stats), F11 (optimizer identity = spectral_optimizer.py exact B x B variant; streaming swap = scope change, not silent fallback), C1 (spiked-covariance unit test in #6 smoke: iid noise -> keeps ~0; planted spike -> kept; correlated zero-signal confound -> measured), C2 (permuted-target null-spectrum control in the debug job), C3 (filtered-vs-mean-gradient and filtered-vs-unfiltered cosine diagnostics), C5 (era-identity probe of the kept subspace)"
-    pass: "#6: loss falls on synthetic regression, both variants run, filter-off reproduces plain AdamW to tolerance, C1 all three cases behave correctly. #9: Numerai v5 downloaded, purged split with F1 tuning/verdict block separation and F5 embargo, enough usable eras in BOTH blocks (target >=100 total validation-side), <32GB, shard readable on cluster. #7: projected full training run <20 min at the batch size #1 needs. #1: for at least one threshold mode, sustained selective filtering (0 < eigendirections kept < B; grad-norm fraction passed in ~[0.1, 0.9]) at B in {256, 1024} under at least one batch composition, AND C3 mean-gradient cosine <= ~0.95 (not pure mean-gradient smoothing), with C2 permuted-target spectra distinguishable from real-target spectra."
-    fail: "#1: all modes degenerate (~0% or ~100% norm passed) at both batch sizes and both compositions, OR C3 cosine > 0.95 everywhere (filter ~= mean-gradient smoothing degeneracy)."
-    on_fail: "FAIL-FAST TRIGGER with pre-authorized pivot: the helps/hurts comparison is uninterpretable; deliverable pivots to the mechanistic finding ('no gradient-coherent signal separable from the MP bulk on Numerai at feasible batch sizes' or 'filter degenerates to mean-gradient smoothing'), characterized against the C2 permuted-target null and the prior MNIST-label-noise spectra. Remaining budget shifts to characterizing why. Infrastructure sub-failures (#6/#9/#7) are fixed in place (code is ours and small); #7-forced variant swap invokes F11 scope-change rules."
-  - id: exp-002
-    name: "Sequence-arm vmap feasibility (hand-rolled GRU cell)"
-    components: "#2 (lambda 1.05)"
-    compute: "Local CPU only (correctness smoke); optional 5-min --qos=debug job for throughput"
-    amendments: "F13 (claim naming depends on dataset held fixed)"
-    pass: "vmap(grad) per-sample gradients through a functional GRU cell match a per-sample loop reference to ~1e-5 on within-era sequences, AND projected sequence-model training run <25 min on one L40."
-    fail: "vmap errors requiring >2h of surgery, or projected runtime over the job cap."
-    on_fail: "NOT fail-fast — pre-authorized scope decision: drop to MLP-only minimum viable contribution, remove the architecture-consistency claim explicitly, free the exp-005 slot per F7 cut order (goes to mechanism controls/tail-era analysis). Continue to exp-003 regardless of outcome."
-  - id: exp-003
-    name: "Baseline sanity, power analysis, budget fit, and F4 go/no-go gate"
-    components: "#8 (lambda 0.24), #3 (1.02), #4 (0.89)"
-    compute: "One GPU array-style job (8-12 AdamW tuning trials, ~1-2 min each on subsampled eras) + local CPU bootstrap and arithmetic"
-    amendments: "F1 (sweep touches TUNING-block eras only; power computed on VERDICT-block era count), F3 (register verdict threshold = min(0.005, 0.25 x realized tuned-baseline mean per-era corr) before unblinding any comparison), F4 (proceed to exp-004 only if moving-block bootstrap gives P(some verdict category reachable) >= 0.6; else re-scope the endpoint BEFORE spending slots), F5 (check lag-1 autocorrelation of per-era corr; all CIs and the power sim use moving-block bootstrap with block length >= target-horizon overlap), F9 (recalibrated corr sanity band and leakage gate), F12 (spectral-arm priors transferred from ~/pyg/optimizers as search center; log grid-boundary / non-monotone under-exploration signatures), F7 (budget-fit arithmetic uses the inverted conditional cut order)"
-    pass: "#8: best trial's mean per-era corr inside the F9-recalibrated sane band on tuning-block eras, zero-predictor |corr| < 0.002, no leakage signature. #3: block-bootstrap CI half-width <= ~F3-threshold achievable at 3 seeds x verdict-block eras. #4: full plan (tuning both arms + 2 arms x 3 seeds + C4 controls + diagnostics [+ sequence arm]) packs into remaining slots at <=25 min/job with the F7 cut order. F4 gate: P(verdict reachable) >= 0.6."
-    fail: "All trials ~0 corr (< 0.003), OR any trial far above band (leakage signature), OR CI half-width > ~0.008 using all verdict-block eras, OR minimum viable design cannot fit even after identical-across-arms subsampling."
-    on_fail: "~0 corr: reduce subsampling / switch to a corr-aligned loss (held fixed across arms), retry once. LEAKAGE: FAIL-FAST TRIGGER — fix the purge/embargo before anything else runs; nothing downstream is interpretable until fixed. Power fail: first response free (more verdict-block eras); else re-scope per F4 to an honestly-scoped effect estimate with calibrated uncertainty instead of a categorical verdict. Budget fail: execute F7 cut order (Muon -> GBT -> sequence arm -> GAF -> random-subspace control; never seeds, never matched tuning, never verdict-block separation); if minimum viable still doesn't fit, record FAIL-on-affordability with the exact resource ask."
-  - id: exp-004
-    name: "Seeded main comparison + mechanism controls (the verdict experiment)"
-    components: "Main deliverable (builds on #1, #8, #3; success-criteria verdict definitions as amended)"
-    compute: "GPU array-style job(s): 2 arms (spectral filter-on vs filter-off tuned AdamW, identical base config) x 3 seeds on subsampled Numerai; C4 controls co-scheduled in the same arrays where possible"
-    amendments: "F1 (evaluated ONCE on verdict-block eras; no peeking before arms are frozen), F2 (threshold mode is whatever exp-001 pre-registered), F3 (practical-significance threshold as registered in exp-003), F5 (paired per-era moving-block bootstrap CIs), F7 (mechanism-discriminating controls protected ahead of optional arms), F8 (tail-era / era-quantile breakdown is a mandatory analysis output, promoted to minimum-viable deliverable), F10 (corr-Sharpe route to a verdict tied to the same paired block-bootstrap CI machinery or dropped), F12 (if verdict is 'hurts' AND under-exploration signatures present, downgrade to 'no evidence of benefit under the affordable tuning budget'), C4 (random-subspace norm-matched control at the measured kept-norm fraction; GAF-style simple-agreement ablation if it co-schedules)"
-    pass: "A three-way verdict (helps / hurts / doesn't help) is returned per the amended success criteria: paired per-era block-bootstrap CI + F3 practical significance for helps/hurts; equivalence-style CI exclusion for doesn't-help; spectral engagement diagnostics logged throughout so the verdict is attributable to an engaged mechanism; C4 control separates MP-selection from generic update-norm shrinkage; F8 tail-era breakdown reported."
-    fail: "No verdict category reachable after the run (CI too wide despite the F4 gate), or diagnostics show the mechanism silently disengaged during the verdict runs."
-    on_fail: "Report the effect estimate with calibrated uncertainty, honestly scoped to the CI achieved ('could not determine' is the priced residual-risk outcome, ~1-in-4 to 1-in-3); mechanism-disengagement mid-run reopens the exp-001 mechanistic-finding pivot. Either way this is a write-up path, not a retry loop."
-  - id: exp-005
-    name: "Sequence/second-setting arm (conditional stretch goal)"
-    components: "#2 outcome + #5 (lambda 0.45) as internal fallback"
-    compute: "One GPU job <25 min (small sequence model); #5 dataset build is local"
-    amendments: "F7 (this arm is cut BEFORE the GAF ablation and random-subspace control under budget pressure), F13 (if run on OHLCV rather than within-era Numerai, either add a cheap MLP-on-OHLCV arm or claim 'second setting', NOT 'architecture consistency')"
-    pass: "Sequence model trains within cap on within-era Numerai framing (preferred) or the #5 OHLCV protocol (>=90% coverage after cleaning, leak-free temporal split with purge+embargo, trivial baseline evaluates cleanly); paired comparison of filter-on vs filter-off with the same inference machinery as exp-004."
-    fail: "Within-era framing fails AND #5 fails (>2h cleaning or no defensible protocol), or the arm doesn't fit the remaining budget."
-    on_fail: "NOT fail-fast — cut per F7, note the removed claim explicitly as a limitation, carry to Future Work as W2 with its resource ask. Run only if exp-002 passed AND exp-003's #4 arithmetic left room."
-fail_fast_agreement: conditional
-fail_fast_conditions: "Hard fail-fast triggers (stop/pivot per pre-authorized on_fail): exp-001 #1-degeneracy (all threshold modes ~0%/~100% norm passed at both batch sizes and compositions, OR C3 mean-gradient cosine > 0.95 everywhere) and exp-003 leakage signature (fix purge/embargo before anything downstream runs). NOT fail-fast: exp-002 and exp-005 failures are pre-authorized scope decisions (MLP-only / cut per F7) and never stop the run; exp-004 no-verdict is a write-up path (honest effect estimate), never a retry loop. Kill criteria: the five pre-mortem pivot indicators recorded in the Step 8 narrative are binding stopping/pivot conditions for Step 9."
-experiments_completed: ["exp-001 (infra PASS; headline #1 FAIL on C2 conjunct only — banked mechanistic finding, no hard trigger)", "exp-002 (PASS)", "exp-003 (PASS, F4 gate GO)", "exp-004 (PASS — verdict returned)", "exp-005 (PASS — architecture consistency confirmed)"]
-experiments_failed: []
-final_verdict_category: "hurts (pre-registered category) -> F12 downgrade applied"
-final_verdict_wording: "No evidence of benefit under the affordable tuning budget; at the pre-registered operating point the Spectral Optimizer significantly degraded out-of-sample performance (MLP: -0.00527 CI [-0.00886, -0.00181]; GRU: -0.00484 CI [-0.00758, -0.00211] mean per-era numerai_corr), and MP-eigenselection was indistinguishable from a norm/k-matched random-subspace control on both architectures."
-audit_round: 1
-audit_exit_reason: "true-null"
+    status: PENDING
+  - component: "Numerai v5 data + example preds (banked by parent)"
+    p_success: 0.97
+    t_hours: 0.1
+    lambda: 0.30
+    status: SKIP
 ---
 
 # Workflow Progress
 
-## Step 1: Clarifications
+## Step 1: Clarifications (follow-up)
 
-Step 1 complete. Topic clarified autonomously.
+Follow-up to 2026-07-31-spectral-optimizer-for-noise-reduction-on-financial-timeseri
+(parent issue #2073, this issue #2080).
 
-Topic: does the existing Spectral Optimizer (gradient consensus/covariance
-filtering from ~/pyg/optimizers) reduce the effect of noise when training on
-large, noisy financial time-series data — i.e., does it beat Adam/AdamW
-out-of-sample, and is the effect consistent across an MLP and a
-recurrent/SOTA-style time-series architecture?
+The parent run found: a rigorous, independently audited HURTS/negative verdict
+(−0.00527 mean per-era corr, CI [−0.00886, −0.00181], replicated on a GRU;
+spectral selection indistinguishable from a random-subspace control) — but it
+tested the wrong optimizer (per-sample B×B SpectralConsensusFilter, whose H4 had
+already failed in prior work) against a broken temporal protocol (~5.4-year
+train→test gap, no refit, baseline at 27% of Numerai's example model, below the
+parent's own sanity band). The user's feedback: the answer does not count; redo
+it correctly with the p×p SpectralGradientFilter, an expanding-window
+walk-forward split with refit, a hard baseline gate, and a genuine rank sweep at
+matched tuning budget.
 
-Key Step 1 findings:
-- The existing optimizer was located (issue checklist item): two reusable
-  implementations in /home/titus/pyg/optimizers/experiments/
-  (spectral_optimizer.py = exact per-batch consensus filter;
-  weight_cov_optimizer_v2.py = streaming rank-k covariance filter, ~2x Adam).
-- Prior project's strongest result is label-noise robustness (MNIST @ 90%
-  noise), but it also found the filter hurts when signal is weak and not
-  gradient-dominant — so transfer to the low-SNR financial regime is genuinely
-  uncertain in both directions.
-- Candidate dataset: Numerai public tournament data (large, noisy, obfuscated
-  financial features, era-based out-of-sample evaluation — closest free thing
-  to the issue's 'leaderboard' ask); fallback is public OHLCV return
-  prediction with strict temporal splits.
+This run focuses on: the same directional motivating question, executed on the
+correct object under a correct protocol. followup_focus: from_decomposition —
+literature/novelty copied from parent; success criteria, decomposition, and
+challenge regenerated (current_step set to 3 so Step 4 rebuilds the criteria,
+which are also the Step 10 audit anchor). Precondition verified:
+SpectralGradientFilter present in ~/pyg/optimizers/spectral_filter.py after pull.
 
-## Step 2: Literature Review
+Artifacts: followup-summary.md written; literature/ (4 files),
+novelty-assessment.md, references.bib, citation-registry.md copied from parent.
+Next: wrapper runs Step 4 (success criteria).
 
-Complete. Search plan (`search-plan.md`) executed via three parallel search
-agents; 28 curated references in `references.bib` (22 academic, 2 lab-blog,
-4 community), synthesized in `literature/synthesis.md`.
+## Step 4: Success Criteria (round 1 — superseded)
 
-Key findings:
-- **Closest prior work**: Gradient Agreement Filtering (Chaubard et al. 2024)
-  — cross-microbatch agreement filtering, but simple orthogonality checks,
-  no RMT/Marchenko-Pastur spectral thresholding, and not on financial data.
-  A 2025-2026 burst of per-sample-gradient optimizer work (OrthoGrad,
-  PS-Clip-SGD, GradSentry, DP-PMLF) confirms the niche is active, but none
-  do covariance-eigenspectrum filtering as the update rule.
-- **Theoretical ancestor**: Coherent Gradients (Chatterjee & Zielinski 2020);
-  independently articulated informally on the Alignment Forum (Pope 2022).
-- **RMT analogy base**: Marchenko-Pastur covariance cleaning is a mature
-  ~20-year quant-finance literature (Bouchaud/Potters et al.) — applied to
-  RETURN covariance, never to training-gradient covariance. The transposition
-  appears unpublished.
-- **The bar is high**: Adam-family optimizers already have heavy-tailed-noise
-  robustness (sign/normalization theory), and a 2026 tabular-optimizer
-  benchmark finds Muon beats AdamW on MLP/tabular tasks. Fair comparison
-  requires DeepOBS-style matched tuning budgets and multiple seeds.
-- **Evaluation protocol** (from Numerai practitioner sources): era-purged
-  temporal CV, per-era correlation as metric/loss, Feature Neutral
-  Correlation to distinguish real signal from feature overfitting.
-- **Sharpest counter-hypothesis**: Feldman 2019 — memorization of rare
-  (long-tail) examples can be NECESSARY for generalization; financial data
-  is heavy-tailed, so consensus filtering could suppress rare genuine signal.
-  Aligns with the prior project's weak-signal failure mode. Outcome genuinely
-  uncertain in both directions.
-- **Design constraint discovered**: Numerai asset IDs reset each era — the
-  recurrent/sequence arm needs within-era framing or an OHLCV-style dataset.
-- **Confirmed novelty gap**: no academic Numerai literature; no work combining
-  per-sample gradient RMT filtering with financial prediction, across three
-  independent search channels.
+success-criteria.md regenerated by the criteria agent and auto-approved
+(autonomous mode). This file is the frozen anchor for the Step 10 audit — it
+replaces the parent's criteria entirely, which were anchored to the B×B
+variant and the broken split. Full content summary in the step 4 decision
+entry. SUPERSEDED: the Step 6 challenge found the regenerated criteria dropped
+the parent's F12 under-exploration guard while making the kill criterion
+terminal, left the 12-trial arm-B allocation unspecified against a ~42-point
+space, and left the kill criterion unqualified by power (MDE) and rank-grid
+scope. Round 2 must preserve all round-1 binding elements and add amendments
+A1–A8 (step 6 decision).
 
-## Step 3: Novelty Assessment
+## Step 5: Steinhardt Decomposition (round 1 — superseded)
 
-Verdict: **NOVEL** (with caveats). Full assessment in `novelty-assessment.md`.
+decomposition.md regenerated (8 active components + 1 SKIP; no SHOWSTOPPERS;
+gate-first fold-1 structure; EU-1 pre-flight / EU-2 fold 1 / EU-3+4 folds 2–3 /
+EU-5 reserve; P_success ~0.09 full verdict, ~0.23 any informative outcome).
+Full content summary in the step 5 decision entry. SUPERSEDED: to be
+regenerated after the Step 6 loop-back with amendments B1–B4 (step 6
+decision) — EU-1 gains a full-length arm-A convergence run and variant
+timings, fold jobs become resumable with per-trial persistence, arm C is
+redesigned for parameter-space semantics (basis-rotation-rate matching), and
+the power sim's consequence is wired to the amended kill wording.
 
-- The combination of (a) per-sample gradient covariance eigendecomposition
-  with a Marchenko-Pastur threshold as the training update rule and (b)
-  evaluation on low-SNR financial prediction is unoccupied across all 28
-  references from three independent search channels. The two adjacent
-  literatures each stop short: quant-finance RMT cleans RETURNS covariance
-  post-hoc, never training gradients; the 2024-2026 per-sample-gradient
-  optimizer burst uses pairwise/geometric/clipping heuristics, never full
-  covariance-eigenspectrum thresholding, and never on financial data.
-- Closest neighbor: Gradient Agreement Filtering (Chaubard et al. 2024) —
-  classified Related, not Near-identical.
-- The domain transfer is non-trivial: both the prior project's weak-signal
-  failure mode and Feldman's long-tail theory predict the mechanism could
-  hurt, so the outcome is genuinely uncertain and informative either way.
-- Caveats: (1) novelty rests on absence of evidence in an actively-producing
-  niche — date the search and position against GAF rather than claim a
-  vacuum; (2) the contribution is the transfer verdict, not the optimizer
-  itself.
-- Recommendations for downstream steps: optional GAF-style simple-agreement
-  ablation arm; tuned AdamW + Muon-if-budget baselines under DeepOBS-style
-  matched tuning; Numerai era-purged/FNC protocol; separate reporting on
-  tail eras to test the Feldman counter-hypothesis directly.
+## Step 6: Challenge (round 1 — MAJOR_REVISIONS, loop back to Step 4)
 
-## Step 4: Success Criteria
+Three independent passes dispatched in parallel and completed:
+- challenge/assumption-analysis.md — 13 assumptions (5 critical): arm C's
+  parameter-space port changes its semantics (k/p ≈ 0.3% captured energy →
+  norm-matched noise injection, vacuous honesty clause); 12 trials cannot
+  resolve the enumerated sweep space and F12 was dropped; the gate's
+  denominator is an unexamined per-fold random variable; gate-fix levers are
+  coupled to the treatment's feasibility envelope through p; the NOVEL verdict
+  was carried across the exact object swap the parent flagged as needing a
+  novelty re-check.
+- challenge/mentor-review.md — verdict MAJOR_REVISIONS. Construct sound, no
+  rethink; but the matched 12-trial budget cannot resolve the enumerated arm-B
+  space as written, and there is no pre-registered downgrade path protecting
+  the terminal kill criterion from an under-exploration artifact. All required
+  fixes are zero-compute protocol amendments.
+- challenge/pre-mortem.md — 5 scenarios: gate unreachable (High/High —
+  ~half the failure mass, denominator check + fix ladder are free); NULL by
+  power, killed by rule (Medium/High); feasibility-capped rank grid stops
+  covering the hypothesis (Medium/High); atomic fold jobs die of logistics
+  (Medium/Medium); arm C matches the wrong invariants (Medium/Medium).
+  Cross-cutting: the kill criterion verifies execution, not evidential
+  sufficiency — the parent's central failure one level up.
 
-Defined and auto-approved (autonomous mode). Full criteria in
-`success-criteria.md`.
+Construct-validity gate: ok (no known-outcome flaw; outcome genuinely
+uncertain in both directions; committed verdict machinery). construct_validity: ok.
 
-- **SOTA framing split in two.** Task side: Numerai practitioner ranges
-  (mean per-era corr ~0.01-0.04, corr-Sharpe ~0.5-1.0, FNC smaller) used as
-  sanity ranges, not targets — numbers far above the band signal leakage.
-  Comparison side: the bar is methodological (matched tuning budgets, >=3
-  seeds, tuned AdamW; default-Adam-only would be a strawman given the 2026
-  tabular benchmark showing Muon beats AdamW). There is no direct SOTA for
-  the specific question — that is what makes any competent answer informative.
-- **Required baselines** (by load-bearing weight): (1) tuned AdamW at matched
-  budget; (2) filter-on vs filter-off at identical base config — the cleanest
-  isolation of the mechanism; (3) GAF-style simple-agreement ablation (first
-  designated cut); (4) Muon (secondary, cuttable with noted limitation);
-  (5) zero-predictor sanity baseline.
-- **Verdict definitions with teeth.** 'Helps'/'hurts' require a paired
-  per-era CI excluding zero AND practical significance (>= ~0.005 mean
-  per-era corr, ~20-25% relative). 'Doesn't help' is an equivalence-style
-  statement (CI narrow enough to exclude >=0.005 improvements), not p>0.05.
-  Every verdict requires spectral engagement diagnostics (eigendirections
-  kept vs MP bulk, gradient-norm fraction passed) so a null means 'mechanism
-  engaged but didn't generalize better', not 'implementation no-op'.
-- **Publishability**: TMLR primary (values negative results, no
-  mechanism-novelty bar — matches the 'contribution is the transfer verdict'
-  framing), ICAIF secondary, NeurIPS OPT workshop fallback.
-- **Budget fit**: minimum viable contribution (Numerai + MLP, 2 arms +
-  ablation) fits in <=3 of 5 experiment slots, leaving >=2 for the sequence
-  arm and GAF ablation. Cuts under pressure: Muon and GBT baselines — never
-  the seeds or the matched tuning budget. Paired per-era design is the power
-  mitigation: era count, not model size, drives statistical power and is
-  nearly free within the <30-min job cap.
+Decision: MAJOR_REVISIONS, challenge_loop_count 0 → 1. Loop back with a
+documented deviation: current_step: 3 (not the executor default of 4) so the
+wrapper re-runs Step 4 THEN Step 5, because the convergent defects live in
+success-criteria.md — the frozen Step 10 audit anchor — which a
+decomposition-only loop cannot fix. Binding amendment series A (criteria),
+B (decomposition), C (write-up) recorded in the step 6 decision entry; the
+Step 4 and Step 5 re-runs MUST hand their agents the three challenge/ files
+plus the amendment list, and preserve all round-1 binding elements.
+Limitation triage deferred to the post-loop Step 6 pass (per executor rules,
+triage only runs when proceeding).
 
-## Step 5: Steinhardt Decomposition
+Next: wrapper runs Step 4 (criteria regeneration, round 2).
 
-Complete. Full decomposition with component details, dependency graph, and
-parallelisation plan in `decomposition.md`. Nine components across four
-layers (infrastructure, cluster feasibility, scientific preconditions,
-scope extension). No SHOWSTOPPERs (nothing below P=0.05, nothing exceeding
-one L40 per job); no SKIPs (nothing >=0.9 with replications of our exact
-usage).
+## Step 4: Success Criteria (round 2 — frozen audit anchor)
 
-Fail-fast ordering (top 3 by lambda):
-1. **Spectral engagement on financial gradients** (P=0.40, lambda=1.22) —
-   the scientific heart. Prior project's weak-signal failure mode + Feldman's
-   long-tail theory both predict possible degeneracy (filter passes ~0% or
-   ~100% of gradient norm) in the low-SNR regime. Tested with one short
-   diagnostics-logging GPU run. A FAIL pivots to a reportable mechanistic
-   finding ("no gradient-coherent signal separable from the MP bulk on
-   Numerai"), not project death.
-2. **Sequence-arm vmap feasibility** (P=0.35, lambda=1.05) — torch.func vmap
-   doesn't compose with cuDNN RNNs; tested locally on CPU with a hand-rolled
-   GRU cell. FAIL drops to MLP-only scope (pre-authorized fallback).
-3. **Statistical power** (P=0.60, lambda=1.02) — whether the paired per-era
-   CI can resolve the 0.005 verdict threshold at 3 seeds; tested by CPU
-   bootstrap from the baseline's per-era corr vector. FAIL first mitigated
-   free (more eras), else scope claim to the CI the design supports.
+success-criteria.md regenerated by a fresh criteria agent handed the round-1
+file as base, the three challenge/ files, the followup brief, and the A1-A8
+amendment list; auto-approved (autonomous mode). The document reads as one
+coherent pre-registration: every round-1 binding element survives in force,
+and the A-series amendments are woven into the sections where they operate
+(kill criterion now a four-condition rule: execution validity + A1 power
+qualification + A2 rank-grid scope floor + A3 under-exploration downgrade;
+gate semantics, sweep allocation, inference spec, arm C design, and
+verification depth all amended as recorded in the step 4 round-2 decision
+entry). Two authorized-alternative choices flagged by the agent: the
+degenerate-yardstick fallback is the denominator-floor option (0.010), and
+decay/warmup is declared a limitation now with Step 5 permitted to trade one
+pruned grid dimension for decay in {0.99, 0.999}.
 
-Structural notes:
-- Pre-experiment gate (~4-6 h wall-clock) uses only two short --qos=debug
-  validation jobs (~25 min GPU combined) and spends ZERO of the 5 experiment
-  slots: #7 (vmap throughput) and #1 (spectral engagement) share one job;
-  #8 (tuned-AdamW baseline sanity) is a parallel array job.
-- Wave plan: [#6 integration smoke, #9 Numerai data] locally in parallel;
-  then the two debug GPU jobs; then CPU-only power (#3) and budget-fit (#4)
-  checks. #5 (OHLCV fallback) only if the Numerai within-era framing fails.
-- Baseline sanity (#8) is the leakage gate: corr > 0.06 means the
-  purge/embargo is broken and nothing downstream is interpretable until
-  fixed.
-- Overall P_success: ~0.07 for the full clean verdict, but ~0.30 for an
-  informative publishable outcome (component #1 and #3 failures convert to
-  explicitly countable deliverables under the success criteria). Uncertainty
-  is concentrated in the science (#1, #3), not the infrastructure. The
-  sequence-arm TMLR-tier extension (~0.03) is a stretch goal, not plan of
-  record.
+Next: wrapper runs Step 5 (decomposition regeneration, round 2, under the
+B-series amendments B1-B4 from the step 6 decision).
 
-## Step 6: Challenge the Research Plan
+## Step 5: Steinhardt Decomposition (round 2)
 
-Complete. Three independent adversarial passes dispatched in parallel, no
-cross-reading: `challenge/assumption-analysis.md` (12 assumptions: 4
-critical, 5 moderate, 3 background), `challenge/mentor-review.md` (verdict:
-MAJOR_REVISIONS), `challenge/pre-mortem.md` (5 systemic failure scenarios).
-Design-time limitation triage in `challenge/limitation-triage.md` — **Steps
-7 and 9 must read it**; its fix-now amendments are binding on the experiment
-plan.
+decomposition.md regenerated by a fresh decomposition agent handed the
+round-1 file as base, the three challenge/ files, the round-2 frozen
+criteria, the prior run's decomposition and experiment results, and the
+B1-B4 amendment list. All four B-series amendments are visibly implemented
+and indexed in a change-log table at the top of the file (B1: EU-1 gains a
+full-length arm-A convergence run + VALID-slice proxy gate ratio, second
+architecture timing, and eigh-variant timings; B2: new resumability
+component #7 with kill-test, checkpoints, realized-wall re-projection, and
+fold-split rule; B3: arm C re-derived for parameter space with the required
+pre-port local CPU sim as its quick test; B4: the power sim's consequence
+wired to the mandatory A1 kill wording in protocol.json). The decay/warmup
+authorization is exercised as a decay=0.999 stage-2 probe; warmup remains a
+declared limitation. An 11-item protocol-freeze checklist gates EU-2 (no
+TEST touch before freeze). 9 active components + 1 SKIP (data banked by
+parent); no SHOWSTOPPERS. Highest-lambda component: EU packing arithmetic
+(1.43); dominant genuine uncertainty: the baseline gate (#4, P=0.55),
+bought earliest via the EU-1 proxy ratio then gate-first fold 1. Overall
+P ~0.06 for an unqualified verdict, ~0.23 for any informative outcome
+(gate/power/scope failures convert to pre-registered qualified findings
+under the round-2 criteria rather than uninterpretable runs). Full detail
+in the step 5 round-2 decision entry.
 
-**Construct-validity gate: PASSED.** The mentor review examined it directly:
-the outcome is not statable on paper (prior evidence points both directions;
-Feldman's theory gives a principled harm mechanism), the evaluation object is
-faithful (real obfuscated financial data, era-purged temporal splits), and
-the plan answers the motivating question with a three-way directional
-verdict. No construct redesign; no loop to Step 1.
+Next: wrapper runs Step 6 (challenge, round 2 pass — construct gate,
+verdict mapping with challenge_loop_count already at 1, and the
+post-loop limitation triage).
 
-**Why MAJOR_REVISIONS did not trigger a loop back to Step 5**: every required
-revision is a protocol amendment (era splits, pre-registration rules,
-inference machinery, diagnostics additions, cut-order changes) that leaves
-the component set and lambda ordering intact. All fixes folded into
-`challenge/limitation-triage.md` as binding amendments instead — autonomous
-mode, loop budget conserved.
+## Step 6: Challenge (round 2 — MINOR_REVISIONS, proceed with notes)
 
-**Convergent findings across the three independent passes** (highest
-confidence):
-1. **Selection/inference contamination** (mentor #1 = the load-bearing gap;
-   pre-mortem #1/#3; assumption #7): no tuning/verdict era separation, an
-   absolute 0.005 threshold that silently becomes a ~70% relative bar if the
-   subsampled baseline lands low, and era-autocorrelated targets breaking
-   naive bootstrap CIs. Fixes F1, F3, F4, F5 — all free.
-2. **Diagnostics validate execution, not interpretation** (assumption #1/#3;
-   mentor #3; pre-mortem #2): the MP threshold's null assumes i.i.d. samples,
-   but financial per-sample gradients are cross-sectionally correlated
-   (factor structure), so "engaged" can be spurious — and in low-SNR
-   regression the spectrum may have only trivial rank-1 (mean-gradient)
-   structure, making the filter a smoother that LR tuning absorbs. Fixes
-   C1, C2, C3, C5 + F2, F6 — calibration tests and cosine diagnostics in
-   the existing gate jobs.
-3. **The ablation doesn't isolate the mechanism** (assumption #2; mentor's
-   random-subspace suggestion; pre-mortem #2): filtering also shrinks update
-   norm — implicit regularization known to help on noisy data. Fix C4:
-   random-subspace norm-matched control, ranked above the GAF ablation.
-4. **The cut cascade could strip a null of its meaning** (pre-mortem #5;
-   mentor cut-order inconsistency; assumption rec 5): fix F7 — cut order
-   inverted and made conditional; mechanism-discriminating controls outrank
-   the sequence arm.
-5. **Negative direction under-guarded** (pre-mortem cross-cutting theme):
-   the rigor machinery targets false positives, but this project will
-   readily publish a negative — fixes F12 (tuning-adequacy signatures,
-   verdict downgrade rule) and C3 (degeneracy pivot rule) guard the
-   false-negative direction.
+Three fresh independent passes dispatched in parallel against the round-2
+artefacts (round-1 challenge files preserved as challenge/round1-*.md):
 
-**Accepted residual risk** (stated knowingly): ~1-in-4 to 1-in-3 chance the
-deliverable is a caveated "could not determine" below the primary venue,
-even with all mitigations — consistent with the decomposition's own 0.07
-clean-verdict estimate, and acceptable because boundary/degeneracy findings
-are explicitly priced as deliverables.
+- challenge/assumption-analysis.md — verifies all twelve A/B amendments are
+  genuinely implemented (per-amendment location table), then finds 13
+  assumptions (4 critical, 6 moderate, 3 background). The critical cluster is
+  new in kind: round 1's defects were missing machinery; the residual risk now
+  lives in what the machinery itself quietly assumes — an arm-A-defined step
+  count read as fair to arm B, a fair parameter-space arm C existing between
+  the noise and clone degeneracies, an MDE floor that is a ~50%-power
+  half-width and ~35% of the gated baseline's own score, and a transferred LR
+  assumed to rank the rank grid. Three of the four feed the same construct the
+  kill criterion certifies ("genuine sweep at matched budget"). Every
+  recommended fix is a zero-compute pre-freeze change.
+- challenge/mentor-review.md — verdict MINOR_REVISIONS. Checked each round-1
+  defect against the actual text: all fixed in binding form, none merely
+  claimed. Construct validity re-verified sound (no known-outcome flaw). Three
+  in-flight recommendations: pre-designate arm-C candidate (b) as expected
+  primary, derive the 0.005 MDE anchor in protocol.json, protect EU-1 with a
+  plateau stop and qos-escalation fallback. Flags specification-fidelity risk
+  (the criteria are now the run's most complex artifact) with protocol.json-as-
+  operational-spec as the mitigation.
+- challenge/pre-mortem.md — 5 scenarios: gate unreachable + uncalibrated proxy
+  (High/High, Critical; assumption 3 remains ~50/50 and the dominant untested
+  premise); EU-1 collapsing under its amendment cargo (High/Medium; the
+  convergence run's duration is the unknown EU-1 exists to measure);
+  freeze-locked defect via the A4→A3 self-trigger (Medium/High); clean run
+  delivering a triple-hedged non-answer (High/Medium; the systemic one —
+  interpretability was bought, decisiveness was not, and the qualification
+  triggers are correlated through the compute envelope); arm C noise-or-clone
+  (Medium/Medium). Both new early-warning instruments (proxy ratio, C-sim
+  acceptance test) are themselves uncalibrated; both calibrations are free.
 
-Outcome: `challenge_outcome: proceed_with_revisions`. Next: Step 7 (report
-planned experiments), which must apply the F1-F13 amendments and the
-C1-C5 additions when writing the approved experiment plan.
+Construct-validity gate: OK (re-verified; no redesign). Verdict mapping:
+MINOR_REVISIONS → proceed_with_notes; challenge_loop_count stays 1.
 
-## Step 7: Approved Experiment Plan
+Design-time limitation triage written to challenge/limitation-triage.md:
+13 fix-now-free items (D1–D13, all zero-GPU pre-freeze changes) folded into
+decomposition.md as the binding Round-2 Challenge Addendum, extending the
+protocol-freeze checklist from 11 to 16 items; 4 future-work rows (FW1–FW4)
+carry to Step 11; accepted risks stated plainly, headed by the genuinely
+~50/50 baseline gate that only running can test. No fix adds an experiment
+unit — the 5-experiment cap stands, with EU-1b/fold-split submissions
+chargeable to the EU-5 reserve as already accounted.
 
-Auto-approved (autonomous mode). Full machine-readable plan in the
-`approved_experiments` frontmatter above; binding amendments from
-`challenge/limitation-triage.md` (F1-F13, C1-C5) are folded into each
-experiment's pass/fail criteria and Step 9 must honor them.
+Next: wrapper runs Step 7 (report planned experiments).
 
-**Packing decision.** The decomposition's 9 components exceed the
-5-experiment cap. A literal top-5-by-lambda cut would keep #1/#2/#3/#4/#5
-while severing #1's prerequisites (#6, #9, #7) and #3's input (#8),
-making the surviving experiments unexecutable. Instead the components are
-packed into 5 experiments along the decomposition's own dependency waves —
-each experiment is still lambda-led (the bundle runs its highest-lambda
-question as the pass/fail headline) and the execution order preserves
-fail-fast:
+## Step 7: Planned Experiments (auto-approved)
 
-| Exp | Bundles | Lambda driver | Compute | Fail semantics |
-|-----|---------|---------------|---------|----------------|
-| exp-001 | #6 integration + #9 Numerai/protocol + #7 throughput + #1 spectral engagement | 1.22 | local CPU + 1 shared --qos=debug GPU job | #1-degeneracy = FAIL-FAST → mechanistic-finding pivot |
-| exp-002 | #2 sequence-arm vmap feasibility | 1.05 | local CPU | scope decision only — MLP-only fallback, always continue |
-| exp-003 | #8 baseline sanity + #3 power + #4 budget fit + F4 go/no-go | 1.02 | 1 GPU array job + CPU | leakage = FAIL-FAST (fix before anything runs); power/budget fails re-scope per F4/F7 |
-| exp-004 | Seeded main comparison (2 arms x 3 seeds) + C4 mechanism controls | verdict deliverable | GPU array job(s) | no-verdict → honest effect estimate write-up, no retry |
-| exp-005 | Sequence/second-setting arm (#5 OHLCV fallback internal) | 0.45 (stretch) | 1 GPU job, conditional | cut per F7, never blocks the run |
+The round-2 decomposition's experiment-unit packing is approved as the
+experiment plan, unmodified — it already satisfies both Step 7 rules:
 
-**Key amendment placements**: F1 era separation is built in exp-001 (#9)
-and enforced everywhere downstream; F2 fixes the threshold mode at exp-001
-from diagnostics only; F3's relative threshold and the F4 go/no-go gate are
-registered in exp-003 before any comparison is unblinded; F5 block-bootstrap
-inference governs exp-003's power sim and exp-004's verdict CIs; C1/C2/C3/C5
-diagnostics-calibration all ride inside exp-001's existing smoke test and
-debug job at ~zero marginal cost; C4's random-subspace norm-matched control
-co-schedules with exp-004's arrays; F7's inverted cut order protects the
-mechanism-discriminating controls ahead of the sequence arm; F8 makes the
-tail-era breakdown a mandatory exp-004 analysis output; F11 pins the
-optimizer identity (exact B x B SpectralConsensusFilter — a streaming-variant
-swap is a declared scope change).
+- **SKIP removal**: component #10 (Numerai v5 data, P=0.97, banked by the
+  parent run) is excluded; its symlink + sanity check is Wave-1 setup, not an
+  experiment.
+- **Cap**: exactly 5 experiment units, where a unit = one Slurm submission
+  batching many short trials (the criteria's binding reading of the cap).
+  Zero headroom remains: EU-1b (D6 convergence continuation) and B2 fold
+  splits are pre-authorized charges against the EU-5 reserve, not additions,
+  and the reserve can absorb only one such contingency. Overflow beyond that
+  triggers the preserved cut order (cap rank grid → 3 seeds → reduce folds),
+  never a sixth unit.
+- `rethink_disproof` is not set; the full plan stands.
 
-**Parallelism**: exp-001's local parts, exp-002, and exp-001's data download
-can proceed concurrently; exp-001's debug GPU job and exp-003's array job
-are submittable simultaneously (2 GPUs, within the 6-GPU cap). exp-004 waits
-on the F4 gate; exp-005 waits on exp-002 + exp-003's budget arithmetic.
+Approved units (full pass/fail detail in the `experiment_plan` frontmatter):
 
-**No [SKIP] components existed** (nothing at P >= 0.9), so nothing was
-removed; the cap is honored by bundling, and `rethink_disproof` is not set.
+| Unit | Content | Components (λ) | Gate/fail-fast semantics |
+|------|---------|----------------|--------------------------|
+| EU-1 | Pre-flight `--qos=debug`: rank-grid throughput at 2 architectures, eigh variants, VRAM, stability, on-cluster α=0 re-assert, D6-phased full-length arm-A convergence run + D7-calibrated proxy gate ratio | #8 (0.18), #6 short (0.22), #5 guard | Infeasibility → documented reduction or FAIL-on-affordability; K_max < 512 → A2 wording pre-registered immediately |
+| EU-2 | Fold 1, gate-first, B2-resumable: arm-A sweep→refit→TEST gate (phase 1); staged arm-B sweep + A/B/C refits + TEST (phase 2, conditional in sbatch) | #4 (0.24, P=0.55), #6 long | THE ==5 assertion + coverage assertion; gate < 0.60 handled per A5 bands; terminal failure = baseline-construction negative |
+| EU-3 | Fold 2, after fold-1 gate pass, sized from realized wall | #4 | Own gate per A5 |
+| EU-4 | Fold 3, parallel with EU-3, largest shard, split rule if > ~16 h | #4 | Own gate per A5 |
+| EU-5 | Reserve: ladder retry / structural-gap learning curve / forced rerun / EU-1b or fold-split absorption | contingency | Spent only on pre-registered triggers, logged |
 
-Step 7 complete. Next: Step 8 (fail-fast agreement).
+Six zero-GPU local components precede any fold submission (Waves 1–3:
+#9, #5, #7, #3, #2, then #1 after EU-1), all feeding the 16-item
+protocol-freeze checklist that gates EU-2. Run-level fail-fast bite points,
+binding on Step 9: structural α=0 identity failure → STOP-and-report;
+EU-1 infeasibility → FAIL-on-affordability with the exact resource ask;
+fold-1 terminal gate failure → the pre-registered negative, with folds 2–3
+spent only if the failure mode is plausibly fold-specific rather than
+structural (< 0.45 diagnosis redirects EU-5 to the data-scaling learning
+curve instead).
 
-## Step 8: Fail-Fast Agreement
+Next: wrapper runs Step 8 (fail-fast agreement — trivial in autonomous mode).
 
-Recorded autonomously: `fail_fast_agreement: conditional` — fail fast with
-pre-authorized pivots, not blanket termination. This matches the fail
-semantics already annotated per-experiment in the approved Step 7 plan;
-a blanket `true` would wrongly terminate the run on exp-002 (a scope
-decision) or exp-004 no-verdict (a priced write-up outcome).
+## Step 8: Fail-Fast Agreement (confirmed)
 
-**What fail-fast means here, per experiment:**
-- **exp-001 (#1 spectral engagement, the lambda driver at 1.22)** — hard
-  trigger. If all threshold modes degenerate (~0% or ~100% of gradient norm
-  passed at both batch sizes and both batch compositions), or the C3
-  filtered-vs-mean-gradient cosine exceeds ~0.95 everywhere, the helps/hurts
-  comparison is uninterpretable: stop the comparison track and take the
-  pre-authorized pivot (characterize the degeneracy against the C2
-  permuted-target null and the prior MNIST label-noise spectra — a
-  mechanistic finding, not project death).
-- **exp-003 leakage signature** — hard trigger. Nothing downstream is
-  interpretable until the purge/embargo is fixed; no further slots are spent
-  before the fix.
-- **exp-002 (sequence-arm vmap)** — NOT fail-fast. Failure drops scope to
-  MLP-only (pre-authorized); the run always continues to exp-003.
-- **exp-004 no-verdict** — NOT a retry trigger. The pre-registered fallback
-  is an honestly-scoped effect estimate with calibrated uncertainty
-  (the ~1-in-4 to 1-in-3 priced residual risk).
-- **exp-005** — conditional stretch goal; cut per F7, never blocks the run.
+`fail_fast_agreement: true` recorded. Step 9 executes the approved 5-unit plan
+under fail-fast semantics: on any unit-level FAIL matching the run-level bite
+points (structural α=0 identity failure; EU-1 infeasibility; fold-1 terminal
+gate failure), stop further experiments, record the result, and set
+`status: experiments_done_with_failure` so the audit triages genuine-null vs
+botched-run. Conditional/qualified outcomes that the round-2 criteria
+pre-register (gate near-miss bands, power-limited NULL, scope-limited grid) are
+NOT fail-fast stops — they are handled inside the plan's own branching.
 
-**Kill criteria adopted from the pre-mortem** (its five pivot indicators,
-binding on Step 9 — most already enforced as triage amendments):
-1. **Endpoint-unreachable gate (F4)**: after exp-003's #8 and #3, if the
-   joint block-bootstrap gives P(any verdict category reachable) < 0.6 under
-   the realized baseline corr and era count, stop and re-scope the endpoint
-   BEFORE spending the main-comparison slots.
-2. **Degeneracy pivot (C3)**: update-cosine to the plain mean gradient
-   > ~0.95 for all threshold modes across both tested batch sizes in the
-   exp-001 gate run — stop treating the study as filter-vs-baseline;
-   redesign around characterizing the degeneracy.
-3. **Autocorrelation collapse (F5)**: if the moving-block bootstrap CI
-   half-width exceeds the verdict threshold even at the full available era
-   count, this collapses into kill criterion 1's endpoint redesign.
-4. **Under-tuning downgrade (F12)**: a 'hurts' verdict accompanied by any
-   under-exploration signature (grid-boundary best config, non-monotone
-   sweep, inter-arm optimal-LR shift) is downgraded to 'no evidence of
-   benefit under the affordable tuning budget' before write-up — a claim
-   correction, not a stop.
-5. **Contribution-identity floor (F7)**: if exp-003's budget arithmetic
-   cannot fit the main comparison plus at least one mechanism-discriminating
-   control (C4 random-subspace or GAF-style), re-scope the tuning sweep
-   (fewer trials, declared) rather than cutting the last discriminating
-   ablation.
+Next: wrapper runs Step 9 (execute experiments).
 
-Step 8 complete. Next: Step 9 (execute experiments), which must honor these
-conditions, the per-experiment on_fail semantics, and the F1-F13 / C1-C5
-amendments in challenge/limitation-triage.md.
+## Step 9: Execute Experiments (IN PROGRESS)
 
-## Step 9: Experiment Execution — COMPLETE
+Session resumed 2026-08-04. Found: prior Step 9 session was interrupted after
+writing plans for exp-f01..exp-f04 (local zero-GPU components #9, #5, #7, #3) —
+no results existed, no cluster jobs queued (squeue empty), no run dir staged on
+the cluster. Data symlinks verified intact.
 
-All five approved experiments executed. No hard fail-fast trigger fired; no
-kill criterion tripped. Total GPU spend across the run: ~15 min on single
-L40s (jobs 6430, 6432, 6439, 6614 — all --qos=debug, free compute
-partition), far under budget.
+Experiment-directory convention (follow-up numbering): exp-f01=#9 fold
+arithmetic, exp-f02=#5 filter integration, exp-f03=#7 resumability,
+exp-f04=#3 power sim (waits on f01), exp-f05=#2 arm-C design sim (plan written
+this session), exp-f06=EU-1 pre-flight (cluster), exp-f07=EU-2 fold 1,
+exp-f08=EU-3 fold 2, exp-f09=EU-4 fold 3, exp-f10=EU-5 reserve (if triggered).
 
-- **exp-002 (sequence-arm vmap feasibility): PASS** — vmap(grad) per-sample
-  gradients through a hand-rolled functional GRU match the loop reference to
-  1.7e-06; full filtered step 1.17 s on CPU at B=1024 (eigh only ~3% of it);
-  projected sequence-model training ~3.9 min on one L40 under a conservative
-  10x scaling (budget met at any speedup >=1.6x); end-to-end
-  SpectralConsensusFilter step on GRU gradients ran (k=4 kept,
-  consensus_ratio 0.457). No MLP-only fallback needed; the sequence arm
-  supports the "architecture consistency" claim route if it stays on
-  within-era Numerai (F13). Caveat: verified on local torch 2.11.0 vs
-  cluster's 2.5.1 — re-run the seconds-long correctness assert on-cluster
-  before real sequence-arm GPU runs. No GPU/cluster resources used.
-- **exp-001 (gate bundle): infra PASS; headline #1 FAIL on the C2 conjunct
-  ONLY — banked as the run's core mechanistic finding.** #6 integration
-  smoke PASS (loss decreases; filter-off == plain AdamW to fp64 precision;
-  streaming variant runs; C1 spiked-covariance tests correct in hard mode).
-  #9 data/protocol PASS: Numerai v5 downloaded, F1 split = tuning 0579-0966
-  (388 eras) / embargo 0967-0970 / verdict 0971-1225 (255 eras), F5 embargo
-  4 eras, F9 recalibrated sanity band [0.0087, 0.0522] and leakage gate
-  0.0696. #7 throughput PASS (31 ms/step filter-on at B=1024; job 6430,
-  2.5 min). #1: selectivity sustained (0<k<B on 100% of logged steps,
-  kept-energy 0.29-0.89) and C3 clean (median cosF 0.25-0.83) — the
-  pre-registered HARD fail-fast trigger did NOT fire. But real-vs-permuted-
-  target diagnostics are indistinguishable, with a PROOF: for scalar-output
-  MSE, per-sample gradients are +/-(residual sign) x a target-independent
-  Jacobian direction, so S(y')=D S(y) D with D orthogonal — the whole
-  engagement eigenspectrum is exactly target-independent at fixed parameters
-  (verified fp64 to 8.9e-16). 'Consensus' on this task measures
-  Jacobian/factor structure, not target signal. Binding registrations made
-  before any OOS peek: F2 mode = hard (mp_factor 2.0), F6 = within-era
-  composition. C5 probe inconclusive (carried as limitation). Surprise: the
-  filter often AMPLIFIES (ratio > 1 on 25-70% of steps), it is not shrinkage.
-- **ORCHESTRATOR DECISION (exp-001 middle-case ruling, for the Step 10
-  audit)**: headline #1 logged FAIL (C2 conjunct failed by proof, not
-  noise), but the binding hard fail-fast trigger did not fire and the
-  motivating question remained open and answerable. Proceeded to exp-004
-  under an AMENDED INTERPRETATION FRAME (in exp-004/plan.md): the
-  target-independence proof is a co-primary deliverable; any verdict is
-  attributed to target-blind spectral-subspace regularization, never
-  'consensus on signal'; the C4 random-subspace control is load-bearing.
-  All pre-registered verdict machinery unchanged (F1 first-unblinding, F2
-  hard mode, F3=0.00398, F5 L=4, F8, F10, F12).
-- **exp-003 (baseline sanity + power + budget + F4 gate): PASS on all
-  sub-components** (job 6432, 1.1 min). #8: 12 AdamW trials on tuning-block
-  eras only; best t07 (lr 1e-3, wd 1e-3, dropout 0.2) mean per-era
-  numerai_corr +0.0196 INSIDE the F9 band; zero-predictor ~+0.0003; leakage
-  gate NOT fired. Two extra seeds: +0.0129, +0.0153. #3 power PASS: F5
-  moving-block bootstrap (L=4), paired 3-seed design at 255 verdict eras
-  gives median CI half-width 0.00219; detection ~0.90-0.92 at +/-threshold.
-  F3 FROZEN at 0.00398 (0.25 x 3-seed mean +0.01594, winner's-curse-
-  corrected). F4 gate: P(any verdict category reachable) = 0.910 >= 0.6 ->
-  GO. #4 budget PASS, no F7 cuts: exp-004 packs into one ~12.7-min job;
-  exp-005 fits at ~13.7 min/task. F12 signatures RECORDED (binding): wd and
-  dropout best at grid boundary with improving trends; spectral arm affords
-  ~1 tuning trial vs AdamW's 12.
-- **exp-004 (THE VERDICT EXPERIMENT): PASS — verdict returned** (job 6439,
-  5.4 min on one L40; local block-bootstrap analysis in
-  exp-004/out/verdict_analysis.json; full write-up in exp-004/results.md).
-  First and only unblinding of the 255 verdict eras; all arms/configs frozen
-  beforehand. **Pre-registered category: HURTS. Mandatory F12 downgrade
-  applied: "no evidence of benefit under the affordable tuning budget."**
-  Headline (filter_on − filter_off): −0.00527 mean per-era numerai_corr,
-  95% CI [−0.00886, −0.00181] (spearman −0.00607 [−0.00927, −0.00292]);
-  all three per-seed diffs negative; corr-Sharpe diff −0.200 [−0.416,
-  −0.004]. Arm levels: filter_off +0.00641, filter_on +0.00113, C4 random
-  subspace +0.00229, GAF −0.00042, zero-pred +0.00063. **Mechanism
-  attribution (load-bearing): filter_on vs C4 = −0.00116 CI [−0.00366,
-  +0.00134] — MP-eigenselection statistically indistinguishable from a
-  norm/k-matched random subspace**; all three filtered arms hurt similarly
-  (agreement-style update modification as a class). F8 tail breakdown:
-  monotone helps-on-worst-eras / hurts-on-best-eras gradient (Q1 +0.019 →
-  Q4 −0.0297) but flagged as regression-to-the-mean-contaminated
-  (outcome-conditioned bucketing); the unconditioned target-dispersion
-  split shows uniform hurt — no Feldman-tail pattern. Engagement confirmed
-  (selective on 100% of steps; k_med 1-4; update norm ~10x mean gradient —
-  amplification, not shrinkage). F9: verdict-block baseline +0.00641 is
-  BELOW the tuning-band [0.0087, 0.0522] — regime drift, reported;
-  leakage gate not fired; F3-vs-realized-baseline calibration gap (~62%
-  relative bar vs intended 25%) carried as a limitation.
-- **exp-005 (sequence-arm architecture consistency): PASS** (job 6614,
-  6.6 min on one L40; both authorization conditions held). GRU (hand-rolled
-  functional cell; within-era Numerai framing, T=15 x D=47 reshape of the
-  705 features — F13 'architecture consistency' claim supported, OHLCV
-  unused). On-cluster torch 2.5.1 correctness assert passed (4.77e-07).
-  **The MLP verdict REPLICATES on the GRU: same category (HURTS → F12
-  downgrade), headline −0.00484 CI [−0.00758, −0.00211]; spectral-vs-random
-  null replicates (−0.00011 CI [−0.00233, +0.00215]); corr-Sharpe −0.242
-  [−0.414, −0.073]; no dispersion-tail pattern.** Notable: the filter
-  engages in a different regime on the GRU (k~60, mild attenuation) vs the
-  MLP (k~1, ~10x amplification) yet produces near-identical harm and the
-  same null — strengthening the 'generic subspace projection/rescaling,
-  not spectral selection' account. Limitation: GRU used the t07 fallback
-  config — the tuning-shard 'wiped' determination was made from the login
-  node but /ephemeral is node-local, so the premise was false on the
-  execution node; config was frozen pre-unblinding and identical across
-  arms (protocol-valid), ~10 GPU-min re-tuning ask carried to Future Work.
+Progress log:
+- exp-f01 (#9 fold arithmetic): PASS. All 40 assertions green on 3 folds. THE
+  ==5 assertion holds (gaps 896-891, 1006-1001, 1116-1111); V=96/S=110 exact;
+  TEST blocks 0896-1005, 1006-1115, 1116-1225, coverage 1.0; no era gaps so
+  raw<->usable mapping is identity shift. Denominators +0.03957/+0.02756/
+  +0.01639, all above 0.010 floor (D10: recorded, no flags). D7 T/V ratios
+  1.166/0.678/0.572 — uncalibrated proxy would OVERSTATE TEST on folds 2-3;
+  calibrated rule pre-registered. Downstream notes: example-preds parquet has
+  no era column (id-join needed); filter out data_type=test eras 1226-1230;
+  example-model edge decays ~2.4x across TEST blocks (fold 3 nearest floor).
+  protocol-draft.json written (append-ready for freeze).
+- exp-f03 (#7 resumability, B2): PASS. Kill-test (real SIGKILL mid-trial-4):
+  completed trials survive via O_APPEND+fsync, restart runs exactly the
+  remainder, no duplicates. Checkpoint roundtrip incl. filter state (V, S,
+  proj_k, step_count, grad_mean + 4 RNG streams; filter has no state_dict —
+  helpers written in src/checkpoint.py): bitwise fp64 continuation over 10
+  steps. Resume entrypoint harness.py demonstrated end-to-end. FINDINGS:
+  parent exp-003 sweep.py buffered in memory — would NOT have survived a
+  --time kill (B2 was a real fix); fold jobs do NOT need sweep/refit split —
+  resumable single-submission design stands for EU-2/3/4. Deliverables:
+  src/trial_store.py, checkpoint.py, harness.py.
+- exp-f02 (#5 filter integration): PASS, all 5 sub-checks + RNG separation.
+  alpha=0 identity BIT-IDENTICAL over 50 fp64 steps (no STOP); planted-subspace
+  cosine 0.977; fallback fires+logged (count 3, forced); zero-predictor null
+  exact 0. Deliverables: src/spectral_filter.py (canonical copy, "RUN-COPY MOD
+  1" = fallback patch), src/diagnostics.py, src/numerai_eval.py. Interface
+  notes for cluster jobs: gram/eigh dtype follows torch DEFAULT dtype, eigh
+  CPU-resident even on GPU; filter_grad() reassigns p.grad each step (no
+  caching); energy_threshold=0.9 + adaptive rules collapse to k=1-2 on
+  top-heavy spectra; no torch-2.11-only APIs (2.5.1-safe).
+- EU-1/exp-f06 LAUNCHED (cluster agent; all prerequisites in hand).
+- RUNNING: exp-f04 (power sim), exp-f05 (arm-C sim), exp-f06 (EU-1 cluster).
+- PENDING: EU-1/exp-f06 (plan written; launch after f02+f03); packing
+  arithmetic #1 + 16-item protocol freeze (needs EU-1); EU-2..EU-5.
+- Cluster jobs submitted so far: NONE.
 
-**Run-level answer to the motivating question** (for Steps 10-11): the
-Spectral Optimizer does NOT reduce the effect of noise on this large noisy
-financial dataset. Under the pre-registered protocol it significantly
-degraded out-of-sample performance on BOTH architectures (MLP and GRU),
-with the F12-mandated conservative wording "no evidence of benefit under
-the affordable tuning budget". The run's co-primary mechanistic
-contributions: (1) a proof that for scalar-output MSE the filter's
-eigenselection is exactly target-independent, and (2) matched controls
-showing MP-eigenselection is empirically indistinguishable from random
-subspace projection at the same kept-k/norm — together explaining WHY the
-label-noise 'coherence amplifier' story does not transfer to low-SNR
-financial regression. Carried limitations for the audit/report: C5 probe
-inconclusive; F3 calibration gap under regime drift; GRU config fallback;
-F8 baseline-quartile split is descriptive only; single spectral operating
-point (affordability asymmetry, F12).
+### Resume 2026-08-04 ~11:25 (third Step 9 session) — reconciliation + relaunch
 
-Step 9 complete. Next: Step 10 (results audit).
+Reconciled the previous entry's in-flight claims against disk and cluster:
+- exp-f04 (power sim): process died with the prior session BEFORE writing any
+  output (log stalled at "launching power_sim.py", out/ empty). RELAUNCHED via
+  a fresh experiment agent (code exists; smoke tests had passed).
+- exp-f05 (arm-C sim): part1_stream FULL run (T=2400) died at t=1800, no
+  process alive; part2_descent never ran and carries 3 recorded defects.
+  Agent resuming: clean part1 restart + part2 with the three fixes.
+- exp-f06 (EU-1): NO driver script or run.sbatch existed; NO job submitted
+  (state's "LAUNCHED" reflected an agent that died before writing code).
+  Found DUPLICATE data rsyncs (10:53 and 10:59, both mid-validation); killed
+  the older (which also lacked example_preds), kept the 10:59 survivor —
+  verified progressing (~36% of v5.0_validation at ~5MB/s at 11:22).
+  train.parquet + features.json staged and size-verified on the cluster.
+  EU-1 agent launched: waits for staging to finish + size-verifies all 4
+  files, writes phase driver + run.sbatch (D6 per-phase persistence),
+  submits spectral-eu1 (--qos=debug, 1 GPU), polls at 60s.
+- Cluster occupancy: 3 UNRELATED jobs from other projects (shade-vllm-preflight,
+  exp007 x2) hold 3 of the shared 6-GPU cap — 3 GPUs headroom, EU-1 needs 1.
+  These jobs are not this run's and must never be scancel'd.
 
-## Step 10: Results Audit — COMPLETE (round 1, HONEST-NEGATIVE exit)
-
-Fresh results-auditor dispatched (round 1 of max 3). Full report:
-`audit/results-audit.md`; audit artifacts in `audit/rerun-exp-004/`;
-round-1 claim anchors frozen at `audit/claim-anchor-exp-00*.md`.
-
-**Disposition: HONEST-NEGATIVE. audit_exit_reason: true-null. No
-remediation round — exit to Step 11.** No finding could flip the verdict;
-looping further would be re-confirming a null.
-
-What the audit did:
-- **Re-executed the load-bearing exp-004** on the cluster (producer's frozen
-  code, fresh seeds {10,11,12}, plus an auditor-constructed verdict shard
-  independently subsampled from the raw parquet; jobs 6616/6618/6620, ~9 min
-  L40 total). The HURTS headline reproduces on both shards (-0.00546 /
-  -0.00562 vs original -0.00527; 6-seed pool -0.00537 CI [-0.00853,
-  -0.00222]); the C4 spectral-vs-random null replicates; the producer's
-  shard row-matches the raw parquet (no fabrication).
-- **Independently re-verified the target-independence proof** (different
-  construction, 2.1e-14) and added two scoping controls (unnormalized
-  spectrum and 2-output MSE are target-dependent) proving the theorem
-  non-vacuous and correctly scoped to the deployed code path.
-- Re-derived every results.md number from run.log/out/ artifacts with
-  independent bootstrap code; verified F3=0.00398 arithmetic,
-  freeze-before-unblinding via git commit ordering, F1 split assertions,
-  no leakage via normalization constants, no grader-gaming signatures.
-
-Findings (8): 5 SUPPORTED, 2 FIXABLE-DEFECT (write-up-level only), 1
-TRUE-NULL. Notable:
-- **NEW (found only by re-execution)**: the unmodified producer code crashes
-  stochastically by seed (`linalg.eigh` non-convergence, fp32 cuSOLVER,
-  under the rank-collapse regime the study itself documents). Original runs
-  were 6-of-6-seed lucky-complete. Disclosure required in the paper;
-  results unaffected (mathematically-equivalent CPU-fp64 fallback reproduced
-  everything; patch preserved in audit/rerun-exp-004/src/).
-- MLP corr-Sharpe CI upper bound is bootstrap-RNG fragile ([-0.416, -0.004]
-  vs auditor's [-0.416, +0.003]) — report as marginal; GRU Sharpe
-  (-0.242 CI [-0.414, -0.073]) is robust and carries the stability claim.
-- Regime drift (TRUE-NULL): verdict-block baseline +0.0064 below the F9
-  sanity band; scope the claim to this low-edge subsampled regime.
-- exp-001 middle-case ruling examined for criteria drift and CLEARED
-  (conservative, pre-unblinding, claim-narrowing); the paper must keep
-  exp-001's headline as a logged FAIL-on-C2 mechanistic finding.
-
-Step 11 (report) obligations from the audit:
-- Include ALL 8 "unresolved findings for the write-up" in Limitations (and
-  the email): regime drift/below-band baseline; F12 affordability asymmetry
-  (keep the downgraded wording everywhere); untuned GRU config (~10-GPU-min
-  ask); C5 probe inconclusive; eigh fragility; marginal MLP Sharpe; C4
-  "indistinguishable" = equivalence at +/-0.004 resolution; F8 quartile
-  split descriptive-only.
-- Use the 15-row limitation-triage table (6 fix-now-free / 3 fix-now-cheap /
-  6 future-work with concrete resource asks) for Limitations dispositions
-  and the Future Work section.
-- Robustness paragraph should cite the audit re-execution (6-seed pool,
-  audit-shard replication) as the fix-now-free strengthening of the 3-seed
-  headline.
-
-Step 10 complete. Next: Step 11 (compile research report).
-
-## Step 11: Research Report — COMPLETE
-
-Report agent compiled the full LaTeX paper: `paper/paper.pdf` (16 pages, A4,
-tectonic; all cross-references and all 28 citations resolve). Sources in
-`paper/` (paper.tex, preamble.tex, references.bib, Makefile, sections/
-abstract|introduction|related-work|methodology|experiments|discussion|
-limitations|future-work|conclusion, figures/headline_forest.pdf generated
-from the run's MBB estimates).
-
-Title: "No Evidence of Benefit from Marchenko–Pastur Spectral Gradient
-Filtering on Noisy Financial Time Series: A Pre-Registered Negative Result
-with a Target-Independence Proof".
-
-Audit obligations honored in the paper:
-- F12 downgraded wording used everywhere ("no evidence of benefit under the
-  affordable tuning budget"), raw hurts numbers always alongside — never a
-  bare "hurts" headline.
-- Results opens with the headline table (incl. audit re-runs and 6-seed
-  pool, C4 nulls, corr-Sharpe with the MLP CI worded as marginal and the
-  GRU carrying stability) plus a forest-plot summary figure.
-- exp-001 kept as a logged FAIL-on-C2 mechanistic finding; the
-  target-independence result stated as a theorem with the auditor's
-  independent re-verification and scoping controls.
-- All 8 unresolved audit findings in Limitations, each with an explicit
-  triage disposition (addressed-by-wording / addressed-by-disclosure /
-  deferred), including the linalg.eigh lucky-complete disclosure; the
-  audit exit reason (true-null) stated.
-- Future Work is a 7-item resource-scoped plan built from the 6 future-work
-  triage rows plus design-triage W-items (headline: full-scale B~4096
-  verdict run at ~10-20 L40-hours / ~$50-100 cloud; closure bundle ~25 min
-  on one L40 covering GRU re-tune, FNC, C5 probe, extra C4 seed pairs).
-
-`briefing.md` written for the interactive review command (topic, literature,
-novelty, lambda table with outcomes, challenge highlights, results table
-with the why-it-doesn't-work synthesis, abstract, surprises, follow-ups).
-
-Run complete: honest-negative deliverable with two co-primary mechanistic
-contributions (target-independence proof; spectral-vs-random equivalence).
+In-flight now: exp-f04 agent, exp-f05 agent, exp-f06/EU-1 agent (all parallel,
+independent). After EU-1 returns: #1 packing arithmetic + 16-item protocol
+freeze, then EU-2 (fold 1, gate-first, alone), then EU-3/EU-4, EU-5 per
+triggers. Cluster jobs submitted so far: NONE (EU-1 submission pending agent).

@@ -1,0 +1,128 @@
+{
+ "T": 620,
+ "eval_every": 25,
+ "p": 600000,
+ "mean_g2": 2.001674602108617,
+ "B": {
+  "8": {
+   "n_evals": 17,
+   "t_first": 200,
+   "t_last": 600,
+   "captured_energy_median": 0.2287264692538774,
+   "captured_energy_mean": 0.253702876469685,
+   "kept_ratio_median": 0.4782535616740114,
+   "kept_ratio_mean": 0.48137466707500803,
+   "rot": {
+    "mean_deg": 17.332408905029297,
+    "median_deg": 12.389715194702148,
+    "min_deg": 1.751880705356598,
+    "mean_cos2": 0.8695375621318817
+   },
+   "k_real_last": 8
+  },
+  "512": {
+   "n_evals": 17,
+   "t_first": 200,
+   "t_last": 600,
+   "captured_energy_median": 0.9980882456496677,
+   "captured_energy_mean": 0.9980447609231765,
+   "kept_ratio_median": 0.9990436655370313,
+   "kept_ratio_mean": 0.9990218201300406,
+   "rot": {
+    "mean_deg": 4.272128105163574,
+    "median_deg": 0.0,
+    "min_deg": 0.0,
+    "mean_cos2": 0.951342761516571
+   },
+   "k_real_last": 512
+  },
+  "2048": {
+   "n_evals": 6,
+   "t_first": 475,
+   "t_last": 600,
+   "captured_energy_median": 0.9987774053873896,
+   "captured_energy_mean": 0.9988535066077456,
+   "kept_ratio_median": 0.9993885151758573,
+   "kept_ratio_mean": 0.9994265790522161,
+   "k_real_last": 600
+  }
+ },
+ "Cb": {
+  "k8_eta0.0": {
+   "n_evals": 17,
+   "t_first": 200,
+   "t_last": 600,
+   "captured_energy_median": 0.20392482774164805,
+   "captured_energy_mean": 0.2083024511336886,
+   "amplification_median": 1.0890452198330982,
+   "amplification_mean": 1.0833420890079735,
+   "update_cos_median": 0.3208533823490143,
+   "update_cos_mean": 0.3550794755711275,
+   "rot": {
+    "mean_deg": 65.30434799194336,
+    "median_deg": 62.8399715423584,
+    "min_deg": 42.45742225646973,
+    "mean_cos2": 0.2188699021935463
+   },
+   "pa_vs_B": {
+    "mean_deg": 59.55927276611328,
+    "median_deg": 57.58527755737305,
+    "min_deg": 32.861576080322266,
+    "mean_cos2": 0.29862192273139954
+   },
+   "k_real_last": 8
+  },
+  "k8_eta0.02": {
+   "n_evals": 17,
+   "t_first": 200,
+   "t_last": 600,
+   "captured_energy_median": 0.20242330140480483,
+   "captured_energy_mean": 0.22367748970260845,
+   "amplification_median": 1.1353059886231684,
+   "amplification_mean": 1.0793827358005625,
+   "update_cos_median": 0.2918846905231476,
+   "update_cos_mean": 0.298279324436889,
+   "rot": {
+    "mean_deg": 66.7450065612793,
+    "median_deg": 62.98627281188965,
+    "min_deg": 41.75750732421875,
+    "mean_cos2": 0.19792240858078003
+   },
+   "pa_vs_B": {
+    "mean_deg": 62.472145080566406,
+    "median_deg": 60.36177062988281,
+    "min_deg": 37.357383728027344,
+    "mean_cos2": 0.2621002495288849
+   },
+   "k_real_last": 8
+  },
+  "k8_eta0.1": {
+   "n_evals": 17,
+   "t_first": 200,
+   "t_last": 600,
+   "captured_energy_median": 0.15837218248780977,
+   "captured_energy_mean": 0.20476034606133892,
+   "amplification_median": 1.0330563036190046,
+   "amplification_mean": 1.162993060039691,
+   "update_cos_median": 0.21670950949192047,
+   "update_cos_mean": 0.239966423216495,
+   "rot": {
+    "mean_deg": 70.16058349609375,
+    "median_deg": 67.80917358398438,
+    "min_deg": 48.40203094482422,
+    "mean_cos2": 0.1501486897468567
+   },
+   "pa_vs_B": {
+    "mean_deg": 63.46311950683594,
+    "median_deg": 60.29880905151367,
+    "min_deg": 36.69928741455078,
+    "mean_cos2": 0.24361905455589294
+   },
+   "k_real_last": 8
+  },
+  "k512_eta0.0": null,
+  "k512_eta0.02": null,
+  "k512_eta0.1": null
+ },
+ "note_k2048": "candidate (b) at k=2048 requires span r>2048 (r=4k=8192): tracker cost scales as r^2 per step and r=k is a degenerate clone (C spans exactly B's basis span); measured entries cover k in {8,512}; see design doc for the k>512 rule."
+}

@@ -1,0 +1,4 @@
+[harness] pid=893229 phase=refit torch 2.11.0+cu128 dev=cpu
+[refit] fresh start
+[refit] checkpoint @ step 10 loss 1.444897
+[refit] checkpoint @ step 20 loss 1.186159

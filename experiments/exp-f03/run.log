@@ -1,0 +1,150 @@
+=== exp-f03 run.log (attempt 2: TRIAL_STEPS 400 -> 4000 so the SIGKILL lands mid-trial-4; attempt 1 preserved below) ===
+date: 2026-08-04T10:42:59+01:00
+host: titus-MS-7A59  python: Python 3.12.3
+
+############ PART 1+3: KILL-TEST + RESUME-ON-RESTART ############
+=== sweep kill-test ===
+CHECK [trial4-started-marker]: PASS 
+CHECK [killed-by-sigkill]: PASS rc=-9
+
+--- state on disk immediately after SIGKILL ---
+  run1_sweep.log  280B
+  state/trial_1.started  0B
+  state/trial_2.started  0B
+  state/trial_3.started  0B
+  state/trial_4.started  0B
+  trials.jsonl  561B
+trials.jsonl after kill: ids=[1, 2, 3], torn_lines=0
+CHECK [survivors-1-2-3]: PASS ids=[1, 2, 3]
+CHECK [no-torn-lines]: PASS torn=0
+
+=== sweep resume ===
+CHECK [resume-exit-ok]: PASS rc=0
+[harness] pid=893211 phase=sweep torch 2.11.0+cu128 dev=cpu
+[sweep] resume scan: 3 completed trial(s) on disk: [1, 2, 3]
+[sweep] SKIP trial 1 (t01_lr0.0003_wd0): already completed
+[sweep] SKIP trial 2 (t02_lr0.0003_wd0.001): already completed
+[sweep] SKIP trial 3 (t03_lr0.001_wd0): already completed
+[sweep] RUN  trial 4 (t04_lr0.001_wd0.001)
+[sweep] RUN  trial 5 (t05_lr0.003_wd0)
+[sweep] RUN  trial 6 (t06_lr0.003_wd0.001)
+[sweep] done: ran [4, 5, 6], 6 unique records on disk
+[harness] EXIT ok
+
+CHECK [resume-skips-1-2-3]: PASS skipped=[1, 2, 3]
+CHECK [resume-runs-4-5-6]: PASS ran=[4, 5, 6]
+CHECK [final-ids-1..6-no-dupes]: PASS ids=[1, 2, 3, 4, 5, 6]
+CHECK [final-no-torn-lines]: PASS torn=0
+CHECK [no-completed-trial-rerun]: PASS started-in-both=[4] (allowed only for the killed in-flight trial)
+
+=== refit kill-test ===
+CHECK [refit-ckpt-appears]: PASS 
+CHECK [refit-killed-by-sigkill]: PASS rc=-9
+CHECK [refit-not-done-after-kill]: PASS 
+[harness] pid=893245 phase=refit torch 2.11.0+cu128 dev=cpu
+[refit] RESUMED from checkpoint at step 20 (filter step_count=20)
+[refit] checkpoint @ step 30 loss 1.000078
+[refit] checkpoint @ step 40 loss 1.487044
+[refit] checkpoint @ step 50 loss 0.838404
+[refit] COMPLETE at step 60 (resumed_from=20) final loss 0.935735
+[harness] EXIT ok
+
+CHECK [refit-resume-exit-ok]: PASS rc=0
+CHECK [refit-resumed-log]: PASS 
+CHECK [refit-resumed-from>0]: PASS resumed_from=20
+CHECK [refit-completed-all-steps]: PASS steps=60
+
+KILL-TEST RESULT: ALL PASS
+kill_test exit code: 0
+
+############ PART 2: REFIT CHECKPOINT ROUNDTRIP (fp64 bit-continuation) ############
+date: 2026-08-04T10:43:27+01:00
+=== roundtrip: reference run (uninterrupted) ===
+[reference] 35 steps done; recorded last 10; final loss 0.85722033643986517
+=== roundtrip: phase1 (train to N, checkpoint) ===
+[phase1] trained 25 steps, checkpoint saved (filter step_count=25, basis k=8)
+=== roundtrip: phase2 (fresh process, restore, continue) ===
+[phase2] restored at step 25 (filter step_count=35), ran 10 more; final loss 0.85722033643986517
+
+--- per-step comparison (fp64, full flat parameter vector) ---
+  step N+ 1: bitwise_equal=True  max|dparam|=0.000e+00  loss_ref=1.0219518443441875 loss_res=1.0219518443441875 loss_equal=True
+  step N+ 2: bitwise_equal=True  max|dparam|=0.000e+00  loss_ref=1.0310025922757096 loss_res=1.0310025922757096 loss_equal=True
+  step N+ 3: bitwise_equal=True  max|dparam|=0.000e+00  loss_ref=1.0226170605857019 loss_res=1.0226170605857019 loss_equal=True
+  step N+ 4: bitwise_equal=True  max|dparam|=0.000e+00  loss_ref=0.80116944955247371 loss_res=0.80116944955247371 loss_equal=True
+  step N+ 5: bitwise_equal=True  max|dparam|=0.000e+00  loss_ref=1.0000783641648991 loss_res=1.0000783641648991 loss_equal=True
+  step N+ 6: bitwise_equal=True  max|dparam|=0.000e+00  loss_ref=0.96464372783113006 loss_res=0.96464372783113006 loss_equal=True
+  step N+ 7: bitwise_equal=True  max|dparam|=0.000e+00  loss_ref=0.99869424213076974 loss_res=0.99869424213076974 loss_equal=True
+  step N+ 8: bitwise_equal=True  max|dparam|=0.000e+00  loss_ref=1.5432403347469521 loss_res=1.5432403347469521 loss_equal=True
+  step N+ 9: bitwise_equal=True  max|dparam|=0.000e+00  loss_ref=1.1838024954059243 loss_res=1.1838024954059243 loss_equal=True
+  step N+10: bitwise_equal=True  max|dparam|=0.000e+00  loss_ref=0.85722033643986517 loss_res=0.85722033643986517 loss_equal=True
+CHECK [trajectory-bit-continuous-10-steps]: PASS 
+CHECK [same-number-of-steps]: PASS ref=10 res=10
+CHECK [filter-V-bitwise]: PASS shape ref=(353, 8) res=(353, 8)
+CHECK [filter-S-bitwise]: PASS S_ref=[0.8804062402357886, 0.21428254153279555, 0.17447539262595205, 0.11264752562155139, 0.09264303016050326, 0.08307570185545528, 0.07135740103327408, 0.066944990358783]
+CHECK [filter-grad_mean-bitwise]: PASS 
+CHECK [filter-step_count]: PASS ref=35 res=35
+
+ROUNDTRIP RESULT: ALL PASS
+roundtrip exit code: 0
+
+############ APPENDIX: ATTEMPT 1 (kill-timing miss — trials too fast at TRIAL_STEPS=400; kill landed in trial 6, persistence itself behaved correctly; fixed by TRIAL_STEPS=4000) ############
+=== exp-f03 run.log ===
+date: 2026-08-04T10:42:23+01:00
+host: titus-MS-7A59  python: Python 3.12.3
+
+############ PART 1+3: KILL-TEST + RESUME-ON-RESTART ############
+=== sweep kill-test ===
+CHECK [trial4-started-marker]: PASS 
+CHECK [killed-by-sigkill]: PASS rc=-9
+
+--- state on disk immediately after SIGKILL ---
+  run1_sweep.log  362B
+  state/trial_1.started  0B
+  state/trial_2.started  0B
+  state/trial_3.started  0B
+  state/trial_4.started  0B
+  state/trial_5.started  0B
+  state/trial_6.started  0B
+  trials.jsonl  940B
+trials.jsonl after kill: ids=[1, 2, 3, 4, 5], torn_lines=0
+CHECK [survivors-1-2-3]: FAIL ids=[1, 2, 3, 4, 5]
+CHECK [no-torn-lines]: PASS torn=0
+
+=== sweep resume ===
+CHECK [resume-exit-ok]: PASS rc=0
+[harness] pid=893070 phase=sweep torch 2.11.0+cu128 dev=cpu
+[sweep] resume scan: 5 completed trial(s) on disk: [1, 2, 3, 4, 5]
+[sweep] SKIP trial 1 (t01_lr0.0003_wd0): already completed
+[sweep] SKIP trial 2 (t02_lr0.0003_wd0.001): already completed
+[sweep] SKIP trial 3 (t03_lr0.001_wd0): already completed
+[sweep] SKIP trial 4 (t04_lr0.001_wd0.001): already completed
+[sweep] SKIP trial 5 (t05_lr0.003_wd0): already completed
+[sweep] RUN  trial 6 (t06_lr0.003_wd0.001)
+[sweep] done: ran [6], 6 unique records on disk
+[harness] EXIT ok
+
+CHECK [resume-skips-1-2-3]: FAIL skipped=[1, 2, 3, 4, 5]
+CHECK [resume-runs-4-5-6]: FAIL ran=[6]
+CHECK [final-ids-1..6-no-dupes]: PASS ids=[1, 2, 3, 4, 5, 6]
+CHECK [final-no-torn-lines]: PASS torn=0
+CHECK [no-completed-trial-rerun]: PASS started-in-both=[6] (allowed only for the killed in-flight trial)
+
+=== refit kill-test ===
+CHECK [refit-ckpt-appears]: PASS 
+CHECK [refit-killed-by-sigkill]: PASS rc=-9
+CHECK [refit-not-done-after-kill]: PASS 
+[harness] pid=893095 phase=refit torch 2.11.0+cu128 dev=cpu
+[refit] RESUMED from checkpoint at step 20 (filter step_count=20)
+[refit] checkpoint @ step 30 loss 1.000078
+[refit] checkpoint @ step 40 loss 1.487044
+[refit] checkpoint @ step 50 loss 0.838404
+[refit] COMPLETE at step 60 (resumed_from=20) final loss 0.935735
+[harness] EXIT ok
+
+CHECK [refit-resume-exit-ok]: PASS rc=0
+CHECK [refit-resumed-log]: PASS 
+CHECK [refit-resumed-from>0]: PASS resumed_from=20
+CHECK [refit-completed-all-steps]: PASS steps=60
+
+KILL-TEST RESULT: FAILURES: ['survivors-1-2-3', 'resume-skips-1-2-3', 'resume-runs-4-5-6']
+kill_test exit code: 1

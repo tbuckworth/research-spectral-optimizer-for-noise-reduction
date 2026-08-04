@@ -1,6 +1,12 @@
-Spectral Optimizer redo: pxp filter, walk-forward split, rank sweep
+---
+is_followup: true
+parent_issue: 2073
+prior_repo: https://github.com/tbuckworth/research-spectral-optimizer-for-noise-reduction
+prior_run_id: 2026-07-31-spectral-optimizer-for-noise-reduction-on-financial-timeseri
+---
 
-Follow-up feedback:
+## User Feedback
+
 Spectral Optimizer redo: pxp filter, walk-forward split, rank sweep
 
 The parent run answered the motivating question rigorously and got a clean,

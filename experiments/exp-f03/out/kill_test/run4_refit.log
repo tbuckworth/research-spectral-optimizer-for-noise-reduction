@@ -1,0 +1,7 @@
+[harness] pid=893245 phase=refit torch 2.11.0+cu128 dev=cpu
+[refit] RESUMED from checkpoint at step 20 (filter step_count=20)
+[refit] checkpoint @ step 30 loss 1.000078
+[refit] checkpoint @ step 40 loss 1.487044
+[refit] checkpoint @ step 50 loss 0.838404
+[refit] COMPLETE at step 60 (resumed_from=20) final loss 0.935735
+[harness] EXIT ok

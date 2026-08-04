@@ -1,0 +1,35 @@
+{
+  "_source": "constants extracted from exp-f01/out/protocol-draft.json (fold boundaries, A5 gate denominators, D7 proxy calibration); parent exp-003 sweep best (transferred arm-A config)",
+  "fold1": {
+    "train_era_min": 1, "train_era_max": 791,
+    "valid_era_min": 796, "valid_era_max": 891,
+    "n_train_eras": 791, "n_valid_eras": 96
+  },
+  "fold3_refit": {
+    "era_min": 1, "era_max": 1111, "n_eras": 1111
+  },
+  "gate_denominators_floored": {"1": 0.039568911431909735, "2": 0.027564763271669068, "3": 0.0163906039340045},
+  "d7_example_valid_mean_fold1": 0.033940248467321986,
+  "d7_ratio_test_over_valid": {"1": 1.1658403582403671, "2": 0.6782767772231303, "3": 0.5717075705630192},
+  "d7_mapping_rule": "proxy_ratio = armA_valid_mean / example_valid_mean(fold1); calib_ratio(f) = armA_valid_mean * ratio_test_over_valid(f) / denominator_floored(f); sizing/scheduling only",
+  "gate_threshold": 0.60,
+  "transferred_armA": {"lr": 0.001, "wd": 0.001, "dropout": 0.2, "source": "parent exp-003 sweep best t07_lr0.001_wd0.001_do0.2"},
+  "batch": 1024,
+  "feature_set": "all",
+  "n_features": 2376,
+  "arch_planned": [2376, 256, 64, 1],
+  "arch_rung2": [2376, 1024, 256, 1],
+  "rank_grid": [8, 32, 128, 512, 2048],
+  "expensive_ranks": [512, 2048],
+  "filter_defaults": {"normalize": "none", "weighting": "hard", "decay": 0.99, "warmup": 100},
+  "feasibility_rule": "rank point feasible iff VRAM peak <= 44 GB AND (best of base/named-variant) armB s/step <= 10x armA s/step at the planned architecture",
+  "phase4": {
+    "max_steps": 30000,
+    "eval_every": 250,
+    "smooth_evals": 3,
+    "plateau_patience_steps": 3000,
+    "min_improvement": 0.0005,
+    "checkpoint_every": 1000,
+    "plateau_rule": "smoothed(v) = mean of last 3 VALID evals; N* = step of best smoothed; stop when step - N*_step >= 3000 (12 evals with no improvement > 0.0005) or max_steps reached"
+  }
+}

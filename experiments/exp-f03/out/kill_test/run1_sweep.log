@@ -1,0 +1,6 @@
+[harness] pid=893162 phase=sweep torch 2.11.0+cu128 dev=cpu
+[sweep] resume scan: 0 completed trial(s) on disk: []
+[sweep] RUN  trial 1 (t01_lr0.0003_wd0)
+[sweep] RUN  trial 2 (t02_lr0.0003_wd0.001)
+[sweep] RUN  trial 3 (t03_lr0.001_wd0)
+[sweep] RUN  trial 4 (t04_lr0.001_wd0.001)

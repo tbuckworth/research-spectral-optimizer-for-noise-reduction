@@ -1,132 +1,165 @@
-# Assumption Analysis
+# Assumption Analysis (Round 2)
 
-**Run**: 2026-07-31-spectral-optimizer-for-noise-reduction-on-financial-timeseri
-**Scope note**: The decomposition already prices nine component risks via P_success. This analysis targets what the framing takes for granted *around* those components — assumptions baked into the pass criteria, the ablation design, and the identity of the thing being tested. Overlap with decomposition risks is flagged where it exists.
+**Run**: 2026-08-03-followup-follow-up-spectral-optimizer-redo-pxp-filter-walk-
+**Scope note**: This is the round-2 challenge pass after the MAJOR_REVISIONS loop-back. It replaces the round-1 analysis. Round-1 findings that amendments A1–A8 / B1–B4 have addressed are not re-listed; this pass (a) verifies the amendments are actually implemented in the round-2 documents, and (b) surfaces assumptions that remain or were newly introduced *by* the amendments.
+
+## Amendment Implementation Check (requested verification)
+
+All twelve amendments are verifiably present in the round-2 artefacts, not merely claimed:
+
+| Amendment | Located at | Status |
+|---|---|---|
+| A1 power-qualified kill + standing MDE table | criteria: kill criterion cond. 2; metrics/inference section | Implemented |
+| A2 kill-scope floor (K_max < 512) + k(t) logging | criteria: kill cond. 3; sweep section | Implemented |
+| A3 under-exploration signatures + HURTS downgrade | criteria: sweep section (3 signatures); kill cond. 4 | Implemented (one operational gap — see Moderate #8) |
+| A4 staged 12-trial allocation, pruning, steps outside the 12, refit stopping rule | criteria: sweep section; splits section | Implemented (minor arithmetic gap — see Background #13) |
+| A5 gate semantics (local denominators, 0.010 floor, bands, 5-rung ladder 4/4/2/1/1, stopping rule, p-preservation, retry semantics, weighting lever) | criteria: baseline-gate section | Implemented |
+| A6 hierarchical bootstrap, seeds 5-target/3-floor, nested-fold language, cross-fold correlation | criteria: metrics/inference section | Implemented |
+| A7 arm C invariants (k(t), norm ratio, rotation rate), rotated-own-basis, required CPU sim, absolute reporting, symmetric honesty | criteria: baselines §2 + decision rule; decomposition #2 | Implemented |
+| A8 planted-subspace check, cosine/kept-norm/distance-from-identity logging, coverage assertion, era mapping, decay/warmup limitation | criteria: verification + splits sections; decomposition #5, #9 | Implemented |
+| B1 EU-1 convergence run + proxy gate ratio + 2nd-architecture + eigh-variant timings | decomposition #8, #1, EU-1 row, change log | Implemented |
+| B2 resumability component before submission | decomposition #7 (new), EU-2/3/4 requirements | Implemented |
+| B3 arm C re-derived + pre-port sim + rotation diagnostic | decomposition #2 (rewritten), #5, #8 | Implemented |
+| B4 power-sim consequence wired to mandatory A1 wording | decomposition #3 fail branch; freeze checklist item 6 | Implemented |
+
+The decomposition additionally exercised the delegated decay decision (decay=0.999 stage-2 probe) and honors the change-log indexing. The regeneration is genuine, and the round-2 P_success drop (0.09 → 0.06 unqualified) is honest accounting, not drift.
 
 ## Summary
 
-Twelve load-bearing assumptions found: 4 critical (low confidence, high impact), 5 moderate, 3 background. The most consequential cluster is a single unexamined premise inherited from the prior project: that **gradient-coherent = generalizable signal** in a data regime where the samples are cross-sectionally correlated. That premise is what the MP threshold's null model, the spectral-engagement pass criterion (component #1), and the "null means mechanism engaged but didn't help" interpretive claim all silently rest on — and financial data is close to a worst case for it. A second independent critical assumption is that the filter-on/filter-off ablation isolates *noise filtering* rather than *update shrinkage*.
+Thirteen assumptions found: 4 critical, 6 moderate, 3 background. The critical cluster is new in kind: round 1's defects were *missing machinery* (no F12 guard, unspecified allocation, unexamined denominator); the amendments built that machinery, and the remaining risk now lives in **what the machinery itself quietly assumes** — that a globally fixed step count is fair to both arms, that a fair parameter-space control exists at all between two degeneracies, that the 0.005 MDE floor (which is a ~50%-power half-width, and ~35% of the gated baseline's own score) makes a "clean kill" mean what it sounds like, and that a transferred-LR stage-1 sweep ranks ranks correctly. Three of the four feed the same construct — "genuine sweep at matched budget" — which is exactly the construct the kill criterion's condition 1 certifies.
 
 ## Critical Assumptions (Low confidence, High impact)
 
-### 1. "Gradient-coherent component = generalizable signal" transfers to cross-sectionally correlated data
+### 1. Arm B converges on arm A's schedule: a step count fixed by the arm-A convergence run is fair to the filtered arm
 
-- **Category**: Theoretical
+- **Category**: Methodological / Baseline
 - **Confidence**: Low
-- **Currently assumed because**: The mechanism was validated on MNIST label noise, where samples are i.i.d. and the noise is *independent per sample* — there, the only thing many samples can agree on is real signal. The Coherent Gradients framing and the entire "coherence amplifier" characterization carry this over unexamined.
-- **What changes if wrong**: In financial data the noise is *not* sample-independent. Samples within an era share common-factor exposure and era-wise target normalization; a transient regime factor produces gradient directions that many samples in a batch agree on, yet which do not generalize across eras. In that case the filter does not suppress noise — it **amplifies era-specific noise**, and the top eigendirections are exactly what FNC exists to neutralize. A "hurts" verdict could then be true but for a different mechanism than the Feldman long-tail story the write-up is primed to tell; a "helps" verdict on in-band validation eras could reflect regime-persistence luck. Note the design has not even specified **batch composition** (within-era vs. mixed-era minibatches), and this assumption's failure mode is drastically different in the two cases — this is an unmade design decision hiding inside an unstated assumption.
-- **How to test**: (a) Specify batch composition explicitly and run the #1 engagement diagnostics under both within-era and mixed-era batching — if kept-eigendirection count or norm fraction changes materially between the two, the "coherent = signal" reading is confounded by era structure. (b) Cheap add-on to the diagnostics run: correlate the kept-subspace update with era identity / dominant features (does the kept component predict *within* the current era much better than across eras?). (c) The tail-era breakdown already planned partially covers the consequence but not the mechanism.
-- **Relevant evidence**: `numerai_forum2021_fnc` (high raw corr with low FNC predicts drawdowns — the domain's own statement that cross-sectionally coherent structure is often not signal); Bouchaud/Potters RMT literature — the *reason* returns-covariance cleaning works is that common factors dominate the top eigenvalues, i.e., the domain's known top eigendirections are factors, not idiosyncratic truth.
+- **Currently assumed because**: A4 (correctly) pulled the converged step count out of the 12-trial budget and fixed it via EU-1's **arm-A** full-length convergence run. Matched steps reads as fairness — the same compute for both arms — and the amendment's attention was on cost-anchoring, not on whose convergence curve defines "converged".
+- **What changes if wrong**: The filter discards gradient energy every step (kept-norm fraction < 1 by construction, especially at low rank), and adds a covariance-warmup phase. If filtered training converges slower than plain AdamW — the default expectation for any projection method — then arm B is evaluated systematically short of its own plateau at every rank, biasing (B−A) toward HURTS/NULL. None of the three A3 signatures detects this: B's best config can sit mid-grid with a sane LR and still be under-trained. The kill criterion's condition 1 ("sweep genuinely ran at matched budget") would certify a comparison whose budget was matched in steps but not in convergence — the parent's failure shape (a safeguard verifying execution while the conclusion goes unlicensed) one level down.
+- **How to test**: Free, pre-freeze: log VALID-score-vs-step curves for every arm-B trial (the infrastructure exists — EU-1 already monitors plateau for arm A) and pre-register a fourth under-exploration signature: *arm B's selected config still improving at step cutoff (VALID slope over the last X% of steps > threshold)* → same downgrade path as A3. Alternatively/additionally, calibrate the claim language now: the verdict is "at matched step budget", stated as such. EU-1 can also cheaply run one short arm-B config alongside the arm-A convergence run and compare plateau fractions.
+- **Relevant evidence**: The filter's own H3 finding (rank ≤ 4 destabilizes, ~10 *fastest*) is evidence that convergence speed is strongly rank-dependent — i.e., a single global step count interacts with the swept variable itself.
 
-### 2. Filter-on vs. filter-off at identical base config isolates the noise-filtering mechanism
+### 2. A fair parameter-space arm C exists between two degeneracies — and candidate (b) as written may be a no-op
+
+- **Category**: Methodological / Theoretical
+- **Confidence**: Low
+- **Currently assumed because**: A7/B3 correctly killed the round-1 fixed-subspace port (captures ~k/p ≈ 0.3% energy → noise injection) and specified invariants plus three candidates with a required sim. The amendment assumes at least one candidate threads the needle; the sim tests capture-energy and descent but not distinctness from B.
+- **What changes if wrong**: The candidates bracket a possibly empty middle. Candidate (a) (Haar rotation of B's basis) is, instant-by-instant, a uniformly random k-subspace — the decomposition itself concedes it may capture ~k/p energy, i.e., degenerate toward noise injection. But candidate (b) has the *opposite* degeneracy, unstated: **projection onto a subspace is basis-invariant**, so a "random rotation within the span of B's tracked factorization" that stays inside the retained k-dimensional span produces *identical* updates to arm B — C ≡ B, and (B−C) ≈ 0 by construction, which would spuriously "prove" spectral selection is not the active ingredient. Candidate (b) is only meaningful if it rotates within a strictly larger ambient history space (r > k) and then truncates to k — and how much larger r is determines where C sits on the B↔noise axis. If no candidate is simultaneously (i) energy-viable, (ii) invariant-matched, and (iii) *distinct from B*, the mechanism-attribution deliverable is unavailable, and — worse than unavailable — a degenerate C in either direction produces a confident wrong mechanism verdict rather than a missing one.
+- **How to test**: Extend the already-required B3 CPU sim with a **distinctness criterion**: C's per-step update must differ from B's by more than seed-level noise (e.g., mean principal angle between kept subspaces above a pre-registered floor, and per-step update cosine to B's update below a ceiling), alongside the existing captured-energy and descent checks. Pre-register now what gets claimed if the sim shows the middle is empty ("no fair parameter-space control exists at this k/p; mechanism attribution out of scope"), so the fallback is a scoped statement rather than a straw control.
+- **Relevant evidence**: The decomposition's own risk note on (a); basic linear algebra for (b); parent run's straw-control experience (pre-mortem scenario 5) showing degenerate controls fail toward false confidence, not toward visible breakage.
+
+### 3. MDE ≤ 0.005 means the kill is adequately powered — but the MDE is a ~50%-power half-width, and 0.005 is ~35% of the gated baseline's own score
+
+- **Category**: Methodological / Scope
+- **Confidence**: Low
+- **Currently assumed because**: A1 imported 0.005 as the power floor (echoing the parent's −0.00527 effect size), and operationalized MDE as the realized 95% CI half-width — the natural quantity the bootstrap already produces.
+- **What changes if wrong**: Two stacked calibration gaps. (i) A CI excludes zero when the estimate exceeds the half-width, so a true effect exactly at the half-width is detected with ~50% probability — "MDE ≤ 0.005" licenses a kill under roughly coin-flip power at the boundary effect, which is weaker than the phrase "adequately powered NULL" suggests (B4's sim threshold P ≥ 0.6 is consistent with this, but the criteria text and the sim threshold are never connected). (ii) The floor itself: the gate targets arm A ≈ 0.014 (0.60 × 0.0235), so a clean kill bounds only |B−A| < 0.005 ≈ **35% relative improvement**. In a domain the criteria themselves describe as trading on edges of 0.01–0.05, an optimizer worth a true +0.003/era (~20% relative) survives every fold's CI, satisfies all four kill conditions, and the line is declared "dead for financial tabular regression". The parent challenge flagged the analogous threshold-relativity problem (its item 7); the amendment carried the absolute number over without re-deriving it against the realized baseline.
+- **How to test**: Free, pre-freeze: state in `protocol.json` what the kill's bound *means* in relative terms (e.g., "dead ⇔ any true effect ≥ X% of realized arm-A per-era corr excluded at ~50% boundary power"), or re-anchor the terminal-NULL condition on the quantity B4 already computes — P(detect | true effect ±0.005) per fold — rather than the half-width. At minimum, rename the reported quantity ("CI half-width (≈50%-power MDE)") so the audit and the write-up cannot equivocate.
+- **Relevant evidence**: Standard power arithmetic; criteria's own SOTA table (0.0235 yardstick, 0.60 gate); parent exp-003 half-width 0.00219 at 255 eras scaling to ~0.0033–0.005 at 110 eras — i.e., the design will plausibly sit *exactly at* the boundary where this calibration gap matters most.
+
+### 4. A transferred LR ranks the rank grid correctly at stage 1
 
 - **Category**: Methodological
 - **Confidence**: Low
-- **Currently assumed because**: Success criteria call this "the cleanest isolation of the mechanism" and "the single most load-bearing comparison." It controls for hyperparameter luck, which is real — but it does not control for what the filter *also* does besides selecting directions.
-- **What changes if wrong**: Projecting out eigendirections shrinks the gradient norm and reshapes AdamW's second-moment statistics; the filtered arm effectively trains with a different implicit learning rate, trust region, and weight-decay-to-update ratio. On a low-SNR task, *any* update shrinkage acts as regularization. A "helps" verdict would then be attributable to "smaller, smoother updates help on noisy data" (already known from the Adam-robustness literature) rather than to spectral selection specifically — the paper's central claim. The GAF ablation does not fix this; GAF also shrinks updates.
-- **How to test**: Add a **random-subspace control**: keep a random k-dimensional gradient subspace (or randomly selected directions) matched to the filter's measured kept-norm fraction, same base config. Cost is one arm at the same per-run price as the GAF ablation — and it is arguably *higher* value than the GAF ablation, because it distinguishes "spectral selection matters" from "throwing away gradient energy matters." If budget forces a choice, this control supports the core claim; GAF supports only the novelty positioning.
-- **Relevant evidence**: `yu2026signheavytailed`, `xie2022overlookedstructure` — Adam-family robustness comes precisely from update normalization/shaping, so norm-shaping confounds are not hypothetical in this regime.
-
-### 3. Passing the spectral-engagement criterion means the mechanism is engaging *correctly*
-
-- **Category**: Methodological
-- **Confidence**: Low
-- **Currently assumed because**: Component #1's pass criterion (kept directions strictly between 0 and B, norm fraction in [0.1, 0.9]) is treated as establishing that a downstream null reads "mechanism engaged but didn't help, not implementation no-op." That inference needs the MP threshold to be a *calibrated* null.
-- **What changes if wrong**: The Marchenko-Pastur law is derived for independent samples. With cross-sectionally correlated per-sample gradients (assumption #1), eigenvalues exceed the MP bulk *spuriously* — the diagnostic will report healthy engagement while the filter keeps factor/era directions. The interpretive backbone of the whole verdict structure ("every verdict requires spectral engagement diagnostics") is then weaker than stated: engagement diagnostics can rule out a no-op, but they cannot certify the filter is separating signal from noise. The pivot deliverable for a #1 FAIL ("no gradient-coherent signal separable from the MP bulk") has the mirror-image problem — an apparent-engagement result does not license "coherent signal exists."
-- **How to test**: A ~30-minute local CPU unit test that should be added to the #6 smoke: synthetic spiked-covariance gradients — (a) pure i.i.d. noise (filter should keep ≈0), (b) planted spike (filter should keep the planted direction), (c) i.i.d. noise plus a *common correlated component with zero mean effect on the target* (does the filter keep the confound?). Case (c) directly measures the miscalibration this assumption hides. This also independently verifies the MP-threshold implementation, which nothing in the current gate does — the #6 pass criterion checks that loss falls and diagnostics are *emitted*, not that they are *right*.
-- **Relevant evidence**: Standard RMT: MP edge shifts under sample correlation. The prior repo's MNIST validation cannot have exposed this because MNIST batches are effectively i.i.d.
-
-### 4. The verdict is about *one* well-defined optimizer, despite a pre-authorized variant swap
-
-- **Category**: Independence / Scope
-- **Confidence**: Medium (that the swap is needed is unlikely — P(#7)=0.85 — but the assumption that the swap is *harmless* is low-confidence)
-- **Currently assumed because**: Component #7's fallback quietly substitutes `weight_cov_optimizer_v2.py` (streaming rank-k covariance filter) for `spectral_optimizer.py` (exact B×B MP-threshold filter) as "a designed substitute."
-- **What changes if wrong**: These are different algorithms. The novelty verdict, the positioning against GAF, and the differentiation analysis all rest specifically on **full similarity-matrix eigendecomposition with an MP threshold**. If throughput forces the streaming variant, the paper's tested mechanism is no longer the mechanism its novelty claim describes — and the engagement diagnostics (MP bulk, eigendirections kept) may not even be well-defined for the rank-k streaming filter. The swap is a scope change, not a fallback.
-- **How to test**: Decide now, in writing, which variant *is* "the Spectral Optimizer" for this study. If the streaming variant becomes primary, re-check the novelty positioning (rank-k gradient-covariance filtering is closer to existing preconditioner/low-pass work, e.g., K-FAC lineage and DP-PMLF) and redefine the engagement diagnostics before any verdict run.
-- **Relevant evidence**: `novelty-assessment.md` differentiators are MP-spectral-specific; `martens2018kfacrnn`, `xu2025dppmlf` are nearer neighbors to the streaming variant than to the exact one.
+- **Currently assumed because**: A4's staged design needs stage 1 cheap (one trial per grid point), so all rank points share one transferred LR; LR refinement is deferred to stage 2 *around the winner only*. The pruning was justified as "a resolvable sweep over a smaller space beats an unresolvable sweep" — true, but resolvability was evaluated as trial-count arithmetic, not as estimator bias.
+- **What changes if wrong**: The filter's effective step size shrinks with the kept-norm fraction, which shrinks with k. At a fixed transferred LR (presumably tuned for unfiltered arm A), low-rank configs run at systematically smaller effective LR than high-rank/near-identity configs — stage 1 then ranks "which rank tolerates arm A's LR" rather than "which rank is best at its own LR", predictably selecting large-k/near-identity winners. Stage 2 refines LR only for that winner, so mis-ranked low-rank points never get their fair LR. The A3 LR-shift signature fires only on the *winner's* LR shift — a winner selected close to identity will show *no* shift, so the guard is silent precisely when the confound succeeded. Downstream: a NULL with small distance-from-identity (which A8 will dutifully report as "VALID selected a near-identity configuration") could be an artifact of stage-1 LR transfer, not a fact about the filter.
+- **How to test**: Free, pre-freeze, using diagnostics A8 already mandates: scale the transferred LR per grid point by the (measurable in EU-1) expected kept-norm fraction at that rank — one line of arithmetic per trial — or pre-register "stage-1 winner within one grid step of identity-distance minimum" as an additional under-exploration signature feeding the A3 downgrade.
+- **Relevant evidence**: Criteria's own rationale for putting LR in arm B's space ("filtering changes the effective step size") — the assumption contradicts the design's own stated premise, one stage earlier.
 
 ## Moderate Assumptions (Medium confidence or Medium impact)
 
-### 5. A verdict at B ∈ {256, 1024} on subsampled data answers the question about "large, noisy financial time-series data"
-
-- **Category**: Scaling
-- **Confidence**: Medium
-- **Currently assumed because**: Subsampling eras/features is pre-authorized for budget fit; batch size is treated as an engineering parameter.
-- **What changes if wrong**: For a consensus filter, B is not an engineering parameter — it *is* the sample size of the covariance estimate, and the MP bulk edge scales with B/p. The filter could genuinely help at B=4096 and be degenerate at B=256 (or vice versa). The honest claim is conditional on B and the subsample; the motivating question ("large" data) is at a different point in that space.
-- **How to test**: Already partially planned (component #1 tests two batch sizes). Extend: report engagement *and* the verdict's point estimate at both B values rather than picking one; state the B-conditionality in the claim.
-- **Relevant evidence**: `mccandlish2018gradientnoisescale` — gradient SNR is explicitly batch-size-dependent; the prior repo's results are at unspecified-here B and may not pin down the transfer.
-
-### 6. The sequence arm tests *architecture* consistency
+### 5. A low-signal-flagged fold is still a valid vote in the ≥2/3 decision rule
 
 - **Category**: Methodological / Scope
 - **Confidence**: Medium
-- **Currently assumed because**: The success criteria phrase the second arm as an "architecture-consistency statement," but the likely realization is GRU-on-OHLCV vs. MLP-on-Numerai — architecture and dataset change simultaneously.
-- **What changes if wrong**: If the two arms disagree, nothing attributes the disagreement to architecture vs. dataset (different SNR, different noise structure, different protocol built from scratch). The "consistent across architectures" claim would be unsupported even with both arms succeeding.
-- **How to test**: Either (a) prefer the within-era sequence framing on Numerai (same dataset, different architecture), accepting weaker sequence structure, or (b) if OHLCV is used, add the MLP on OHLCV too (cheap — MLP runs are the fast ones) so architecture is varied within a dataset. Otherwise rename the claim "second setting," not "second architecture."
-- **Relevant evidence**: Design constraint already discovered in Step 2 (era-reset asset IDs); the confound is the unexamined residue of that discovery.
+- **Currently assumed because**: A5's floor (denominator = max(example, 0.010)) fixed the trivially-passable-gate problem, and the flag was specified as a reporting attribute.
+- **What changes if wrong**: The floor creates the mirror problem: on a genuinely low-signal fold (example model at, say, 0.005), the gate demands arm A ≥ 0.006 — *beating the domain yardstick* — so the fold can fail its gate for regime reasons, not baseline-construction reasons, yet it still counts toward "gate failed on ≥ 2 folds → baseline-construction negative". Conversely a flagged fold that scrapes past the floor contributes a vote to WINS/HURTS from a period where per-era corr is mostly noise. The criteria say the flag "carries" into reporting but never say how a flagged fold enters the decision rule or the gate-failure tally.
+- **How to test**: Free and immediate: component #9 computes all three denominators before freeze — if none lands near 0.010, pre-register that fact and the assumption is retired for this run; if any does, pre-register the flagged fold's role (full vote / reported-but-excluded / triggers the fold-substitution question) *before* the number can motivate the choice.
+- **Relevant evidence**: Example model 0.0235 on the parent's 255-era block is an average over regimes; the three ~110-era blocks cover the most recent (hardest, per the decomposition) data, so a low block is plausible, not hypothetical.
 
-### 7. The 0.005 practical-significance threshold will mean what it is advertised to mean
-
-- **Category**: Methodological
-- **Confidence**: Medium
-- **Currently assumed because**: 0.005 was set as "~20–25% relative on a 0.02-corr task." The baseline pass band, however, is 0.005–0.05 — a baseline landing at 0.006 (in-band, gate passes) makes 0.005 an ~80% relative effect, and the equivalence-style "doesn't help" verdict becomes near-unfalsifiable while "helps" becomes near-unreachable.
-- **What changes if wrong**: Verdict categories silently change stringency depending on where the baseline lands; the pre-registered threshold no longer encodes the intended judgment.
-- **How to test**: Free. Pre-register the threshold as the max(0.005 absolute, ~25% of realized baseline corr) or commit to re-deriving it from the #8 result *before* unblinding the comparison, and record that rule now.
-- **Relevant evidence**: Component #8 evidence text itself says the subsample and small tuning budget "may land low."
-
-### 8. 2021-era practitioner sanity bands calibrate a 2026 v5-dataset subsampled pipeline
-
-- **Category**: Data/Resource / Baseline
-- **Confidence**: Medium
-- **Currently assumed because**: The corr band (0.01–0.04), the leakage gate (>0.06), and corr-Sharpe ranges all come from 2021 forum posts about earlier dataset versions at full scale.
-- **What changes if wrong**: The leakage gate is the study's single most important sanity check ("nothing downstream is interpretable until fixed"). If v5 targets/era structure or the chosen subsample shift the honest-performance band, the gate either misses leakage or falsely triggers, and the pipeline is tuned to a stale reference.
-- **How to test**: One free check during #9: compute the sanity band from current v5 metadata/community-reported example-model scores (Numerai publishes example-model validation stats with the dataset), rather than the 2021 posts. Adjust the 0.06 gate accordingly.
-- **Relevant evidence**: `numerai_forum2021_eras` / `numerai_forum2021_fnc` are the only protocol sources and are dated; the synthesis itself notes practitioner knowledge was "only partially surveyed."
-
-### 9. A paired mean per-era difference is the right functional for the verdict
+### 6. The EU-1 proxy gate ratio (VALID slice) predicts the TEST-era gate ratio
 
 - **Category**: Methodological
 - **Confidence**: Medium
-- **Currently assumed because**: The verdict machinery is built on the mean paired per-era corr difference with a CI.
-- **What changes if wrong**: Both the Feldman counter-hypothesis and assumption #1 predict *era-heterogeneous* effects (helps in calm regimes, hurts in tail regimes, or vice versa). A true heterogeneous effect can produce a mean ≈ 0 with a tight CI — the design would then confidently report "doesn't help" when the finding is "helps and hurts, conditionally," which is the more publishable result. The tail-era breakdown is listed only at the TMLR tier, so the minimum-viable path can emit the misleading verdict.
-- **How to test**: Free: promote the tail-era/quantile breakdown (it re-slices existing predictions) into the minimum-viable deliverable, and pre-register that a null mean with significant era-quantile interaction reads "heterogeneous," not "no effect."
-- **Relevant evidence**: `feldman2019longtailmemorization`; success-criteria already flags tail eras but only as a stretch tier.
+- **Currently assumed because**: B1 wanted the gate bit one unit earlier, and a VALID-slice ratio is the only thing EU-1 can measure without touching TEST.
+- **What changes if wrong**: The ratio model/example is itself regime-dependent (the parent's baseline hit 83% of its sanity band on older eras and 27% on the broken protocol's eras). A healthy proxy that false-negatives the warning costs the plan its early-warning value and EU-2 gets sized on optimism; a pessimistic proxy could trigger premature baseline-fix spend. Impact is bounded — the real gate still runs, fold-1-first — so this degrades efficiency, not validity.
+- **How to test**: Report the proxy alongside the realized fold-1 ratio (both will exist) so the proxy's calibration is itself a measured quantity for folds 2–3 decisions; do not let the proxy trigger anything other than sizing caution.
+- **Relevant evidence**: Parent's era-dependence of baseline quality; decomposition #4's own "hardest regime" note.
+
+### 7. Hierarchical bootstrap over 3–5 seeds yields valid CIs
+
+- **Category**: Methodological
+- **Confidence**: Medium
+- **Currently assumed because**: A6 fixed the seed-variance *omission*; the resampling scheme was specified without noting that seed-level resampling over n=3–5 units estimates the seed component on 2–4 degrees of freedom.
+- **What changes if wrong**: Bootstrap over so few second-level units is known to under-cover — the seed component of the CI will be noisy and typically anti-conservative, i.e., the headline CI is somewhat too narrow exactly when the verdict is close. The negligibility check (seed var < ~10% of era var) is the effective mitigation; the residual risk is the case where seed variance is non-negligible *and* estimated on 2 dof.
+- **How to test**: Already half-built: component #3's sim runs at 3 and 5 seeds — add a coverage check (does the nominal 95% hierarchical CI cover the known injected effect ~95% of the time?) to the sim's outputs; if coverage is materially below nominal at 3 seeds, that is a concrete, pre-freeze argument for the 5-seed packing option beyond "more power".
+- **Relevant evidence**: Standard small-cluster bootstrap literature; the parent's bootstrap-RNG-fragile Sharpe CI shows this design is already operating near CI-stability limits.
+
+### 8. A3 signature 2 is computable when it is needed
+
+- **Category**: Methodological (operational)
+- **Confidence**: Medium
+- **Currently assumed because**: The signature ("stage-1 range < ~2× the across-seed standard deviation at fixed config") was written as a statistical condition without tracing where its inputs come from in the staged design.
+- **What changes if wrong**: Stage 1 runs **one** trial per grid point — there is no across-seed sd at sweep time; the only multi-seed data arrives at refit (different data size, selected config only). A pre-registered guard whose inputs don't exist as written gets reinterpreted post hoc, which is precisely the failure mode pre-registration exists to prevent — and this guard gates the kill criterion (condition 4).
+- **How to test**: Free: pre-register the sd source now (e.g., across-seed sd of the arm-A refit at the same fold, or one deliberately duplicated stage-1 trial at the H3-prior rank ~32 — costs one of the 12 trials but makes the guard real).
+- **Relevant evidence**: Criteria sweep section vs. A4 stage-1 definition — the two subsections are internally inconsistent on this point.
+
+### 9. Arm C's design, frozen from a synthetic-stream sim plus short-run EU-1 diagnostics, transfers to full-schedule real gradients
+
+- **Category**: Scaling
+- **Confidence**: Medium
+- **Currently assumed because**: B3 requires the sim before porting code, and EU-1's short arm-B runs feed real rotation-rate diagnostics — the design freeze then happens before any full-schedule arm-B run exists.
+- **What changes if wrong**: If the real basis-rotation rate or effective rank drifts over the full schedule (plausible: covariance EMA equilibrates slowly at decay 0.99–0.999 over ~10k steps), the frozen C matches early-run invariants and drifts off the A7 invariants late in training — degrading the fair-control evidence the symmetric honesty clause requires.
+- **How to test**: The invariants are all logged in production arm-B runs (A8/B3); pre-register a *post hoc invariant-match report* (realized principal-angle and norm-ratio match between B and C over the full schedule, per fold) as the fair-control evidence the honesty clause consumes — this converts the assumption into a measured quantity without new compute.
+- **Relevant evidence**: Decomposition #6's own note that decay-EMA interaction with longer horizons is untested.
+
+### 10. A clean kill on one dataset, one architecture, one p kills "the line … for financial tabular regression"
+
+- **Category**: Scope
+- **Confidence**: Medium
+- **Currently assumed because**: The kill wording was inherited from the follow-up brief and qualified along the power (A1), rank (A2), and budget (A3) axes — but not the dataset/architecture/scale axis, which the criteria elsewhere explicitly list as future work ("multiple datasets, … architecture variety").
+- **What changes if wrong**: The verdict claims a generality the design cannot support: one Numerai-v5 MLP at p ≈ 600k. Low probability of misleading anyone technical, but it is the one remaining place the frozen criteria overclaim relative to their own compute-feasibility section.
+- **How to test**: Free wording fix at freeze: "dead for this problem class as instantiated (Numerai v5 tabular regression, MLP, p ≈ 600k, k ≤ K_max)" — the A2 scoping sentence already does exactly this for rank; extend the same move to the other axes.
+- **Relevant evidence**: Criteria's Publishability section (main-conference breadth explicitly out of scope).
 
 ## Background Assumptions (High confidence, Low impact)
 
-### 10. Numerai data remains freely downloadable with usable era metadata
+### 11. The B4 power sim's inputs (parent per-era diff vectors from the B×B variant on the broken protocol) transfer to this run's variance structure
 
-- **Category**: Data/Resource. Covered by component #9 at P=0.85; massively community-replicated. Acceptable risk.
+Self-correcting: the sim only calibrates expectations and write-up prominence; the verdict consumes the *realized* per-fold MDE. Worst case is a mis-calibrated prior on which qualified outcome is modal. Accept; note the provenance in the sim's output.
 
-### 11. TMLR/ICAIF will accept a negative-result transfer verdict on the author's own unpublished optimizer
+### 12. Cross-fold step-count semantics under expanding windows
 
-- **Category**: Scope. The paper must introduce *and* evaluate the optimizer in one shot; TMLR's bar ("would some individuals be interested") is probably still met, and the workshop fallback exists. Low impact on the research itself; affects only venue choice.
+The converged step count comes from one EU-1 convergence run, but TRAIN grows across folds (fold-3 ≫ fold-1). The refit rule scales within-fold (rows_refit/rows_train); whether the *trial* step count scales across folds is unstated. A one-line rule at freeze ("trial steps scale by rows_train_fold/rows_train_EU1", or explicitly fixed) closes it. Low impact — affects both arms symmetrically within a fold (though see Critical #1 for the asymmetric residue).
 
-### 12. The component probabilities in the lambda table are independent
+### 13. Stage-1 trial-count arithmetic
 
-- **Category**: Independence. Explicitly acknowledged in the decomposition (correlations noted, direction of bias discussed). Already surfaced; no action needed.
+Stage 1 is stated as 7–8 trials over 6 enumerated points ({8, 32, 128, 512, 2048} + effrank). The 1–2 unexplained trials are presumably slack for capping, but an auditor checking "genuine sweep per the pre-registered allocation" needs the enumeration and the count to match. Trivial fix in `protocol.json`.
 
 ## Assumption Dependency Map
 
-- **#1 is the root**: if "coherent = signal" fails in this domain, then #3 (engagement calibration) fails with it, the interpretive claim behind every verdict weakens, and #9's heterogeneity concern becomes the *expected* outcome rather than a corner case. #5 (batch-size conditionality) also sharpens, since era-factor coherence is strongly B-dependent.
-- **#2 is independent of #1**: the shrinkage confound exists whether or not the coherence premise holds. Both can be true simultaneously (filter keeps factor directions AND shrinks updates), in which case a naive "helps" has two non-spectral explanations available.
-- **#7 and #8 both hang on where the #8 baseline lands**: a low or stale-calibrated baseline breaks the practical-significance threshold and the leakage gate together.
-- **#4 is a switch, not a chain**: if the variant swap fires, the novelty framing (Step 3) and diagnostics definitions (#1, #3) must all be revisited — it re-parents the whole verdict.
+- **#1, #4, #8 → the "genuine sweep at matched budget" construct → kill condition 1 and the A3 guard.** These three are the same defect class the round-1 challenge found in the trial *count* — now in the trial *content*. If any fails, a HURTS/NULL passes all four kill conditions while being a budget/schedule artifact: A3's signatures are blind to under-training (#1), blind to mis-ranked unpicked ranks (#4), and possibly not computable as written (#8). The kill criterion's four-condition structure is only as strong as the signatures feeding condition 4.
+- **#2 stands alone** but is two-sided: degeneracy toward B fabricates "spectral selection doesn't matter"; degeneracy toward noise fabricates "spectral selection matters" (the symmetric honesty clause catches the second only if the fair-control evidence of #9 exists). #9 is the evidence channel for #2's clause.
+- **#3 compounds with #7**: an anti-conservative CI (#7) shrinks the reported half-width, making the A1 condition (MDE ≤ 0.005) *easier* to satisfy exactly when it shouldn't be — the two calibration gaps push the same direction, toward an overconfident kill.
+- **#5 depends on realized denominators** (#9-the-component, testable pre-freeze); if all three denominators land comfortably above 0.010, it retires completely.
+- **#6, #11, #12, #13** are leaves — efficiency and bookkeeping, no downstream verdict coupling.
 
 ## Recommendations
 
-**Test before proceeding (cheap, mostly folds into the existing gate):**
-1. Add the spiked-covariance unit test (assumption #3) to the #6 local smoke — including the correlated-confound case (c). ~30 min CPU; it is currently the only thing standing between "diagnostics emitted" and "diagnostics correct."
-2. Make batch composition (within-era vs. mixed-era) an explicit, logged design decision, and run the #1 diagnostics under both (assumption #1). Same debug job, two configs.
-3. Recompute the sanity/leakage bands from current v5 example-model stats during #9 (assumption #8). Free.
-4. Pre-register the practical-significance rule as baseline-relative before unblinding (assumption #7). Free.
+**Test/fix before protocol freeze (all zero-compute wording or logging changes; the freeze is the last legitimate moment):**
+1. (#1) Add the fourth under-exploration signature — arm B's selected config still improving at step cutoff — to the A3 list, and/or calibrate claim language to "at matched step budget". Log VALID-vs-step for all arm-B trials (infrastructure exists).
+2. (#2) Add the distinctness criterion (principal-angle floor and update-cosine ceiling vs B) to the required B3 sim, and pre-register the empty-middle fallback wording.
+3. (#3) Connect the kill's power condition to B4's P(detect) quantity, or rename the reported half-width honestly and state the kill's bound in relative terms against realized arm A.
+4. (#4) Scale stage-1 transferred LR by measured kept-norm fraction per rank (EU-1 measures it), or add the near-identity-winner signature.
+5. (#8) Name signature 2's sd source in `protocol.json`.
+6. (#5) After #9 computes denominators: pre-register the flagged-fold's role in the decision rule (or record that no fold is flagged).
+7. (#10, #12, #13) One-line wording fixes at freeze: kill-scope instantiation axes; cross-fold trial-step rule; stage-1 enumeration = count.
 
-**Plan revisions suggested:**
-5. Add the random-subspace / norm-matched control (assumption #2), and rank it *above* the GAF ablation in the cut order — it defends the central claim; GAF defends only the positioning.
-6. Promote the tail-era breakdown into the minimum-viable deliverable (assumption #9). It costs re-slicing, not GPU time.
-7. Commit in writing to which code variant defines "the Spectral Optimizer"; treat a #7-forced swap to the streaming variant as a scope change requiring a novelty re-check, not a silent fallback (assumption #4).
-8. Either run the sequence arm on the same dataset as the MLP, or add an MLP arm on the sequence dataset; otherwise claim "second setting," not "architecture consistency" (assumption #6).
+**Suggest plan revision (small, contained):**
+- (#7) Add the coverage check to component #3's existing sim; if 3-seed coverage is materially sub-nominal, that finding upgrades the 5-seed packing option from "power lever" to "validity lever" in #1's arithmetic.
+- (#9) Pre-register the post hoc invariant-match report as the fair-control evidence consumed by the symmetric honesty clause.
 
-**Acceptable risks:**
-- #5 (B-conditionality) — accept, but state the claim as conditional on B and subsample scale.
-- #10–#12 — accept as-is.
+**Acceptable risks (no change):**
+- #6 (proxy-ratio calibration — heuristic only, real gate still runs fold-first), #11 (power-sim input provenance — self-correcting), and the previously-accepted round-1 residuals (fold correlation as claim calibration, torch-pin compatibility via EU-1 re-assert, novelty mini-search deferred to pre-write-up per C1).
+
+None of the four critical items requires compute or a design rethink; all are wording, logging, or sim-extension changes that fit inside the protocol-freeze checklist the decomposition already gates EU-2 on. That is the same shape as the round-1 fixes — which is itself the observation worth carrying: this plan's failure modes concentrate not in its experiments but in the fine print of its safeguards, and the freeze checklist is where every one of them is cheapest to close.

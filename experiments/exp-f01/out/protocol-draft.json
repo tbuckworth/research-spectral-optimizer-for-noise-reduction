@@ -1,0 +1,305 @@
+{
+  "_status": "DRAFT - freeze happens in Wave 3 after EU-1; later components append converged_step_count, realized_rank_grid, arm_c_final_design, power_sim, seeds decision, A1/A2/A3 wording, then rename to protocol.json",
+  "created_utc": "2026-08-04T09:41:37Z",
+  "component": "exp-f01 / decomposition Component 9",
+  "dataset": "numerai v5.0",
+  "main_target": "target (cyrus_20d)",
+  "target_horizon_days": 20,
+  "era_spacing_days": 5,
+  "embargo_eras": 4,
+  "embargo_rule": "ceil(target_horizon_days / era_spacing_days)",
+  "min_target_coverage": 0.95,
+  "usable_era_list": {
+    "definition": "all train-parquet eras + validation eras with target coverage >= 0.95 (parent data_prep.py derivation), temporal order",
+    "n_usable": 1225,
+    "first_era": "0001",
+    "last_era": "1225",
+    "raw_numbering_gaps": [],
+    "raw_era_to_usable_index": "usable_index i <-> raw era zero-padded str(i+1); numbering is gap-free so the mapping is the identity shift i = int(era) - 1",
+    "mapping_spot_checks": {
+      "0001": 0,
+      "0574": 573,
+      "0575": 574,
+      "1225": 1224
+    },
+    "n_train_parquet_eras": 574,
+    "n_usable_validation_eras": 651
+  },
+  "folds": [
+    {
+      "fold": 1,
+      "train_era_range": [
+        "0001",
+        "0791"
+      ],
+      "train_usable_idx_range": [
+        0,
+        790
+      ],
+      "n_train_eras": 791,
+      "embargo1_eras": [
+        "0792",
+        "0793",
+        "0794",
+        "0795"
+      ],
+      "valid_era_range": [
+        "0796",
+        "0891"
+      ],
+      "valid_usable_idx_range": [
+        795,
+        890
+      ],
+      "n_valid_eras": 96,
+      "embargo2_eras": [
+        "0892",
+        "0893",
+        "0894",
+        "0895"
+      ],
+      "test_era_range": [
+        "0896",
+        "1005"
+      ],
+      "test_usable_idx_range": [
+        895,
+        1004
+      ],
+      "n_test_eras": 110,
+      "refit_train_era_range": [
+        "0001",
+        "0891"
+      ],
+      "refit_train_usable_idx_range": [
+        0,
+        890
+      ],
+      "n_refit_train_eras": 891,
+      "THE_assertion": "min(test)-max(refit_train) == E+1 == 5 (PASS, on usable index and raw eras)"
+    },
+    {
+      "fold": 2,
+      "train_era_range": [
+        "0001",
+        "0901"
+      ],
+      "train_usable_idx_range": [
+        0,
+        900
+      ],
+      "n_train_eras": 901,
+      "embargo1_eras": [
+        "0902",
+        "0903",
+        "0904",
+        "0905"
+      ],
+      "valid_era_range": [
+        "0906",
+        "1001"
+      ],
+      "valid_usable_idx_range": [
+        905,
+        1000
+      ],
+      "n_valid_eras": 96,
+      "embargo2_eras": [
+        "1002",
+        "1003",
+        "1004",
+        "1005"
+      ],
+      "test_era_range": [
+        "1006",
+        "1115"
+      ],
+      "test_usable_idx_range": [
+        1005,
+        1114
+      ],
+      "n_test_eras": 110,
+      "refit_train_era_range": [
+        "0001",
+        "1001"
+      ],
+      "refit_train_usable_idx_range": [
+        0,
+        1000
+      ],
+      "n_refit_train_eras": 1001,
+      "THE_assertion": "min(test)-max(refit_train) == E+1 == 5 (PASS, on usable index and raw eras)"
+    },
+    {
+      "fold": 3,
+      "train_era_range": [
+        "0001",
+        "1011"
+      ],
+      "train_usable_idx_range": [
+        0,
+        1010
+      ],
+      "n_train_eras": 1011,
+      "embargo1_eras": [
+        "1012",
+        "1013",
+        "1014",
+        "1015"
+      ],
+      "valid_era_range": [
+        "1016",
+        "1111"
+      ],
+      "valid_usable_idx_range": [
+        1015,
+        1110
+      ],
+      "n_valid_eras": 96,
+      "embargo2_eras": [
+        "1112",
+        "1113",
+        "1114",
+        "1115"
+      ],
+      "test_era_range": [
+        "1116",
+        "1225"
+      ],
+      "test_usable_idx_range": [
+        1115,
+        1224
+      ],
+      "n_test_eras": 110,
+      "refit_train_era_range": [
+        "0001",
+        "1111"
+      ],
+      "refit_train_usable_idx_range": [
+        0,
+        1110
+      ],
+      "n_refit_train_eras": 1111,
+      "THE_assertion": "min(test)-max(refit_train) == E+1 == 5 (PASS, on usable index and raw eras)"
+    }
+  ],
+  "coverage": {
+    "intended_span": [
+      "0896",
+      "1225"
+    ],
+    "n_intended": 330,
+    "n_covered": 330,
+    "coverage": 1.0
+  },
+  "gate": {
+    "rule": "arm A mean per-era numerai_corr on fold TEST >= 0.60 x floored denominator",
+    "floor": 0.01,
+    "denominators": [
+      {
+        "fold": 1,
+        "test_era_range": [
+          "0896",
+          "1005"
+        ],
+        "n_eras_in_csv": 110,
+        "example_mean_numerai_corr_raw": 0.039568911431909735,
+        "denominator_floored": 0.039568911431909735,
+        "floor": 0.01,
+        "low_signal_flag": false,
+        "gate_threshold_abs": 0.02374134685914584
+      },
+      {
+        "fold": 2,
+        "test_era_range": [
+          "1006",
+          "1115"
+        ],
+        "n_eras_in_csv": 110,
+        "example_mean_numerai_corr_raw": 0.027564763271669068,
+        "denominator_floored": 0.027564763271669068,
+        "floor": 0.01,
+        "low_signal_flag": false,
+        "gate_threshold_abs": 0.01653885796300144
+      },
+      {
+        "fold": 3,
+        "test_era_range": [
+          "1116",
+          "1225"
+        ],
+        "n_eras_in_csv": 110,
+        "example_mean_numerai_corr_raw": 0.0163906039340045,
+        "denominator_floored": 0.0163906039340045,
+        "floor": 0.01,
+        "low_signal_flag": false,
+        "gate_threshold_abs": 0.009834362360402698
+      }
+    ],
+    "D10_statement": "D10: all three raw denominators are above the 0.010 floor (min raw = 0.01639); no fold is low-signal-flagged; no special decision-rule role needs pre-registration."
+  },
+  "D7_proxy_calibration": {
+    "per_fold": [
+      {
+        "fold": 1,
+        "valid_era_range": [
+          "0796",
+          "0891"
+        ],
+        "n_valid_eras_in_csv": 96,
+        "example_valid_mean": 0.033940248467321986,
+        "example_test_mean": 0.039568911431909735,
+        "offset_additive_test_minus_valid": 0.0056286629645877495,
+        "ratio_test_over_valid": 1.1658403582403671
+      },
+      {
+        "fold": 2,
+        "valid_era_range": [
+          "0906",
+          "1001"
+        ],
+        "n_valid_eras_in_csv": 96,
+        "example_valid_mean": 0.04063940296543749,
+        "example_test_mean": 0.027564763271669068,
+        "offset_additive_test_minus_valid": -0.013074639693768424,
+        "ratio_test_over_valid": 0.6782767772231303
+      },
+      {
+        "fold": 3,
+        "valid_era_range": [
+          "1016",
+          "1111"
+        ],
+        "n_valid_eras_in_csv": 96,
+        "example_valid_mean": 0.028669559015744684,
+        "example_test_mean": 0.0163906039340045,
+        "offset_additive_test_minus_valid": -0.012278955081740185,
+        "ratio_test_over_valid": 0.5717075705630192
+      }
+    ],
+    "mapping_rule": "D7 proxy->TEST mapping rule (pre-registered): EU-1's proxy gate ratio is computed on the fold-1 VALID slice as proxy_ratio = armA_valid_mean / example_valid_mean(fold 1). The calibrated projected TEST gate ratio for fold f is calib_ratio(f) = (armA_valid_mean * ratio_test_over_valid(f)) / denominator_floored(f), i.e. arm A's VALID score is carried to TEST multiplicatively by the example model's own T/V ratio for that fold. Per D7's reserve pre-commitment: if calib_ratio(fold 1) < 0.60, EU-5 is earmarked for the A5 fix ladder before EU-2 launches, and EU-2's phase 2 (arms B/C) is made conditional in the sbatch structure. Proxy/calibrated ratios gate sizing and scheduling only - never the comparison itself."
+  },
+  "D5_rules": {
+    "refit_extension_rule": "D5 refit-extension rule (deterministic, pre-registered): let N be the planned refit step count (= selected-trial steps x rows_refit/rows_train, A4) and L(s) the EMA of training loss with halflife max(10, round(0.01*N)) steps. Compute D_tail = L(ceil(0.95*N)) - L(N) and D_total = L(ceil(0.05*N)) - L(N). If D_total > 0 and D_tail > 0.02 * D_total (the final 5% of steps still contributes > 2% of the total loss drop, i.e. slope over the last 5% exceeds threshold), extend the refit ONCE by factor 1.5 (N -> ceil(1.5*N)), log the extension and the realized D_tail/D_total; never extend twice.",
+    "cross_fold_trial_step_rule": "D5 cross-fold trial-step semantics (one line): the EU-1 converged step count N* defines fold-1 trial steps; fold-f trial steps = round(N* x rows_train(f)/rows_train(fold1)) at fixed batch size, and refit steps scale the same way by rows_refit(f)/rows_train(f) per A4."
+  },
+  "assertion_results": {
+    "all_passed": true,
+    "n_failed": 0,
+    "failed": []
+  },
+  "appended_later_by_wave3": [
+    "converged_step_count (EU-1 B1)",
+    "realized_rank_grid (A2)",
+    "arm_C_final_design (A7/D2)",
+    "power_sim + MDE wording (A1/B4/D3)",
+    "seeds 5-vs-3 (A6, #1)",
+    "A3 signatures incl. D1/D4",
+    "gate bands + fix ladder + retry semantics (A5)",
+    "A4 staged allocation + D4 LR scaling",
+    "D8 pooled estimand",
+    "D9 sd source",
+    "D12 kill wording",
+    "eigh-variant policy (B1)"
+  ]
+}

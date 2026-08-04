@@ -1,0 +1,96 @@
+exp-f02 run_checks.py — torch 2.11.0+cu128, numpy 1.26.4, python 3.12.3, device cpu
+
+========================================================================
+(a) 200-step filtered training run + A8/B3/D1 diagnostics + knobs
+========================================================================
+  step  25  loss 0.18240  valid numerai_corr +0.0904
+  step  50  loss 0.10841  valid numerai_corr +0.0984
+  step  75  loss 0.09167  valid numerai_corr +0.0858
+  step 100  loss 0.07022  valid numerai_corr +0.0804
+  step 125  loss 0.07585  valid numerai_corr +0.0808
+  step 150  loss 0.06312  valid numerai_corr +0.0737
+  step 175  loss 0.05922  valid numerai_corr +0.0795
+  step 200  loss 0.06027  valid numerai_corr +0.0768
+  loss first20 0.36903 -> last20 0.06692 (falls: True)
+  diagnostics sane: True (problems: [])
+  summary: {
+  "n_steps": 200,
+  "n_active_steps": 180,
+  "eigh_fallback_count": 0,
+  "n_valid_scores": 8,
+  "mean_cosine": 0.657974300289484,
+  "min_cosine": 0.42798318280977393,
+  "mean_kept_norm_fraction": 0.6579723224043846,
+  "min_kept_norm_fraction": 0.4279797077178955,
+  "max_kept_norm_fraction": 0.9430773854255676,
+  "mean_distance_from_identity": 0.342025699710516,
+  "realized_k_first": 8,
+  "realized_k_last": 8,
+  "realized_k_min": 8,
+  "realized_k_max": 8,
+  "n_rotation_measurements": 19,
+  "mean_rotation_angle": 0.09977372092214681,
+  "max_rotation_angle": 0.34257129484113047
+}
+  knob cfg {'rank': 4, 'weighting': 'hard', 'final_loss': 0.06370382010936737, 'realized_k_last': 4, 'ok': True}
+  knob cfg {'rank': 16, 'decay': 0.999, 'warmup': 5, 'weighting': 'hard', 'final_loss': 0.07151256501674652, 'realized_k_last': 16, 'ok': True}
+  knob cfg {'rank': 8, 'weighting': 'soft', 'alpha': 1.0, 'soft_residual': True, 'final_loss': 0.2193242907524109, 'realized_k_last': 8, 'ok': True}
+  knob cfg {'rank': 8, 'weighting': 'soft', 'alpha': 0.5, 'soft_residual': False, 'final_loss': 0.05933748930692673, 'realized_k_last': 8, 'ok': True}
+  knob cfg {'rank': 16, 'weighting': 'hard', 'energy_threshold': 0.9, 'final_loss': 0.16043052077293396, 'realized_k_last': 1, 'ok': True}
+  knob cfg {'rank': 16, 'weighting': 'hard', 'adaptive': 'effrank', 'final_loss': 0.12708760797977448, 'realized_k_last': 2, 'ok': True}
+  knob cfg {'rank': 16, 'weighting': 'hard', 'adaptive': 'gap', 'final_loss': 0.19350484013557434, 'realized_k_last': 2, 'ok': True}
+(a) PASS  [0.6s]
+
+========================================================================
+(b) alpha=0 soft identity vs plain AdamW (fp64, 50 steps)
+========================================================================
+  max abs param diff after 50 fp64 steps: 0.000e+00
+  bit-identical: True
+(b) PASS  [0.1s]
+
+========================================================================
+(c) planted-subspace: hard top-k recovers planted direction
+========================================================================
+  |cos(V[:,0], planted u)| = 0.976981  (need > 0.9)
+  probe u+v_orth: cos(filtered, u) = 0.9945, kept-norm fraction = 0.7077
+  diagnostics sane during planted run: True
+(c) PASS  [0.2s]
+
+========================================================================
+(d) forced eigh failure -> CPU-fp64 fallback fires, training continues
+========================================================================
+SPECTRAL-FILTER eigh fallback #1 (CPU fp64) at step 30: _LinAlgError: forced eigh non-convergence (exp-f02 sub-check d)
+SPECTRAL-FILTER eigh fallback #2 (CPU fp64) at step 31: _LinAlgError: forced eigh non-convergence (exp-f02 sub-check d)
+SPECTRAL-FILTER eigh fallback #3 (CPU fp64) at step 60: _LinAlgError: forced eigh non-convergence (exp-f02 sub-check d)
+  forced failures at steps [30, 31, 60]
+  eigh_fallback_count = 3 (expected 3)
+  training completed 100 steps: True, final loss 0.0820261538028717, params finite: True
+  count surfaced in diagnostics records: 3
+(d) PASS  [0.1s]
+
+========================================================================
+(e) zero/constant predictor -> ~0 numerai_corr on synthetic eras
+========================================================================
+  zero predictor mean per-era corr:   +0.000000 (expect 0)
+  random predictor mean per-era corr: +0.004623 (expect |.| < 0.06; 40 eras)
+  target-as-preds positive control:   +0.9882 (expect > 0.5)
+(e) PASS  [0.0s]
+
+========================================================================
+(+) RNG separation: arm-B extra draws from a separate Generator
+========================================================================
+  arm A vs arm B (separate arm generator): data order identical over 30 steps: True
+  negative control (arm draws from the DATA generator): diverges: True (first divergent step: 1)
+(+) PASS  [0.0s]
+
+========================================================================
+SUMMARY
+========================================================================
+  (a) PASS
+  (b) PASS
+  (c) PASS
+  (d) PASS
+  (e) PASS
+  (rng) PASS
+
+OVERALL: PASS (1.0s total)

@@ -1,0 +1,121 @@
+==============================================================================
+STEP 1: realized usable-era list (parent data_prep.py derivation)
+==============================================================================
+train.parquet: 2746268 rows, 574 eras (0001..0574)
+validation.parquet meta slice: 4099982 rows, mem 0.14 GB
+validation eras: 651 total (0575..1225), 651 usable (target coverage >= 0.95)
+ASSERT [PASS] parent-facts: train_eras_total matches  574 vs parent 574
+ASSERT [PASS] parent-facts: validation_eras_usable matches  651 vs parent 651
+ASSERT [PASS] parent-facts: embargo matches  E=4
+usable-era list: 1225 eras (0001..1225), raw-numbering gaps: NONE
+ASSERT [PASS] usable-era raw numbering contiguous  gaps=[]
+
+==============================================================================
+STEP 2: 3-fold expanding-window boundaries + assertions
+==============================================================================
+
+--- Fold 1 ---
+TRAIN : idx [0, 790]  eras 0001..0791  (n=791)
+embargo: idx [791, 794]  eras 0792..0795  (n=4)
+VALID : idx [795, 890]  eras 0796..0891  (n=96)
+embargo: idx [891, 894]  eras 0892..0895  (n=4)
+TEST  : idx [895, 1004]  eras 0896..1005  (n=110)
+REFIT-TRAIN: idx [0, 890]  eras 0001..0891  (n=891)
+ASSERT [PASS] fold 1 THE-assertion (usable-index): min(test) - max(refit_train) == E+1 == 5  min(test_idx)=895, max(refit_idx)=890, gap=5
+ASSERT [PASS] fold 1 THE-assertion (raw eras): min(test_eras) - max(refit_train_eras) == 5  min(test)=0896, max(refit)=0891, gap=5
+ASSERT [PASS] fold 1 train->valid embargo == 4  gap eras=4
+ASSERT [PASS] fold 1 sizes VALID==96, TEST==110  V=96 S=110
+ASSERT [PASS] fold 1 TRAIN/VALID/TEST pairwise disjoint  
+ASSERT [PASS] fold 1 refit-train disjoint from TEST  
+ASSERT [PASS] fold 1 TRAIN contiguous on usable index  
+ASSERT [PASS] fold 1 VALID contiguous on usable index  
+ASSERT [PASS] fold 1 TEST contiguous on usable index  
+ASSERT [PASS] fold 1 REFIT contiguous on usable index  
+
+--- Fold 2 ---
+TRAIN : idx [0, 900]  eras 0001..0901  (n=901)
+embargo: idx [901, 904]  eras 0902..0905  (n=4)
+VALID : idx [905, 1000]  eras 0906..1001  (n=96)
+embargo: idx [1001, 1004]  eras 1002..1005  (n=4)
+TEST  : idx [1005, 1114]  eras 1006..1115  (n=110)
+REFIT-TRAIN: idx [0, 1000]  eras 0001..1001  (n=1001)
+ASSERT [PASS] fold 2 THE-assertion (usable-index): min(test) - max(refit_train) == E+1 == 5  min(test_idx)=1005, max(refit_idx)=1000, gap=5
+ASSERT [PASS] fold 2 THE-assertion (raw eras): min(test_eras) - max(refit_train_eras) == 5  min(test)=1006, max(refit)=1001, gap=5
+ASSERT [PASS] fold 2 train->valid embargo == 4  gap eras=4
+ASSERT [PASS] fold 2 sizes VALID==96, TEST==110  V=96 S=110
+ASSERT [PASS] fold 2 TRAIN/VALID/TEST pairwise disjoint  
+ASSERT [PASS] fold 2 refit-train disjoint from TEST  
+ASSERT [PASS] fold 2 TRAIN contiguous on usable index  
+ASSERT [PASS] fold 2 VALID contiguous on usable index  
+ASSERT [PASS] fold 2 TEST contiguous on usable index  
+ASSERT [PASS] fold 2 REFIT contiguous on usable index  
+
+--- Fold 3 ---
+TRAIN : idx [0, 1010]  eras 0001..1011  (n=1011)
+embargo: idx [1011, 1014]  eras 1012..1015  (n=4)
+VALID : idx [1015, 1110]  eras 1016..1111  (n=96)
+embargo: idx [1111, 1114]  eras 1112..1115  (n=4)
+TEST  : idx [1115, 1224]  eras 1116..1225  (n=110)
+REFIT-TRAIN: idx [0, 1110]  eras 0001..1111  (n=1111)
+ASSERT [PASS] fold 3 THE-assertion (usable-index): min(test) - max(refit_train) == E+1 == 5  min(test_idx)=1115, max(refit_idx)=1110, gap=5
+ASSERT [PASS] fold 3 THE-assertion (raw eras): min(test_eras) - max(refit_train_eras) == 5  min(test)=1116, max(refit)=1111, gap=5
+ASSERT [PASS] fold 3 train->valid embargo == 4  gap eras=4
+ASSERT [PASS] fold 3 sizes VALID==96, TEST==110  V=96 S=110
+ASSERT [PASS] fold 3 TRAIN/VALID/TEST pairwise disjoint  
+ASSERT [PASS] fold 3 refit-train disjoint from TEST  
+ASSERT [PASS] fold 3 TRAIN contiguous on usable index  
+ASSERT [PASS] fold 3 VALID contiguous on usable index  
+ASSERT [PASS] fold 3 TEST contiguous on usable index  
+ASSERT [PASS] fold 3 REFIT contiguous on usable index  
+ASSERT [PASS] TEST blocks non-overlapping across folds  
+ASSERT [PASS] TEST blocks jointly contiguous  
+ASSERT [PASS] TEST union covers the most recent data  
+ASSERT [PASS] coverage of intended most-recent span >= 0.95  coverage=1.0000 (330/330)
+ASSERT [PASS] expanding windows: train end strictly increases  
+
+==============================================================================
+STEP 3: A8 assertion - every TEST era present in v5.0_validation_example_preds.parquet
+==============================================================================
+eras with >=1 example prediction: 656
+ASSERT [PASS] fold 1 A8: all 110 TEST eras in example preds  missing=[]
+        fold 1: min per-era pred rows on TEST = 6134
+ASSERT [PASS] fold 2 A8: all 110 TEST eras in example preds  missing=[]
+        fold 2: min per-era pred rows on TEST = 6007
+ASSERT [PASS] fold 3 A8: all 110 TEST eras in example preds  missing=[]
+        fold 3: min per-era pred rows on TEST = 6057
+
+==============================================================================
+STEP 4: A5 gate denominators from parent example_per_era_corr.csv
+==============================================================================
+parent CSV: 651 data rows, eras 0575..1225
+ASSERT [PASS] parent CSV covers all fold TEST+VALID eras  
+fold 1: example-model mean per-era numerai_corr on TEST (0896..1005, n=110) = +0.03957  -> floored denominator 0.03957  low_signal_flag=False  gate needs arm A >= +0.02374
+fold 2: example-model mean per-era numerai_corr on TEST (1006..1115, n=110) = +0.02756  -> floored denominator 0.02756  low_signal_flag=False  gate needs arm A >= +0.01654
+fold 3: example-model mean per-era numerai_corr on TEST (1116..1225, n=110) = +0.01639  -> floored denominator 0.01639  low_signal_flag=False  gate needs arm A >= +0.00983
+D10: all three raw denominators are above the 0.010 floor (min raw = 0.01639); no fold is low-signal-flagged; no special decision-rule role needs pre-registration.
+raw/floor margins per fold: ['3.96x', '2.76x', '1.64x']
+
+==============================================================================
+STEP 5: D7 proxy calibration - example model VALID-slice vs TEST-block mean
+==============================================================================
+fold 1: example VALID mean (0796..0891, n=96) = +0.03394; TEST mean = +0.03957; offset = +0.00563; ratio T/V = 1.166
+fold 2: example VALID mean (0906..1001, n=96) = +0.04064; TEST mean = +0.02756; offset = -0.01307; ratio T/V = 0.678
+fold 3: example VALID mean (1016..1111, n=96) = +0.02867; TEST mean = +0.01639; offset = -0.01228; ratio T/V = 0.572
+D7 proxy->TEST mapping rule (pre-registered): EU-1's proxy gate ratio is computed on the fold-1 VALID slice as proxy_ratio = armA_valid_mean / example_valid_mean(fold 1). The calibrated projected TEST gate ratio for fold f is calib_ratio(f) = (armA_valid_mean * ratio_test_over_valid(f)) / denominator_floored(f), i.e. arm A's VALID score is carried to TEST multiplicatively by the example model's own T/V ratio for that fold. Per D7's reserve pre-commitment: if calib_ratio(fold 1) < 0.60, EU-5 is earmarked for the A5 fix ladder before EU-2 launches, and EU-2's phase 2 (arms B/C) is made conditional in the sbatch structure. Proxy/calibrated ratios gate sizing and scheduling only - never the comparison itself.
+
+D5 refit-extension rule (deterministic, pre-registered): let N be the planned refit step count (= selected-trial steps x rows_refit/rows_train, A4) and L(s) the EMA of training loss with halflife max(10, round(0.01*N)) steps. Compute D_tail = L(ceil(0.95*N)) - L(N) and D_total = L(ceil(0.05*N)) - L(N). If D_total > 0 and D_tail > 0.02 * D_total (the final 5% of steps still contributes > 2% of the total loss drop, i.e. slope over the last 5% exceeds threshold), extend the refit ONCE by factor 1.5 (N -> ceil(1.5*N)), log the extension and the realized D_tail/D_total; never extend twice.
+D5 cross-fold trial-step semantics (one line): the EU-1 converged step count N* defines fold-1 trial steps; fold-f trial steps = round(N* x rows_train(f)/rows_train(fold1)) at fixed batch size, and refit steps scale the same way by rows_refit(f)/rows_train(f) per A4.
+
+==============================================================================
+STEP 7: write out/protocol-draft.json
+==============================================================================
+wrote /media/titus/big/researcher-output/2026-08-03-followup-follow-up-spectral-optimizer-redo-pxp-filter-walk-/experiments/exp-f01/out/protocol-draft.json
+ fold      train  n_train      valid  n_valid       test  n_test refit_train  denom_raw  denom_floored  low_signal  gate_abs  d7_valid_mean  d7_offset  d7_ratio_TV
+    1 0001..0791      791 0796..0891       96 0896..1005     110  0001..0891    0.03957        0.03957       False   0.02374        0.03394    0.00563        1.166
+    2 0001..0901      901 0906..1001       96 1006..1115     110  0001..1001    0.02756        0.02756       False   0.01654        0.04064   -0.01307        0.678
+    3 0001..1011     1011 1016..1111       96 1116..1225     110  0001..1111    0.01639        0.01639       False   0.00983        0.02867   -0.01228        0.572
+
+==============================================================================
+SUMMARY: ALL ASSERTIONS PASSED
+elapsed 1.9s
+==============================================================================

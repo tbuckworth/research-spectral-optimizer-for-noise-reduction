@@ -1,0 +1,63 @@
+=== exp-f04 power_sim.py run: 2026-08-04T09:50:51Z ===
+python 3.12.3 numpy 1.26.4 pandas 3.0.2
+=== resume 2026-08-04: pre-run smoke test of src/hier_bootstrap.py (module sanity before full sim) ===
+block_length(0.247,255) = 5 (docstring anchor: 5)
+block_length(-0.1,110) = 2 (rho<=0 -> 2)
+block_length(0.7,110)  = 11
+lag1_acf(AR(1) rho=0.5, n=20k) = 0.487
+iid coverage (nominal .95): 1.000  [200 CIs, S=3, n=110, n_boot=1000] -> hierarchical era-x-seed double resampling is CONSERVATIVE on iid data (crossed-design residual double-count); quantified properly under the calibrated DGP below
+pooled_hier_mbb ok: n_eras = 220  L = 2
+seed_vs_era_variance_ratio ok
+timing: ~20.8 ms per (hier + era-only) CI pair -> projected ~17-20 min full grid
+=== launching src/power_sim.py (N_MC=500, N_BOOT=2000, 2 boot RNG seeds) ===
+=== RESUME RELAUNCH 2026-08-04T10:21:20Z (prior launch was killed with session; out/ empty) ===
+== calibration (parent 255-era, 3-seed paired-diff panel) ==
+  sigma_e (era-common)   = 0.01567
+  sigma_u (era x seed)   = 0.02643
+  sigma_b (seed main)    = 0.00000
+  panel grand mean       = -0.00527 (parent B-A; sim uses injected delta)
+  full-panel diff lag-1 ACF = +0.3157
+fold 1 [0896-1005]: rho_example=+0.7144  diff overlap n=35 rho_diff=+0.4707  -> primary DGP rho=+0.3157 (L=4), stress rho=+0.7144 (L=11)
+fold 2 [1006-1115]: rho_example=+0.7093  diff overlap n=110 rho_diff=+0.2883  -> primary DGP rho=+0.2883 (L=4), stress rho=+0.7093 (L=11)
+fold 3 [1116-1225]: rho_example=+0.7002  diff overlap n=110 rho_diff=+0.2956  -> primary DGP rho=+0.2956 (L=4), stress rho=+0.7002 (L=11)
+[primary f1 S=3 delta=+0.000 bootRNG#0] power=0.048 cover=0.952 medHW=0.00548 medL=2 (10s)
+[primary f1 S=3 delta=+0.000 bootRNG#1] power=0.048 cover=0.952 medHW=0.00546 medL=2 (20s)
+[primary f1 S=3 delta=+0.005 bootRNG#0] power=0.416 cover=0.962 medHW=0.00549 medL=3 (30s)
+[primary f1 S=3 delta=+0.005 bootRNG#1] power=0.424 cover=0.962 medHW=0.00546 medL=3 (40s)
+[primary f1 S=3 delta=-0.005 bootRNG#0] power=0.410 cover=0.966 medHW=0.00550 medL=2 (50s)
+[primary f1 S=3 delta=-0.005 bootRNG#1] power=0.422 cover=0.960 medHW=0.00549 medL=2 (60s)
+[primary f1 S=5 delta=+0.000 bootRNG#0] power=0.038 cover=0.962 medHW=0.00497 medL=3 (78s)
+[primary f1 S=5 delta=+0.000 bootRNG#1] power=0.042 cover=0.958 medHW=0.00499 medL=3 (97s)
+[primary f1 S=5 delta=+0.005 bootRNG#0] power=0.500 cover=0.956 medHW=0.00493 medL=3 (116s)
+[primary f1 S=5 delta=+0.005 bootRNG#1] power=0.512 cover=0.954 medHW=0.00496 medL=3 (136s)
+[primary f1 S=5 delta=-0.005 bootRNG#0] power=0.518 cover=0.948 medHW=0.00491 medL=3 (158s)
+[primary f1 S=5 delta=-0.005 bootRNG#1] power=0.522 cover=0.950 medHW=0.00488 medL=3 (182s)
+[primary f2 S=3 delta=+0.000 bootRNG#0] power=0.028 cover=0.972 medHW=0.00544 medL=2 (198s)
+[primary f2 S=3 delta=+0.000 bootRNG#1] power=0.028 cover=0.972 medHW=0.00550 medL=2 (213s)
+[primary f2 S=3 delta=+0.005 bootRNG#0] power=0.450 cover=0.970 medHW=0.00544 medL=2 (226s)
+[primary f2 S=3 delta=+0.005 bootRNG#1] power=0.450 cover=0.964 medHW=0.00542 medL=2 (241s)
+[primary f2 S=3 delta=-0.005 bootRNG#0] power=0.434 cover=0.956 medHW=0.00542 medL=3 (255s)
+[primary f2 S=3 delta=-0.005 bootRNG#1] power=0.432 cover=0.956 medHW=0.00544 medL=3 (268s)
+[primary f2 S=5 delta=+0.000 bootRNG#0] power=0.022 cover=0.978 medHW=0.00486 medL=3 (291s)
+[primary f2 S=5 delta=+0.000 bootRNG#1] power=0.026 cover=0.974 medHW=0.00488 medL=3 (314s)
+[primary f2 S=5 delta=+0.005 bootRNG#0] power=0.498 cover=0.962 medHW=0.00488 medL=3 (335s)
+[primary f2 S=5 delta=+0.005 bootRNG#1] power=0.488 cover=0.964 medHW=0.00487 medL=3 (356s)
+[primary f2 S=5 delta=-0.005 bootRNG#0] power=0.530 cover=0.968 medHW=0.00486 medL=3 (377s)
+[primary f2 S=5 delta=-0.005 bootRNG#1] power=0.540 cover=0.966 medHW=0.00487 medL=3 (398s)
+[primary f3 S=3 delta=+0.000 bootRNG#0] power=0.034 cover=0.966 medHW=0.00549 medL=2 (411s)
+[primary f3 S=3 delta=+0.000 bootRNG#1] power=0.028 cover=0.972 medHW=0.00548 medL=2 (424s)
+[primary f3 S=3 delta=+0.005 bootRNG#0] power=0.408 cover=0.974 medHW=0.00545 medL=2 (437s)
+[primary f3 S=3 delta=+0.005 bootRNG#1] power=0.416 cover=0.974 medHW=0.00550 medL=2 (450s)
+[primary f3 S=3 delta=-0.005 bootRNG#0] power=0.404 cover=0.972 medHW=0.00543 medL=2 (463s)
+[primary f3 S=3 delta=-0.005 bootRNG#1] power=0.408 cover=0.968 medHW=0.00546 medL=2 (474s)
+[primary f3 S=5 delta=+0.000 bootRNG#0] power=0.038 cover=0.962 medHW=0.00492 medL=3 (492s)
+[primary f3 S=5 delta=+0.000 bootRNG#1] power=0.034 cover=0.966 medHW=0.00493 medL=3 (509s)
+[primary f3 S=5 delta=+0.005 bootRNG#0] power=0.540 cover=0.960 medHW=0.00488 medL=3 (526s)
+[primary f3 S=5 delta=+0.005 bootRNG#1] power=0.528 cover=0.954 medHW=0.00490 medL=3 (542s)
+[primary f3 S=5 delta=-0.005 bootRNG#0] power=0.490 cover=0.954 medHW=0.00488 medL=3 (559s)
+[primary f3 S=5 delta=-0.005 bootRNG#1] power=0.494 cover=0.958 medHW=0.00487 medL=3 (576s)
+[stress f1 S=3 delta=+0.000 bootRNG#0] power=0.124 cover=0.876 medHW=0.00639 medL=5 (589s)
+[stress f1 S=3 delta=+0.000 bootRNG#1] power=0.122 cover=0.878 medHW=0.00639 medL=5 (601s)
+[stress f1 S=3 delta=+0.005 bootRNG#0] power=0.330 cover=0.870 medHW=0.00634 medL=5 (614s)
+[stress f1 S=3 delta=+0.005 bootRNG#1] power=0.336 cover=0.882 medHW=0.00637 medL=5 (627s)
+[stress f1 S=5 delta=+0.000 bootRNG#0] power=0.100 cover=0.900 medHW=0.00604 medL=6 (648s)

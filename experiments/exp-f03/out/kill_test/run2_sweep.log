@@ -1,0 +1,10 @@
+[harness] pid=893211 phase=sweep torch 2.11.0+cu128 dev=cpu
+[sweep] resume scan: 3 completed trial(s) on disk: [1, 2, 3]
+[sweep] SKIP trial 1 (t01_lr0.0003_wd0): already completed
+[sweep] SKIP trial 2 (t02_lr0.0003_wd0.001): already completed
+[sweep] SKIP trial 3 (t03_lr0.001_wd0): already completed
+[sweep] RUN  trial 4 (t04_lr0.001_wd0.001)
+[sweep] RUN  trial 5 (t05_lr0.003_wd0)
+[sweep] RUN  trial 6 (t06_lr0.003_wd0.001)
+[sweep] done: ran [4, 5, 6], 6 unique records on disk
+[harness] EXIT ok
