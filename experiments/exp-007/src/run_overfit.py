@@ -96,6 +96,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--arm", choices=["adamw", "spectral"], required=True)
     parser.add_argument("--rank", type=int, default=16)
+    parser.add_argument("--relative-eig-tol", type=float, default=1e-8)
     parser.add_argument("--steps", type=int, default=20000)
     parser.add_argument("--learning-rate", type=float, default=3e-5)
     parser.add_argument("--seed", type=int, default=20260805)
@@ -124,7 +125,7 @@ def main():
         filt = StableSpectralGradientFilter(
             model, optimizer, rank=args.rank, decay=0.99, warmup=100,
             normalize="none", weighting="hard", alpha=1.0,
-            soft_residual=True, adaptive="none", relative_eig_tol=1e-8,
+            soft_residual=True, adaptive="none", relative_eig_tol=args.relative_eig_tol,
             stabilize_every=100)
     rng = np.random.default_rng(args.seed + 1)
     curve, recent = [], []
@@ -158,6 +159,7 @@ def main():
             payload = {"arm": args.arm, "rank": args.rank, "seed": args.seed,
                        "architecture": ARCH, "parameter_count": parameter_count,
                        "learning_rate": args.learning_rate,
+                       "relative_eig_tol": args.relative_eig_tol,
                        "train_rows": int(len(train)), "valid_rows": int(len(valid)),
                        "test_touched": False, "steps": args.steps,
                        "paired_batch_stream": True, "curve": curve}
