@@ -23,9 +23,10 @@ sys.path[:0] = [
     "/home/titus/pyg/optimizers",
 ]
 from spectral_filter_fixed import StableSpectralGradientFilter
+from block_spectral import BlockSpectralGradientFilter
 
 ARCH = [2376, 2048, 1024, 512, 1]
-SHARD = Path("/media/titus/big/tmp/numerai-v5-full-shard")
+SHARD = Path(os.environ.get("NUMERAI_SHARD", "/media/titus/big/tmp/numerai-v5-full-shard"))
 
 
 class MLP(nn.Module):
@@ -97,6 +98,8 @@ def main():
     parser.add_argument("--arm", choices=["adamw", "spectral"], required=True)
     parser.add_argument("--rank", type=int, default=16)
     parser.add_argument("--relative-eig-tol", type=float, default=1e-8)
+    parser.add_argument("--blockwise", action="store_true")
+    parser.add_argument("--block-size", type=int, default=250000)
     parser.add_argument("--steps", type=int, default=20000)
     parser.add_argument("--learning-rate", type=float, default=3e-5)
     parser.add_argument("--seed", type=int, default=20260805)
@@ -122,11 +125,14 @@ def main():
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.learning_rate, weight_decay=0.0)
     filt = None
     if args.arm == "spectral":
-        filt = StableSpectralGradientFilter(
-            model, optimizer, rank=args.rank, decay=0.99, warmup=100,
-            normalize="none", weighting="hard", alpha=1.0,
-            soft_residual=True, adaptive="none", relative_eig_tol=args.relative_eig_tol,
-            stabilize_every=100)
+        common = dict(decay=0.99, warmup=100, normalize="none", weighting="hard",
+                      alpha=1.0, soft_residual=True, adaptive="none",
+                      relative_eig_tol=args.relative_eig_tol, stabilize_every=100)
+        if args.blockwise:
+            filt = BlockSpectralGradientFilter(model, total_rank=args.rank,
+                                               block_size=args.block_size, **common)
+        else:
+            filt = StableSpectralGradientFilter(model, optimizer, rank=args.rank, **common)
     rng = np.random.default_rng(args.seed + 1)
     curve, recent = [], []
     output = ROOT / "out" / f"{args.arm}-r{args.rank}-seed{args.seed}.json"
@@ -160,6 +166,7 @@ def main():
                        "architecture": ARCH, "parameter_count": parameter_count,
                        "learning_rate": args.learning_rate,
                        "relative_eig_tol": args.relative_eig_tol,
+                       "blockwise": args.blockwise, "block_size": args.block_size,
                        "train_rows": int(len(train)), "valid_rows": int(len(valid)),
                        "test_touched": False, "steps": args.steps,
                        "paired_batch_stream": True, "curve": curve}
