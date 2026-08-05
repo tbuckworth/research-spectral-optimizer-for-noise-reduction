@@ -16,12 +16,12 @@ decline?
 - Train for 20,000 steps (~5.1 passes in sampled-row equivalents).
 - Initial spectral rank: 16, because exact storage scales as `parameters × rank`.
 
-## Stage 2, conditional on Stage 1
+## Stage 2
 
-On the existing 625,025-parameter MLP, sweep ranks 64, 128, 256, 512, and 1024
-and compare top-subspace projection with complementary ablation
-`g - V(V^T g)`. Higher exact ranks are gated by measured memory/runtime; use a
-declared layerwise or sketched approximation if exact storage is infeasible.
+On the existing 625,025-parameter MLP, sweep exact top-projection ranks 64, 256,
+1024, and 2048. Compare against complementary ablation `g - V(V^T g)` at ranks
+1, 16, 64, and 256, both raw and norm-matched. Run AdamW on the identical seed
+and batch stream. TEST remains untouched.
 
 ## Decision rule
 
