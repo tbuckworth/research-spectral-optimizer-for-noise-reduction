@@ -100,6 +100,7 @@ def main():
     parser.add_argument("--relative-eig-tol", type=float, default=1e-8)
     parser.add_argument("--blockwise", action="store_true")
     parser.add_argument("--block-size", type=int, default=250000)
+    parser.add_argument("--projection-mode", choices=["top", "remove", "remove-renorm"], default="top")
     parser.add_argument("--steps", type=int, default=20000)
     parser.add_argument("--learning-rate", type=float, default=3e-5)
     parser.add_argument("--seed", type=int, default=20260805)
@@ -130,12 +131,14 @@ def main():
                       relative_eig_tol=args.relative_eig_tol, stabilize_every=100)
         if args.blockwise:
             filt = BlockSpectralGradientFilter(model, total_rank=args.rank,
-                                               block_size=args.block_size, **common)
+                                               block_size=args.block_size,
+                                               projection_mode=args.projection_mode, **common)
         else:
             filt = StableSpectralGradientFilter(model, optimizer, rank=args.rank, **common)
     rng = np.random.default_rng(args.seed + 1)
     curve, recent = [], []
-    output = ROOT / "out" / f"{args.arm}-r{args.rank}-seed{args.seed}.json"
+    mode_suffix = f"-{args.projection_mode}" if args.blockwise else ""
+    output = ROOT / "out" / f"{args.arm}{mode_suffix}-r{args.rank}-seed{args.seed}.json"
     started = time.time()
     checkpoints = {1, 25, 50, 100, args.steps}
     checkpoints.update(range(args.eval_every, args.steps + 1, args.eval_every))
@@ -167,6 +170,7 @@ def main():
                        "learning_rate": args.learning_rate,
                        "relative_eig_tol": args.relative_eig_tol,
                        "blockwise": args.blockwise, "block_size": args.block_size,
+                       "projection_mode": args.projection_mode,
                        "train_rows": int(len(train)), "valid_rows": int(len(valid)),
                        "test_touched": False, "steps": args.steps,
                        "paired_batch_stream": True, "curve": curve}
