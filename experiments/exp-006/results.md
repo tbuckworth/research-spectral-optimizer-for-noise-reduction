@@ -33,9 +33,29 @@ AdamW selected VALID score: **+0.013102**.
 
 This establishes that the original implementation had a serious numerical error and that the local replacement fixes it. It also shows that the intended hard top-k filter, with this MLP and fold, is inferior to AdamW. It does not test soft spectral weighting, alternative decay, or other datasets.
 
+## Paired optimization-loss audit
+
+Both arms were rerun for all five paired seeds with identical initialization,
+minibatch order, and per-seed training endpoint. In addition to every minibatch
+loss, MSE was evaluated periodically on the same fixed 65,536-row training
+monitor.
+
+| Late-training statistic | AdamW | Corrected spectral | Spectral − AdamW |
+|---|---:|---:|---:|
+| Mean over final 100 minibatches | 0.049849 | 0.049905 | +0.000056 |
+| Mean over final 500 minibatches | 0.049925 | 0.049976 | +0.000051 |
+
+The final-500 difference is approximately 0.10% of the loss. Curves and fixed
+monitor evaluations overlap, with no systematic terminal optimization gap.
+The large out-of-sample correlation deficit therefore is not explained by the
+spectral arm simply failing to reach AdamW's training MSE.
+
 ## Figures
 
 - `figures/rank_response_fixed.png`
 - `figures/paired_test_fixed.png`
 - `figures/cumulative_test_fixed.png`
 - `figures/numerical_diagnostics_fixed.png`
+- `figures/paired_loss_curves.png`
+- `figures/paired_loss_differences.png`
+- `figures/paired_terminal_losses.png`
