@@ -1,0 +1,37 @@
+{
+  "protocol_id": "2026-08-03-followup-spectral-optimizer-redo-pxp-filter-walk-freeze-20260804",
+  "fold": 1,
+  "arm": "B",
+  "signatures": [
+    {
+      "seed": 0,
+      "signature": "8d8253b16a83876a66471f0b49bfb70df2b42cfbdbf52181d7bfe8106d81176f",
+      "config_hash": "e0cbe2673cacfd678fa5b5cf14e2aa5db2751bfcfd29ae54183a7b2dde240359",
+      "steps": 2301
+    },
+    {
+      "seed": 1,
+      "signature": "43d1cbb97d5eaf1d04564d2ba2cf27429d849ce6b137eb1146eaf100dfe2ebb2",
+      "config_hash": "e0cbe2673cacfd678fa5b5cf14e2aa5db2751bfcfd29ae54183a7b2dde240359",
+      "steps": 2301
+    },
+    {
+      "seed": 2,
+      "signature": "73c0dd2a5e8ec5bfe6ec4b36f2aa771bbc03624c063443f5106c6c8dae026dde",
+      "config_hash": "e0cbe2673cacfd678fa5b5cf14e2aa5db2751bfcfd29ae54183a7b2dde240359",
+      "steps": 2301
+    },
+    {
+      "seed": 3,
+      "signature": "6acbd402bbe47bd3767a9cf30409b5168aa81cb028acecb1a0a09f1a045c50c3",
+      "config_hash": "e0cbe2673cacfd678fa5b5cf14e2aa5db2751bfcfd29ae54183a7b2dde240359",
+      "steps": 2301
+    },
+    {
+      "seed": 4,
+      "signature": "1662818c7942fa286ae09732a8225f6a93a172aa3d01d99192d650a3caa1a30f",
+      "config_hash": "e0cbe2673cacfd678fa5b5cf14e2aa5db2751bfcfd29ae54183a7b2dde240359",
+      "steps": 3452
+    }
+  ]
+}

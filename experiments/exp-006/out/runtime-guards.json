@@ -1,0 +1,24 @@
+{
+  "alpha0_identity": {
+    "max_abs_diff": 0.0,
+    "bit_identical": true
+  },
+  "planted": {
+    "cosine": 0.992393970489502
+  },
+  "fallback": {
+    "count": 1,
+    "finite": true
+  },
+  "zero_predictor": {
+    "mean": 0.0
+  },
+  "resume": {
+    "step": 7,
+    "signature_equal": true,
+    "extra": {
+      "guard": true
+    }
+  },
+  "pass": true
+}
