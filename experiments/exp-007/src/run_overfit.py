@@ -101,6 +101,7 @@ def main():
     parser.add_argument("--blockwise", action="store_true")
     parser.add_argument("--block-size", type=int, default=250000)
     parser.add_argument("--projection-mode", choices=["top", "remove", "remove-renorm"], default="top")
+    parser.add_argument("--run-tag", default="")
     parser.add_argument("--steps", type=int, default=20000)
     parser.add_argument("--learning-rate", type=float, default=3e-5)
     parser.add_argument("--seed", type=int, default=20260805)
@@ -138,7 +139,8 @@ def main():
     rng = np.random.default_rng(args.seed + 1)
     curve, recent = [], []
     mode_suffix = f"-{args.projection_mode}" if args.blockwise else ""
-    output = ROOT / "out" / f"{args.arm}{mode_suffix}-r{args.rank}-seed{args.seed}.json"
+    tag_suffix = f"-{args.run_tag}" if args.run_tag else ""
+    output = ROOT / "out" / f"{args.arm}{mode_suffix}-r{args.rank}-seed{args.seed}{tag_suffix}.json"
     started = time.time()
     checkpoints = {1, 25, 50, 100, args.steps}
     checkpoints.update(range(args.eval_every, args.steps + 1, args.eval_every))
@@ -171,6 +173,7 @@ def main():
                        "relative_eig_tol": args.relative_eig_tol,
                        "blockwise": args.blockwise, "block_size": args.block_size,
                        "projection_mode": args.projection_mode,
+                       "run_tag": args.run_tag,
                        "train_rows": int(len(train)), "valid_rows": int(len(valid)),
                        "test_touched": False, "steps": args.steps,
                        "paired_batch_stream": True, "curve": curve}

@@ -29,3 +29,9 @@ Evidence for the anti-overfitting hypothesis requires AdamW VALID correlation to
 decline after its peak while spectral retains materially more of its own peak.
 Similar trajectories, or spectral deterioration before AdamW, reject that
 mechanism in this regime.
+
+## Stage 3 — long-horizon saturation
+
+Rerun the paired AdamW and complete blockwise grid for 100,000 steps, evaluating
+every 500 steps. Do not early-stop individual variants. Compare raw peaks,
+smoothed peaks, peak timing, late performance, and train/validation divergence.
