@@ -96,3 +96,39 @@ class BlockSpectralGradientFilter:
                 "realized_total_basis_rank": sum(d.get("basis_rank", 0) for d in diagnostics),
                 "max_block_rank": max(self.block_rank_caps),
                 "mean_effective_rank": sum(d.get("effective_rank", 0.0) for d in diagnostics)/len(diagnostics)}
+
+    def state_dict(self):
+        """CPU checkpoint state; holder values are irrelevant to filtering."""
+        states = []
+        for _, filt in self.blocks:
+            states.append({
+                "V": None if filt.V is None else filt.V.detach().cpu(),
+                "S": None if filt.S is None else filt.S.detach().cpu(),
+                "proj_k": filt.proj_k,
+                "step_count": filt.step_count,
+                "grad_mean": None if filt.grad_mean is None else filt.grad_mean.detach().cpu(),
+                "stabilization_count": filt.stabilization_count,
+                "max_orthogonality_error": filt.max_orthogonality_error,
+            })
+        return {"total_rank": self.total_rank, "block_sizes": self.block_sizes,
+                "block_rank_caps": self.block_rank_caps,
+                "projection_mode": self.projection_mode,
+                "step_count": self.step_count, "blocks": states}
+
+    def load_state_dict(self, state):
+        if (state["total_rank"] != self.total_rank or
+                state["block_sizes"] != self.block_sizes or
+                state["block_rank_caps"] != self.block_rank_caps or
+                state["projection_mode"] != self.projection_mode):
+            raise ValueError("block spectral checkpoint configuration mismatch")
+        for (holder, filt), saved in zip(self.blocks, state["blocks"]):
+            device, dtype = holder.value.device, holder.value.dtype
+            filt.V = None if saved["V"] is None else saved["V"].to(device=device, dtype=dtype)
+            filt.S = None if saved["S"] is None else saved["S"].cpu()
+            filt.proj_k = saved["proj_k"]
+            filt.step_count = saved["step_count"]
+            filt.grad_mean = (None if saved["grad_mean"] is None else
+                              saved["grad_mean"].to(device=device, dtype=dtype))
+            filt.stabilization_count = saved["stabilization_count"]
+            filt.max_orthogonality_error = saved["max_orthogonality_error"]
+        self.step_count = state["step_count"]

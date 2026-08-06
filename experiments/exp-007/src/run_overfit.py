@@ -93,6 +93,15 @@ def atomic_json(path, value):
     os.replace(tmp, path)
 
 
+def atomic_torch(path, value):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    with open(tmp, "wb") as handle:
+        torch.save(value, handle)
+        handle.flush(); os.fsync(handle.fileno())
+    os.replace(tmp, path)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--arm", choices=["adamw", "spectral"], required=True)
@@ -104,6 +113,7 @@ def main():
     parser.add_argument("--run-tag", default="")
     parser.add_argument("--full-valid-test", action="store_true",
                         help="evaluate complete VALID and TEST splits at every checkpoint")
+    parser.add_argument("--checkpoint-every", type=int, default=0)
     parser.add_argument("--steps", type=int, default=20000)
     parser.add_argument("--learning-rate", type=float, default=3e-5)
     parser.add_argument("--seed", type=int, default=20260805)
@@ -144,11 +154,25 @@ def main():
     mode_suffix = f"-{args.projection_mode}" if args.blockwise else ""
     tag_suffix = f"-{args.run_tag}" if args.run_tag else ""
     output = ROOT / "out" / f"{args.arm}{mode_suffix}-r{args.rank}-seed{args.seed}{tag_suffix}.json"
+    checkpoint = ROOT / "work" / f"{output.stem}.pt"
+    start_step = 0
+    if checkpoint.exists():
+        saved = torch.load(checkpoint, map_location="cpu", weights_only=False)
+        model.load_state_dict(saved["model"])
+        optimizer.load_state_dict(saved["optimizer"])
+        if filt is not None:
+            filt.load_state_dict(saved["filter"])
+        rng.bit_generator.state = saved["data_rng"]
+        torch.set_rng_state(saved["torch_cpu_rng"])
+        torch.cuda.set_rng_state_all(saved["torch_cuda_rng"])
+        curve, recent = saved["curve"], saved["recent"]
+        start_step = saved["step"]
+        print(f"RESUME {checkpoint} step={start_step}", flush=True)
     started = time.time()
     checkpoints = ({1, 25, 50, 100, args.steps} if args.steps <= 100_000
                    else {100, 1000, args.steps})
     checkpoints.update(range(args.eval_every, args.steps + 1, args.eval_every))
-    for step in range(1, args.steps + 1):
+    for step in range(start_step + 1, args.steps + 1):
         j = rng.choice(train, 1024, replace=True)
         x = torch.from_numpy(np.asarray(X[j], np.float32) / 4).to(device)
         y = torch.from_numpy(np.asarray(Y[j], np.float32) - 0.5).to(device)
@@ -191,6 +215,19 @@ def main():
                        "paired_batch_stream": True, "curve": curve}
             atomic_json(output, payload)
             print(json.dumps(row), flush=True)
+        if args.checkpoint_every and step < args.steps and step % args.checkpoint_every == 0:
+            atomic_torch(checkpoint, {
+                "step": step, "model": model.state_dict(),
+                "optimizer": optimizer.state_dict(),
+                "filter": None if filt is None else filt.state_dict(),
+                "data_rng": rng.bit_generator.state,
+                "torch_cpu_rng": torch.get_rng_state(),
+                "torch_cuda_rng": torch.cuda.get_rng_state_all(),
+                "curve": curve, "recent": recent,
+            })
+            print(f"CHECKPOINT {checkpoint} step={step}", flush=True)
+    if checkpoint.exists():
+        checkpoint.unlink()
     print(f"DONE {output}", flush=True)
 
 

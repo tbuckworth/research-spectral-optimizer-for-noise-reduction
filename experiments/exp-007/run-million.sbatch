@@ -23,7 +23,7 @@ export NUMERAI_SHARD="$SCRATCH_DATA"
 cd "$PERSIST"
 
 common=(--steps 1000000 --eval-every 10000 --seed 20260805
-        --run-tag million --full-valid-test)
+        --run-tag million --full-valid-test --checkpoint-every 250000)
 case "$SLURM_ARRAY_TASK_ID" in
   0) python -u src/run_overfit.py --arm adamw --rank 0 "${common[@]}" ;;
   1) python -u src/run_overfit.py --arm spectral --rank 2048 --blockwise \
