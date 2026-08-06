@@ -23,6 +23,9 @@ FILES = {
 }
 COLORS = {"AdamW": "#111111", "Top 2048": "#7440a4",
           "Top 3072": "#5a2685", "Top 4096": "#351052"}
+EXPECTED_RANKS = {"AdamW": 0, "Top 2048": 2048, "Top 3072": 3072,
+                  "Top 4096": 4096}
+EXPECTED_STEPS = [100, 1_000, *range(10_000, 1_000_001, 10_000)]
 
 
 def atomic_json(path, value):
@@ -42,11 +45,15 @@ data = {}
 for name, filename in FILES.items():
     payload = json.load(open(OUT / filename))
     assert payload["steps"] == 1_000_000
+    assert payload["parameter_count"] == 7_491_585
+    assert payload["train_rows"] == 4_017_510
+    assert payload["rank"] == EXPECTED_RANKS[name]
+    assert payload["paired_batch_stream"] is True
     assert payload["test_touched"] is True
+    assert payload["test_role"] == "repeated exploratory trajectory; not an untouched holdout"
     assert payload["valid_scope"] == payload["test_scope"] == "full"
     curve = payload["curve"]
-    assert curve[-1]["step"] == 1_000_000
-    assert len({row["step"] for row in curve}) == len(curve)
+    assert [row["step"] for row in curve] == EXPECTED_STEPS
     for row in curve:
         assert row["valid"]["n_rows"] == 578_430 and row["valid"]["n_eras"] == 96
         assert row["test"]["n_rows"] == 744_354 and row["test"]["n_eras"] == 110
