@@ -42,3 +42,13 @@ Run AdamW and blockwise top ranks 2,048, 3,072, and 4,096 for one million steps
 from the paired seed and minibatch stream. Evaluate complete VALID and complete
 TEST splits every 10,000 steps. Because TEST is repeatedly observed here, call
 it an exploratory trajectory rather than an untouched confirmatory holdout.
+
+Launch four resumable 12-hour allocations with:
+
+```bash
+./submit-million-chain.sh 4
+```
+
+The chain deliberately uses Slurm `afterany`, because reaching the QOS time
+limit is the expected reason for one allocation to end. `afterok` would cancel
+all later allocations instead of resuming from the durable checkpoints.
