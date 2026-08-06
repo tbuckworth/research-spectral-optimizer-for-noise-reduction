@@ -81,6 +81,11 @@ for name, payload in data.items():
         "final_100k_mean_test_corr": float(np.mean([
             row["test"]["mean_per_era_corr"] for row in curve if row["step"] >= 900_000])),
     }
+    if payload["blockwise"]:
+        summary["arms"][name].update({
+            "terminal_realized_basis_rank": terminal["filter"]["realized_total_basis_rank"],
+            "terminal_mean_effective_rank": terminal["filter"]["mean_effective_rank"],
+        })
 atomic_json(OUT / "million-summary.json", summary)
 
 fig, axes = plt.subplots(3, 1, figsize=(12, 11), sharex=True)
@@ -100,17 +105,16 @@ axes[-1].set_xlabel("Training step")
 fig.tight_layout()
 fig.savefig(FIG / "correlation_million.png", dpi=180)
 
-fig, axes = plt.subplots(2, 1, figsize=(12, 8), sharex=True)
+fig, axes = plt.subplots(3, 1, figsize=(12, 11), sharex=True)
 for name, payload in data.items():
     curve = payload["curve"]
     steps = [row["step"] for row in curve]
-    axes[0].plot(steps, [row["valid"]["mse"] for row in curve],
-                 color=COLORS[name], linewidth=1.8, label=name)
-    axes[1].plot(steps, [row["test"]["mse"] for row in curve],
-                 color=COLORS[name], linewidth=1.8)
-axes[0].set_title("Full VALID MSE")
-axes[1].set_title("Full exploratory TEST MSE")
-for axis in axes:
+    for axis, split in zip(axes, ("train", "valid", "test")):
+        axis.plot(steps, [row[split]["mse"] for row in curve],
+                  color=COLORS[name], linewidth=1.8, label=name)
+for axis, title in zip(axes, ("TRAIN monitor MSE", "Full VALID MSE",
+                              "Full exploratory TEST MSE")):
+    axis.set_title(title)
     axis.set_ylabel("MSE"); axis.grid(alpha=.2)
 axes[0].legend(frameon=False, ncol=4)
 axes[-1].set_xlabel("Training step")
@@ -130,5 +134,20 @@ axis.set_title("Rank saturation at VALID-selected checkpoints")
 axis.grid(axis="y", alpha=.2); axis.legend(frameon=False)
 fig.tight_layout()
 fig.savefig(FIG / "rank_saturation_million.png", dpi=180)
+
+fig, axis = plt.subplots(figsize=(11, 5))
+for name, payload in data.items():
+    if not payload["blockwise"]:
+        continue
+    curve = payload["curve"]
+    axis.plot([row["step"] for row in curve],
+              [row["filter"]["mean_effective_rank"] for row in curve],
+              color=COLORS[name], linewidth=1.8, label=name)
+axis.set_title("Mean numerically effective covariance rank per parameter block")
+axis.set_xlabel("Training step")
+axis.set_ylabel("Mean effective rank")
+axis.grid(alpha=.2); axis.legend(frameon=False)
+fig.tight_layout()
+fig.savefig(FIG / "effective_rank_million.png", dpi=180)
 
 print(json.dumps(summary, indent=2))
