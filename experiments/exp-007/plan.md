@@ -35,3 +35,10 @@ mechanism in this regime.
 Rerun the paired AdamW and complete blockwise grid for 100,000 steps, evaluating
 every 500 steps. Do not early-stop individual variants. Compare raw peaks,
 smoothed peaks, peak timing, late performance, and train/validation divergence.
+
+## Stage 4 — million-step rank saturation with exploratory TEST
+
+Run AdamW and blockwise top ranks 2,048, 3,072, and 4,096 for one million steps
+from the paired seed and minibatch stream. Evaluate complete VALID and complete
+TEST splits every 10,000 steps. Because TEST is repeatedly observed here, call
+it an exploratory trajectory rather than an untouched confirmatory holdout.

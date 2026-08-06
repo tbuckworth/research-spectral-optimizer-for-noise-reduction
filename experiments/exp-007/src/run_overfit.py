@@ -102,6 +102,8 @@ def main():
     parser.add_argument("--block-size", type=int, default=250000)
     parser.add_argument("--projection-mode", choices=["top", "remove", "remove-renorm"], default="top")
     parser.add_argument("--run-tag", default="")
+    parser.add_argument("--full-valid-test", action="store_true",
+                        help="evaluate complete VALID and TEST splits at every checkpoint")
     parser.add_argument("--steps", type=int, default=20000)
     parser.add_argument("--learning-rate", type=float, default=3e-5)
     parser.add_argument("--seed", type=int, default=20260805)
@@ -114,6 +116,7 @@ def main():
     eras = np.asarray(E)
     train = np.where(eras <= 791)[0]
     valid = np.where((eras >= 796) & (eras <= 891))[0]
+    test = np.where((eras >= 896) & (eras <= 1005))[0]
     train_monitor = monitor_indices(train, eras, 128, 7711)
     valid_monitor = monitor_indices(valid, eras, 512, 7712)
 
@@ -142,7 +145,8 @@ def main():
     tag_suffix = f"-{args.run_tag}" if args.run_tag else ""
     output = ROOT / "out" / f"{args.arm}{mode_suffix}-r{args.rank}-seed{args.seed}{tag_suffix}.json"
     started = time.time()
-    checkpoints = {1, 25, 50, 100, args.steps}
+    checkpoints = ({1, 25, 50, 100, args.steps} if args.steps <= 100_000
+                   else {100, 1000, args.steps})
     checkpoints.update(range(args.eval_every, args.steps + 1, args.eval_every))
     for step in range(1, args.steps + 1):
         j = rng.choice(train, 1024, replace=True)
@@ -159,11 +163,14 @@ def main():
         if len(recent) > 250:
             recent.pop(0)
         if step in checkpoints:
+            valid_eval = valid if args.full_valid_test else valid_monitor
             row = {"step": step, "sample_equivalent_epochs": step * 1024 / len(train),
                    "batch_mse_250": float(np.mean(recent)),
                    "train": evaluate(model, X, Y, E, train_monitor, device),
-                   "valid": evaluate(model, X, Y, E, valid_monitor, device),
+                   "valid": evaluate(model, X, Y, E, valid_eval, device),
                    "elapsed_seconds": time.time() - started}
+            if args.full_valid_test:
+                row["test"] = evaluate(model, X, Y, E, test, device)
             if diagnostic is not None:
                 row["filter"] = diagnostic
             curve.append(row)
@@ -175,7 +182,12 @@ def main():
                        "projection_mode": args.projection_mode,
                        "run_tag": args.run_tag,
                        "train_rows": int(len(train)), "valid_rows": int(len(valid)),
-                       "test_touched": False, "steps": args.steps,
+                       "test_touched": args.full_valid_test,
+                       "test_role": ("repeated exploratory trajectory; not an untouched holdout"
+                                     if args.full_valid_test else "untouched"),
+                       "valid_scope": "full" if args.full_valid_test else "fixed sampled monitor",
+                       "test_scope": "full" if args.full_valid_test else "not evaluated",
+                       "steps": args.steps,
                        "paired_batch_stream": True, "curve": curve}
             atomic_json(output, payload)
             print(json.dumps(row), flush=True)
