@@ -14,10 +14,12 @@ test -n "${CUDA_VISIBLE_DEVICES:-}"
 nvidia-smi -L
 
 PERSIST="$HOME/spectral-exp007"
-SCRATCH="/ephemeral/$USER/spectral-million-$SLURM_JOB_ID"
-mkdir -p "$SCRATCH/data" "$PERSIST/out" "$PERSIST/logs"
-rsync -a "$PERSIST/data/" "$SCRATCH/data/"
-export NUMERAI_SHARD="$SCRATCH/data"
+SCRATCH_DATA="/ephemeral/$USER/spectral-million-data"
+mkdir -p "$SCRATCH_DATA" "$PERSIST/out" "$PERSIST/logs"
+# The free compute partition is one shared L40 worker. Stage the immutable shard
+# once even when all four array tasks begin together.
+flock "$SCRATCH_DATA.lock" rsync -a "$PERSIST/data/" "$SCRATCH_DATA/"
+export NUMERAI_SHARD="$SCRATCH_DATA"
 cd "$PERSIST"
 
 common=(--steps 1000000 --eval-every 10000 --seed 20260805
