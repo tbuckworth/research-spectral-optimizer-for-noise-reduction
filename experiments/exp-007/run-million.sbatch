@@ -27,12 +27,20 @@ cd "$PERSIST"
 common=(--steps 1000000 --eval-every 10000 --seed 20260805
         --run-tag million --full-valid-test --checkpoint-every 100000)
 case "$SLURM_ARRAY_TASK_ID" in
-  0) python -u src/run_overfit.py --arm adamw --rank 0 "${common[@]}" ;;
-  1) python -u src/run_overfit.py --arm spectral --rank 2048 --blockwise \
+  0) output="out/adamw-r0-seed20260805-million.json"
+     test -f "$output" && { echo "COMPLETE $output"; exit 0; }
+     python -u src/run_overfit.py --arm adamw --rank 0 "${common[@]}" ;;
+  1) output="out/spectral-top-r2048-seed20260805-million.json"
+     test -f "$output" && { echo "COMPLETE $output"; exit 0; }
+     python -u src/run_overfit.py --arm spectral --rank 2048 --blockwise \
        --block-size 250000 --projection-mode top --relative-eig-tol 1e-12 "${common[@]}" ;;
-  2) python -u src/run_overfit.py --arm spectral --rank 3072 --blockwise \
+  2) output="out/spectral-top-r3072-seed20260805-million.json"
+     test -f "$output" && { echo "COMPLETE $output"; exit 0; }
+     python -u src/run_overfit.py --arm spectral --rank 3072 --blockwise \
        --block-size 250000 --projection-mode top --relative-eig-tol 1e-12 "${common[@]}" ;;
-  3) python -u src/run_overfit.py --arm spectral --rank 4096 --blockwise \
+  3) output="out/spectral-top-r4096-seed20260805-million.json"
+     test -f "$output" && { echo "COMPLETE $output"; exit 0; }
+     python -u src/run_overfit.py --arm spectral --rank 4096 --blockwise \
        --block-size 250000 --projection-mode top --relative-eig-tol 1e-12 "${common[@]}" ;;
   *) exit 2 ;;
 esac
