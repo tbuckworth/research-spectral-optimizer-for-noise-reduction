@@ -4,7 +4,9 @@
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=6
 #SBATCH --mem=32G
-#SBATCH --time=48:00:00
+# The account QOS caps free-compute jobs at 12 hours.  The deterministic
+# checkpoints below allow long arms to continue across allocations.
+#SBATCH --time=12:00:00
 #SBATCH --output=logs/slurm-%A_%a.out
 #SBATCH --array=0-3
 set -euo pipefail
@@ -23,7 +25,7 @@ export NUMERAI_SHARD="$SCRATCH_DATA"
 cd "$PERSIST"
 
 common=(--steps 1000000 --eval-every 10000 --seed 20260805
-        --run-tag million --full-valid-test --checkpoint-every 250000)
+        --run-tag million --full-valid-test --checkpoint-every 100000)
 case "$SLURM_ARRAY_TASK_ID" in
   0) python -u src/run_overfit.py --arm adamw --rank 0 "${common[@]}" ;;
   1) python -u src/run_overfit.py --arm spectral --rank 2048 --blockwise \
