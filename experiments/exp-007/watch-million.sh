@@ -13,10 +13,11 @@ remote_complete() {
   ssh mats "source ~/venv/bin/activate && python -c 'import json
 from pathlib import Path
 root = Path(\"$remote_root/out\")
+complete = True
 for rank in (3072, 4096):
     payload = json.loads((root / f\"spectral-top-r{rank}-seed20260805-million.json\").read_text())
-    assert payload[\"steps\"] == 1_000_000
-    assert payload[\"curve\"][-1][\"step\"] == 1_000_000
+    complete &= payload[\"steps\"] == 1_000_000 and payload[\"curve\"][-1][\"step\"] == 1_000_000
+raise SystemExit(0 if complete else 1)
 '"
 }
 
