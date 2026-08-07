@@ -16,6 +16,12 @@ matched exactly:
 
 `1c3940d2904951d6caf263dd082805148a8328575dc9e657bb36b117e663b6be`
 
+The rank-3,072 arm was intentionally stopped at step 760,000 after inspection
+showed that 300,000 steps were sufficient for the comparison.  Its final
+trajectory was copied off MATS and matched the remote SHA-256 exactly:
+
+`d0084af7a8bf959d4870fa57df223496348ebbe510620d087d256f592eea2d52`
+
 The pre-handoff JSON files in `out/recovery/` preserve the authoritative values
 used for these comparisons.
 
