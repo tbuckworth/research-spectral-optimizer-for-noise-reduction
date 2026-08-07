@@ -1,0 +1,41 @@
+{
+  "purpose": "Fresh rank-1024 and rank-1536 300k trajectories requested after the long-run horizon was shortened",
+  "host": "titus-MS-7A59",
+  "gpu": {
+    "name": "NVIDIA GeForce RTX 3090",
+    "uuid": "GPU-994b97cd-d768-1f03-78fb-6a70e3cc1e0c",
+    "memory_mib": 24576,
+    "driver": "595.84"
+  },
+  "software": {
+    "python": "/usr/bin/python3",
+    "torch": "2.11.0+cu128",
+    "cuda_runtime": "12.8",
+    "cudnn": 91900,
+    "source_sha256": {
+      "experiments/exp-007/src/run_overfit.py": "3504cab6897c970a6d0e742eb0dd1bf78d4527d863b7b8d2ad0352d454dd02dd",
+      "experiments/exp-007/src/block_spectral.py": "da40f0f2c6cd34741fe6bafe2b9f4043d1a78a9d3a5f548baffbda5de939abfc",
+      "experiments/exp-006/src/spectral_filter_fixed.py": "97f950c9877277d9b8f88167d7408e81d3f45d4c78768e61f5d9b5d87c86f1d2",
+      "/home/titus/pyg/optimizers/spectral_filter.py": "79e254e678e5df7e8168fcb81faf0bdca16687a256f89463a4cc32b2a316eb9c"
+    }
+  },
+  "launch_time": "2026-08-07T17:27:06+01:00",
+  "execution": "concurrent on one GPU",
+  "shared_configuration": {
+    "steps": 300000,
+    "eval_every": 10000,
+    "checkpoint_every": 100000,
+    "seed": 20260805,
+    "full_valid_test": true,
+    "blockwise": true,
+    "block_size": 250000,
+    "projection_mode": "top",
+    "relative_eig_tol": 1e-12,
+    "run_tag": "300k-3090"
+  },
+  "arms": [
+    {"rank": 1024, "launch_pid": 1579183},
+    {"rank": 1536, "launch_pid": 1579192}
+  ],
+  "comparison_warning": "Ranks 1024 and 1536 ran on RTX 3090; AdamW and ranks 2048, 3072, and 4096 ran on L40. The earlier same-checkpoint diagnostic demonstrated cross-hardware trajectory divergence, so small between-rank differences are descriptive, not clean rank-only causal estimates."
+}
