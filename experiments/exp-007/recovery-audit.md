@@ -9,6 +9,13 @@ exactly (excluding `elapsed_seconds`, which intentionally restarts):
 - rank 3,072: the second-allocation replay from 600,000 also matched the
   preserved pre-handoff trajectory exactly.
 
+At step 730,000, the current rank-3,072 trajectory was copied to local recovery
+storage.  Its durable 700,000-step checkpoint was also copied off MATS NFS to
+the desktop volume.  The local and remote 3,188,525,626-byte checkpoint hashes
+matched exactly:
+
+`1c3940d2904951d6caf263dd082805148a8328575dc9e657bb36b117e663b6be`
+
 The pre-handoff JSON files in `out/recovery/` preserve the authoritative values
 used for these comparisons.
 
