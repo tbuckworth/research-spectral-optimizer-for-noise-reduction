@@ -71,9 +71,10 @@ def main() -> None:
     parser.add_argument("--split", required=True)
     parser.add_argument("--updates", type=int, required=True)
     parser.add_argument("--seed", type=int, required=True)
+    parser.add_argument("--expected-configs", type=int, default=40)
     args = parser.parse_args()
     write_summary(collect_stage(args.results, split=args.split, updates=args.updates,
-                                seed=args.seed), args.output)
+                                seed=args.seed, expected_configs=args.expected_configs), args.output)
 
 
 if __name__ == "__main__":
