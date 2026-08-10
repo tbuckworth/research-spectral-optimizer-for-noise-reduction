@@ -29,6 +29,8 @@ cd "$PROJECT"
 if "$PROJECT/uv" run python -m numerai_competitive.summarize \
     --results results --output "results/summary-${SPLIT}-u${UPDATES}-s${SEED}" \
     --split "$SPLIT" --updates "$UPDATES" --seed "$SEED" \
+    --search configs/search-v1.json \
+    --features /mnt/nw/home/t.buckworth/numerai-v5.3-source/features.json \
     --expected-configs "$EXPECTED_CONFIGS" >> "$STATUS" 2>&1; then
   printf '%s stage complete and summarized\n' "$(date -Is)" >> "$STATUS"
 else
