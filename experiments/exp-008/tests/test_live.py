@@ -58,3 +58,22 @@ def test_live_ensemble_rejects_mismatched_artifacts():
     second["feature_names"] = ["a", "b", "different"]
     with pytest.raises(ValueError, match="feature schemas differ"):
         NumeraiMLPPredictor([first, second])
+
+
+def test_live_frozen_benchmark_blend_requires_exact_benchmark_alignment():
+    predictor = NumeraiMLPPredictor(_artifact(), model_weight=0.5)
+    index = pd.Index(["id3", "id1", "id2", "id4"])
+    frame = pd.DataFrame(
+        [[0, 2, 4], [1, 2, 3], [4, 0, 1], [2, 4, 0]], index=index,
+        columns=["a", "b", "c"],
+    )
+    benchmark = pd.DataFrame(
+        {"v53_lgbm_ender20": [0.1, 0.8, 0.3, 0.6]}, index=index
+    )
+    blended = predictor(frame, benchmark)
+    assert blended.index.equals(index)
+    assert blended["prediction"].between(0, 1, inclusive="neither").all()
+    with pytest.raises(ValueError, match="requires benchmark"):
+        predictor(frame, None)
+    with pytest.raises(ValueError, match="IDs/order"):
+        predictor(frame, benchmark.iloc[::-1])

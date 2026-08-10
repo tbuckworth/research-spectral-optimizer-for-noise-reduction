@@ -30,6 +30,12 @@ def test_freeze_verifies_complete_model_provenance(tmp_path):
     }))
     protocol = tmp_path / "protocol.md"
     protocol.write_text("frozen")
+    candidate = tmp_path / "candidate.json"
+    candidate.write_text(json.dumps({
+        "status": "frozen_train_only_selection",
+        "selected": {"arm": "spectral", "benchmark": "v53_lgbm_ender20",
+                     "model_weight": 0.75, "benchmark_weight": 0.25},
+    }))
     adamw, spectral = [], []
     for seed in [0, 1]:
         adamw.append(tmp_path / f"adamw-{seed}.pt")
@@ -37,10 +43,11 @@ def test_freeze_verifies_complete_model_provenance(tmp_path):
         _model(adamw[-1], "adamw", 1, seed)
         _model(spectral[-1], "spectral", 2, seed)
     output = tmp_path / "freeze.json"
-    manifest = create_freeze(search, protocol, output, "abc", 1, 2, adamw, spectral,
+    manifest = create_freeze(search, protocol, candidate, output, "abc", 1, 2, adamw, spectral,
                              100, [0, 1], True)
     assert output.is_file() and manifest["status"] == "frozen"
     assert manifest["selected"]["spectral"]["model_signatures"] == ["spectral-0", "spectral-1"]
+    assert manifest["candidate_transform"]["model_weight"] == 0.75
     with pytest.raises(ValueError, match="authorization"):
-        create_freeze(search, protocol, output, "abc", 1, 2, adamw, spectral,
+        create_freeze(search, protocol, candidate, output, "abc", 1, 2, adamw, spectral,
                       100, [0, 1], False)

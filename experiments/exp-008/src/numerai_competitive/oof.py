@@ -145,7 +145,7 @@ def aggregate(adamw_paths: list[Path], spectral_paths: list[Path], output: Path,
         output / "nested-outer-predictions.npz", row_index=adamw["row_index"].to_numpy(),
         era=adamw["era"].to_numpy(), target=adamw["target"].to_numpy(),
         benchmark=adamw["benchmark"].to_numpy(), adamw=adamw["prediction"].to_numpy(),
-        spectral=spectral["prediction"].to_numpy(),
+        spectral=spectral["prediction"].to_numpy(), split=adamw["split"].to_numpy(str),
     )
     report = {
         "status": "complete", "rows": len(adamw), "eras": int(adamw["era"].nunique()),

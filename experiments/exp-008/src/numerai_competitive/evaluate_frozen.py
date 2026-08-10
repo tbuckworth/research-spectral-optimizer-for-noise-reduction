@@ -122,35 +122,51 @@ def evaluate(shard_root: Path, freeze_path: Path, adamw_models: list[Path],
     target = pd.Series(np.asarray(shard.targets[indices, target_column], dtype=np.float64), index=ids)
     eras = pd.Series([f"{int(value):04d}" for value in shard.eras[indices]], index=ids)
     benchmark_era = per_era_corr(benchmark.rename("ender20"), target, eras)["ender20"]
+    transform = freeze["candidate_transform"]
+    base_candidate = adamw[covered] if transform["arm"] == "adamw" else spectral[covered]
+    benchmark_rank = _rank_within_era(benchmark.to_numpy(), shard.eras[indices])
+    candidate = _rank_within_era(
+        transform["model_weight"] * base_candidate
+        + transform["benchmark_weight"] * benchmark_rank,
+        shard.eras[indices],
+    )
+    candidate_summary, candidate_era = _evaluate(
+        candidate, shard, indices, target_column, benchmark_column
+    )
     spectral_minus_adamw = moving_block_bootstrap(spectral_era["corr"], adam_era["corr"])
     adamw_minus_ender20 = moving_block_bootstrap(adam_era["corr"], benchmark_era)
     spectral_minus_ender20 = moving_block_bootstrap(spectral_era["corr"], benchmark_era)
+    candidate_minus_ender20 = moving_block_bootstrap(candidate_era["corr"], benchmark_era)
     prediction_correlation = {
         "adamw_vs_ender20": _prediction_correlation(adamw[covered], benchmark, eras),
         "spectral_vs_ender20": _prediction_correlation(spectral[covered], benchmark, eras),
         "spectral_vs_adamw": _prediction_correlation(
             spectral[covered], pd.Series(adamw[covered], index=ids), eras
         ),
+        "candidate_vs_ender20": _prediction_correlation(candidate, benchmark, eras),
     }
     per_era = pd.DataFrame({
         "adamw": adam_era["corr"], "spectral": spectral_era["corr"],
-        "ender20": benchmark_era,
+        "candidate": candidate_era["corr"], "ender20": benchmark_era,
     })
     output.mkdir(parents=True, exist_ok=True)
     per_era.to_csv(output / "official-validation-per-era.csv")
     _plots(per_era, output)
     _atomic_npz(output / "official-validation-predictions.npz", row_index=indices,
                 era=shard.eras[indices], adamw=adamw[covered], spectral=spectral[covered],
+                candidate=candidate,
                 target=shard.targets[indices, target_column],
                 benchmark=shard.benchmarks[indices, benchmark_column])
     report = {
         "status": "complete", "target": "target_cyrusd_20",
         "resolved_rows": int(covered.sum()), "resolved_eras": len(np.unique(shard.eras[covered])),
         "adamw": adam_summary, "spectral": spectral_summary,
+        "candidate": candidate_summary, "candidate_transform": transform,
         "ender20": summarize_era_scores(benchmark_era).loc["ender20"].to_dict(),
         "spectral_minus_adamw": spectral_minus_adamw.to_dict(),
         "adamw_minus_ender20": adamw_minus_ender20.to_dict(),
         "spectral_minus_ender20": spectral_minus_ender20.to_dict(),
+        "candidate_minus_ender20": candidate_minus_ender20.to_dict(),
         "prediction_correlation": prediction_correlation,
         "freeze_manifest_sha256": shard.manifest["freeze_manifest_sha256"],
     }

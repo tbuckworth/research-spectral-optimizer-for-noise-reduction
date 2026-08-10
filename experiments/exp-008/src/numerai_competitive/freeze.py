@@ -6,6 +6,7 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
+import numpy as np
 import torch
 
 from .data import atomic_json, sha256
@@ -46,19 +47,32 @@ def _verify_arm(arm: str, config_id: int, models: list[Path], seeds: list[int],
     }
 
 
-def create_freeze(search_path: Path, protocol_path: Path, output: Path, code_commit: str,
+def create_freeze(search_path: Path, protocol_path: Path, candidate_path: Path,
+                  output: Path, code_commit: str,
                   adamw_config: int, spectral_config: int, adamw_models: list[Path],
                   spectral_models: list[Path], updates: int, seeds: list[int],
                   authorize_validation_reveal: bool) -> dict:
     if not authorize_validation_reveal:
         raise ValueError("validation reveal requires explicit authorization")
     search = json.loads(search_path.read_text())
+    candidate = json.loads(candidate_path.read_text())
+    if candidate.get("status") != "frozen_train_only_selection":
+        raise ValueError("candidate plan is not a frozen train-only selection")
+    selected_candidate = candidate.get("selected", {})
+    if (selected_candidate.get("arm") not in {"adamw", "spectral"}
+            or selected_candidate.get("benchmark") != "v53_lgbm_ender20"
+            or not 0 < selected_candidate.get("model_weight", 0) <= 1
+            or not np.isclose(selected_candidate["model_weight"]
+                              + selected_candidate.get("benchmark_weight", -1), 1)):
+        raise ValueError("candidate plan has an invalid frozen transformation")
     manifest = {
         "status": "frozen", "protocol": search["protocol"], "code_commit": code_commit,
         "created_at": datetime.now(UTC).isoformat(),
         "search_sha256": sha256(search_path), "fidelity_protocol_sha256": sha256(protocol_path),
         "primary_target": "target_cyrusd_20", "primary_metric": "exact standalone CORR",
         "validation_reveal_authorized": True,
+        "candidate_plan_sha256": sha256(candidate_path),
+        "candidate_transform": selected_candidate,
         "selected": {
             "adamw": _verify_arm("adamw", adamw_config, adamw_models, seeds, updates, search),
             "spectral": _verify_arm(
@@ -74,6 +88,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--search", type=Path, required=True)
     parser.add_argument("--protocol", type=Path, required=True)
+    parser.add_argument("--candidate-plan", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--code-commit", required=True)
     parser.add_argument("--adamw-config", type=int, required=True)
@@ -85,7 +100,7 @@ def main() -> None:
     parser.add_argument("--authorize-validation-reveal", action="store_true")
     args = parser.parse_args()
     manifest = create_freeze(
-        args.search, args.protocol, args.output, args.code_commit,
+        args.search, args.protocol, args.candidate_plan, args.output, args.code_commit,
         args.adamw_config, args.spectral_config, args.adamw_model, args.spectral_model,
         args.updates, args.seed, args.authorize_validation_reveal,
     )
