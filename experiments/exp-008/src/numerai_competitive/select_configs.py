@@ -9,16 +9,24 @@ import pandas as pd
 
 
 def select_configs(scores: pd.DataFrame, top: int) -> dict[str, list[int]]:
-    required = {"arm", "config_id", "corr_mean", "split", "seed"}
+    required = {"arm", "config_id", "corr_mean", "split", "seed", "updates"}
     if not required <= set(scores.columns):
         raise ValueError(f"missing columns: {sorted(required - set(scores.columns))}")
-    if scores[["arm", "config_id", "corr_mean", "split", "seed"]].isna().any().any():
+    if scores[list(required)].isna().any().any():
         raise ValueError("selection columns contain missing values")
-    identity = ["arm", "config_id", "split", "seed"]
+    if scores["updates"].nunique() != 1:
+        raise ValueError("selection cannot mix fidelity update budgets")
+    arm_ids = {
+        arm: set(scores.loc[scores["arm"].eq(arm), "config_id"].astype(int))
+        for arm in ("adamw", "spectral")
+    }
+    if arm_ids["adamw"] != arm_ids["spectral"]:
+        raise ValueError("AdamW and spectral config-ID coverage differs")
+    identity = ["arm", "config_id", "split", "seed", "updates"]
     if scores.duplicated(identity).any():
         raise ValueError("duplicate arm/config/split/seed score")
     coverage = scores.groupby(["arm", "config_id"]).apply(
-        lambda frame: frozenset(zip(frame["split"], frame["seed"])),
+        lambda frame: frozenset(zip(frame["split"], frame["seed"], frame["updates"])),
         include_groups=False,
     )
     if coverage.nunique() != 1:
