@@ -15,6 +15,8 @@ def test_search_draw_materializes_to_train_config(arm_index):
     assert config.example_budget == 123 * draw["batch_size"]
     assert config.batch_mode in {"row", "era"}
     assert bool(config.filter) == (draw["arm"] == "spectral")
+    assert config.search_config_id == draw["config_id"]
+    assert config.feature_set == draw["feature_set"]
 
 
 def test_artifact_cadence_scales_without_changing_budget():

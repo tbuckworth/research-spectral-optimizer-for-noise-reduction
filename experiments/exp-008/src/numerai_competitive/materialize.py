@@ -10,6 +10,8 @@ def materialize_config(draw: dict[str, Any], *, input_dim: int, updates: int,
     if draw["feature_set"] not in {"medium", "all"}:
         raise ValueError("unsupported feature set")
     config: dict[str, Any] = {
+        "search_config_id": draw["config_id"],
+        "feature_set": draw["feature_set"],
         "model": {
             "input_dim": input_dim,
             "width": draw["width"],

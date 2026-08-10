@@ -123,9 +123,12 @@ def test_explicit_final_model_artifact_is_target_free(tmp_path: Path):
     result = run_training(_shard(shard_dir), SPLIT, _config(save_model=True), tmp_path / "out")
     artifact = torch.load(tmp_path / "out" / result["model_file"], weights_only=False)
     assert set(artifact) == {
-        "signature", "model_config", "model", "target", "feature_names", "data_version",
+        "signature", "model_config", "model", "train_config", "train_split", "target",
+        "feature_names", "data_version",
     }
     assert not any("target" in key for key in artifact["model"])
+    assert artifact["train_config"]["seed"] == 12
+    assert artifact["train_split"]["name"] == "synthetic"
 
 
 def test_refit_requires_model_artifact_and_has_no_validation_score(tmp_path: Path):

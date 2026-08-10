@@ -27,6 +27,8 @@ from .splits import EraSplit
 @dataclass(frozen=True)
 class TrainConfig:
     model: MLPConfig
+    search_config_id: int | None = None
+    feature_set: str | None = None
     arm: str = "adamw"
     target: str = "target_cyrusd_20"
     benchmark: str = "v53_lgbm_ender20"
@@ -201,6 +203,8 @@ def run_training(shard_root: Path, split: EraSplit, config: TrainConfig, output_
     shard = TrainShard.open(Path(shard_root))
     if config.model.input_dim != shard.X.shape[1]:
         raise ValueError("model input_dim does not match shard features")
+    if config.feature_set is not None and config.feature_set != shard.manifest.get("feature_set"):
+        raise ValueError("training config feature set does not match shard")
     train_indices = shard.row_indices(list(split.train_eras))
     valid_indices = shard.row_indices(list(split.valid_eras))
     if refit and (len(valid_indices) or not config.save_model):
@@ -330,6 +334,8 @@ def run_training(shard_root: Path, split: EraSplit, config: TrainConfig, output_
             "signature": signature,
             "model_config": asdict(config.model),
             "model": model.state_dict(),
+            "train_config": asdict(config),
+            "train_split": split.to_dict(),
             "target": config.target,
             "feature_names": shard.manifest["feature_names"],
             "data_version": shard.manifest["data_version"],
