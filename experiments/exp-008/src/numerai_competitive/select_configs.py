@@ -9,16 +9,23 @@ import pandas as pd
 
 
 def select_configs(scores: pd.DataFrame, top: int) -> dict[str, list[int]]:
-    required = {"arm", "config_id", "corr_mean"}
+    required = {"arm", "config_id", "corr_mean", "split", "seed"}
     if not required <= set(scores.columns):
         raise ValueError(f"missing columns: {sorted(required - set(scores.columns))}")
-    if scores[["arm", "config_id", "corr_mean"]].isna().any().any():
+    if scores[["arm", "config_id", "corr_mean", "split", "seed"]].isna().any().any():
         raise ValueError("selection columns contain missing values")
+    identity = ["arm", "config_id", "split", "seed"]
+    if scores.duplicated(identity).any():
+        raise ValueError("duplicate arm/config/split/seed score")
+    coverage = scores.groupby(["arm", "config_id"]).apply(
+        lambda frame: frozenset(zip(frame["split"], frame["seed"])),
+        include_groups=False,
+    )
+    if coverage.nunique() != 1:
+        raise ValueError("configurations have unequal fold/seed coverage")
     grouped = (scores.groupby(["arm", "config_id"], as_index=False)
                .agg(corr_mean=("corr_mean", "mean"),
                     corr_worst=("corr_mean", "min"), folds=("corr_mean", "size")))
-    if grouped.groupby("arm")["folds"].nunique().max() != 1:
-        raise ValueError("configurations have unequal fold coverage")
     selected = {}
     for arm in ("adamw", "spectral"):
         arm_scores = grouped[grouped["arm"] == arm]
