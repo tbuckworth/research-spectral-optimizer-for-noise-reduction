@@ -44,6 +44,11 @@ def main() -> None:
     draw = matches[0]
     shard_root = args.shards / draw["feature_set"]
     shard = TrainShard.open(shard_root)
+    if shard.manifest.get("feature_set") != draw["feature_set"]:
+        raise ValueError(
+            f"shard feature set {shard.manifest.get('feature_set')!r} does not match "
+            f"search draw {draw['feature_set']!r}"
+        )
     value = materialize_config(draw, input_dim=shard.X.shape[1], updates=args.updates,
                                seed=args.seed)
     value["model"] = MLPConfig(**value["model"])

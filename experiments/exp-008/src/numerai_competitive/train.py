@@ -173,13 +173,19 @@ def _evaluate(predictions: np.ndarray, shard: TrainShard, indices: np.ndarray,
     benchmark = pd.Series(np.asarray(shard.benchmarks[indices, benchmark_index], dtype=np.float64),
                           index=ids, name="benchmark")
     corr = per_era_corr(pred, target, eras)["prediction"]
-    bmc = per_era_correlation_contribution(pred, benchmark, target, eras)["prediction"]
+    benchmark_covered = benchmark.notna()
+    bmc = per_era_correlation_contribution(
+        pred[benchmark_covered], benchmark[benchmark_covered],
+        target[benchmark_covered], eras[benchmark_covered]
+    )["prediction"]
     per_era = pd.DataFrame({"corr": corr, "bmc": bmc})
     summary = {
         "rows": len(indices), "eras": int(eras.nunique()),
         "mse": float(np.mean((predictions - target.to_numpy()) ** 2)),
         "corr": summarize_era_scores(corr).loc["prediction"].to_dict(),
         "bmc": summarize_era_scores(bmc).loc["prediction"].to_dict(),
+        "bmc_rows": int(benchmark_covered.sum()),
+        "bmc_eras": int(eras[benchmark_covered].nunique()),
     }
     return summary, per_era
 

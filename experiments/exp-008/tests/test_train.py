@@ -9,7 +9,7 @@ import torch
 
 from numerai_competitive.model import MLPConfig, ResidualMLP
 from numerai_competitive.splits import EraSplit
-from numerai_competitive.train import BatchStream, TrainConfig, run_training
+from numerai_competitive.train import BatchStream, TrainConfig, _evaluate, run_training
 
 
 def _shard(root: Path) -> Path:
@@ -93,6 +93,23 @@ def test_checkpoint_resume_is_deterministic(tmp_path: Path):
     left = np.load(tmp_path / "resume" / "validation_predictions.npz")["prediction"]
     right = np.load(tmp_path / "direct" / "validation_predictions.npz")["prediction"]
     np.testing.assert_array_equal(left, right)
+
+
+def test_corr_keeps_era_without_benchmark_coverage(tmp_path: Path):
+    shard_dir = tmp_path / "shard"
+    shard_dir.mkdir()
+    shard = _shard(shard_dir)
+    from numerai_competitive.data import TrainShard
+
+    benchmarks = np.load(shard / "benchmarks_f32.npy")
+    benchmarks[:8, 0] = np.nan
+    np.save(shard / "benchmarks_f32.npy", benchmarks)
+    opened = TrainShard.open(shard)
+    summary, per_era = _evaluate(np.linspace(0, 1, 16), opened, np.arange(16), 0, 0)
+    assert summary["eras"] == 2
+    assert summary["bmc_eras"] == 1
+    assert len(per_era["corr"].dropna()) == 2
+    assert len(per_era["bmc"].dropna()) == 1
 
 
 def test_validation_named_path_is_rejected(tmp_path: Path):
