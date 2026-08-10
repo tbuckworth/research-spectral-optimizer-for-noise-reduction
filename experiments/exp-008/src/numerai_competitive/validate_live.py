@@ -44,6 +44,7 @@ def validate(callable_path: Path, live_path: Path, output: Path,
         "artifact_sha256": sha256(callable_path), "elapsed_seconds": elapsed,
         "peak_rss_bytes": peak_rss_bytes, "max_bytes": max_bytes,
         "max_seconds": max_seconds, "model_count": len(predictor.models),
+        "model_signatures": list(predictor.model_signatures),
         "model_weight": predictor.model_weight, "benchmark_name": predictor.benchmark_name,
     }
     atomic_json(output, report)

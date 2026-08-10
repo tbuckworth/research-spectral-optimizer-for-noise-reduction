@@ -80,7 +80,7 @@ Export the exact evaluated seed ensemble and frozen blend as a Model Upload call
 ```bash
 uv run python -m numerai_competitive.live \
   --model MODEL_SEED_0 --model MODEL_SEED_1 --model MODEL_SEED_2 \
-  --candidate-plan out/candidate-plan.json --output out/predictor.pkl
+  --freeze out/freeze.json --output out/predictor.pkl
 uv run python -m numerai_competitive.validate_live \
   --callable out/predictor.pkl --live live.parquet \
   --benchmark live_benchmark_models.parquet --output out/live-runtime.json

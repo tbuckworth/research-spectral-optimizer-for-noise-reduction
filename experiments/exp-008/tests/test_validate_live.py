@@ -2,8 +2,10 @@ import json
 
 import numpy as np
 import pandas as pd
+import pytest
 import torch
 
+from numerai_competitive.data import sha256
 from numerai_competitive.live import export_callable
 from numerai_competitive.model import MLPConfig, ResidualMLP
 from numerai_competitive.predict_live import predict
@@ -14,6 +16,7 @@ def test_target_free_live_resource_validator(tmp_path):
     config = MLPConfig(input_dim=3, width=5, depth=2)
     artifact = tmp_path / "model.pt"
     torch.save({
+        "signature": "seed-0",
         "model_config": config.__dict__, "model": ResidualMLP(config).state_dict(),
         "feature_names": ["a", "b", "c"], "data_version": "v5.3",
     }, artifact)
@@ -32,3 +35,28 @@ def test_target_free_live_resource_validator(tmp_path):
     assert csv.index.tolist() == index.tolist()
     assert list(csv.columns) == ["prediction"]
     assert not list(tmp_path.glob("*.tmp"))
+
+
+def test_final_callable_export_verifies_freeze_signatures_and_hashes(tmp_path):
+    config = MLPConfig(input_dim=2, width=4, depth=2)
+    model = tmp_path / "model.pt"
+    torch.save({
+        "signature": "adamw-seed-0", "model_config": config.__dict__,
+        "model": ResidualMLP(config).state_dict(), "feature_names": ["a", "b"],
+        "data_version": "v5.3",
+    }, model)
+    freeze = tmp_path / "freeze.json"
+    freeze.write_text(json.dumps({
+        "status": "frozen",
+        "candidate_transform": {"arm": "adamw", "model_weight": 1.0,
+                                "benchmark": "v53_lgbm_ender20"},
+        "selected": {"adamw": {"model_signatures": ["adamw-seed-0"],
+                                "model_sha256": [sha256(model)]}},
+    }))
+    output = export_callable([model], tmp_path / "final.pkl", freeze_manifest=freeze)
+    assert output.is_file()
+    payload = json.loads(freeze.read_text())
+    payload["selected"]["adamw"]["model_signatures"] = ["wrong"]
+    freeze.write_text(json.dumps(payload))
+    with pytest.raises(ValueError, match="signatures/order"):
+        export_callable([model], tmp_path / "bad.pkl", freeze_manifest=freeze)
