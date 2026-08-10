@@ -52,3 +52,18 @@ Success criteria are frozen in `success-criteria.md`. They require exact officia
 ## Steps 5–8: Decomposition, Challenge, Plan, Agreement
 
 The fail-fast decomposition was independently challenged by assumption, mentor and pre-mortem reviews. The initial plan received MAJOR_REVISIONS because it partly matched wall-clock cost, gave spectral an asymmetric efficacy screen, lacked nested evaluation of the selection procedure, and exposed too many primary routes. All fix-now items are incorporated in the governing challenge revisions and `planned-experiments.md`. The autonomous execution agreement is confirmed under the user's instruction to plan and execute.
+
+## Step 9: Experiments in progress
+
+F0 completed all 80 paired cells on `outer_1_inner_1` at 5,000 updates and seed 0. A
+post-run audit initially halted because the jobs predated the embedded `search_config_id`
+schema. No result was accepted by directory name alone: all 80 were subsequently verified
+against the frozen search's full scientific configuration, the official feature-set dimensions,
+their split metadata and recomputed signatures, and all prediction artifacts were schema-checked
+and hashed. Spectral won 18/40 pairs but had mean paired CORR delta −0.002653; its best cell was
+0.050616 versus the best AdamW cell at 0.048384. These are selection-fold results only.
+
+The independently ranked top-12 lists formed a 16-configuration paired union. The exact 64-cell
+F1 manifest (16 configurations × 2 arms × 2 inner folds, 20,000 updates, seed 0) has been audited
+and submitted to the free MATS `compute` partition. It remains dependency-gated on the frozen
+environment synchronization job. Official validation remains sealed.
