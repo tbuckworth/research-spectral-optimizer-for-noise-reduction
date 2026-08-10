@@ -100,3 +100,14 @@ def test_controls_have_declared_semantics_and_ordering():
     torch.testing.assert_close(matched_output.norm(), learned_output.norm(), rtol=1e-6, atol=1e-6)
     cosine = torch.nn.functional.cosine_similarity(matched_output, gradients[-1], dim=0)
     torch.testing.assert_close(cosine, torch.tensor(1.0), rtol=1e-6, atol=1e-6)
+
+
+def test_in_place_rank_one_accumulation_matches_outer_sum():
+    generator = torch.Generator().manual_seed(44)
+    basis_product = torch.randn(19, 7, generator=generator)
+    direction = torch.randn(19, generator=generator)
+    rotation = torch.randn(7, generator=generator)
+    expected = basis_product + direction.unsqueeze(1) * rotation.unsqueeze(0)
+    actual = basis_product.clone()
+    actual.addr_(direction, rotation)
+    torch.testing.assert_close(actual, expected)

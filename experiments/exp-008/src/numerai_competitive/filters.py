@@ -187,10 +187,14 @@ class StreamingSpectralFilter:
         rotate = rotations.to(device=basis.device, dtype=basis.dtype)
         updated = basis @ rotate[:old_rank]
         if has_residual:
-            updated = updated + residual_direction.unsqueeze(1) * rotate[old_rank].unsqueeze(0)
+            # In-place rank-one accumulation avoids materializing both the
+            # p×rank outer product and a second p×rank sum result. This is
+            # mathematically identical and is essential at large p/rank.
+            updated.addr_(residual_direction, rotate[old_rank])
         # QR plus a small covariance rotation repairs round-off without changing
         # the represented covariance.
         q, r = torch.linalg.qr(updated, mode="reduced")
+        del updated
         represented = (r.double().cpu() * values.unsqueeze(0)) @ r.double().cpu().T
         represented = (represented + represented.T) * 0.5
         values, rotation = torch.linalg.eigh(represented)
