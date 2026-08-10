@@ -15,7 +15,7 @@ PROJECT=/mnt/nw/home/t.buckworth/numerai-competitive
 for SPLIT_NAME in "$@"; do
   for TASK_ARM in adamw spectral; do
     mapfile -t IDS < <(python3 -c \
-      'import json,sys; print(*json.load(open(sys.argv[1]))["selected"][sys.argv[2]], sep="\n")' \
+      'import json,sys; print(*json.load(open(sys.argv[1]))["selected"]["paired_union"], sep="\n")' \
       "$SELECTION" "$TASK_ARM")
     for CONFIG_ID in "${IDS[@]}"; do
       TASK_NAME="stage-${SPLIT_NAME}-u${UPDATES}-s${SEED}-${TASK_ARM}-c${CONFIG_ID}"

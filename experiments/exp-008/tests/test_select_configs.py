@@ -15,7 +15,7 @@ def test_selects_each_arm_by_mean_then_worst_fold():
             rows.extend({"arm": arm, "config_id": config_id, "corr_mean": score}
                         for score in fold_scores)
     assert select_configs(pd.DataFrame(rows), 2) == {
-        "adamw": [1, 0], "spectral": [2, 1],
+        "adamw": [1, 0], "spectral": [2, 1], "paired_union": [0, 1, 2],
     }
 
 

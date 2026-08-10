@@ -28,6 +28,7 @@ def select_configs(scores: pd.DataFrame, top: int) -> dict[str, list[int]]:
             ["corr_mean", "corr_worst", "config_id"], ascending=[False, False, True]
         )
         selected[arm] = ranked.head(top)["config_id"].astype(int).tolist()
+    selected["paired_union"] = sorted(set(selected["adamw"]) | set(selected["spectral"]))
     return selected
 
 
