@@ -17,8 +17,9 @@ For each outer fold independently:
    worst-fold CORR and lower config ID. Refit on the outer training eras for 100,000 updates at
    seeds 0, 1 and 2 and score the untouched outer block.
 
-After all three outer folds, report the paired outer-fold optimizer difference with a moving-block
-bootstrap. For final train-only selection, take the union of the three outer-fold winners, run both
+After all three outer folds, report the paired outer-fold optimizer difference with a circular
+moving-block bootstrap using eight-era blocks, 10,000 samples and seed 20260810. For final
+train-only selection, take the union of the three outer-fold winners, run both
 arms for every ID over all four canonical train-era folds at 100,000 updates and seeds 0, 1 and 2,
 then choose one config per arm by the same rule. Freeze configs, seeds, training horizon, scoring,
 benchmark blends and analysis before constructing or scoring the official validation shard.
