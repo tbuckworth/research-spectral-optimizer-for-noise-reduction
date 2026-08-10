@@ -10,10 +10,11 @@
 set -euo pipefail
 PROJECT=/mnt/nw/home/t.buckworth/numerai-competitive
 ROOT=/ephemeral/t.buckworth/numerai-v5.3
+SOURCE=/mnt/nw/home/t.buckworth/numerai-v5.3-source
 export UV_CACHE_DIR=/ephemeral/t.buckworth/uv-cache
 cd "$PROJECT"
 "$PROJECT/uv" sync --frozen
 "$PROJECT/uv" run python -m numerai_competitive.build_shard \
-  --source "$ROOT/source" --destination "$ROOT/all" --feature-set all
+  --source "$SOURCE" --destination "$ROOT/all" --feature-set all
 "$PROJECT/uv" run python -m numerai_competitive.build_shard \
-  --source "$ROOT/source" --destination "$ROOT/medium" --feature-set medium
+  --source "$SOURCE" --destination "$ROOT/medium" --feature-set medium
