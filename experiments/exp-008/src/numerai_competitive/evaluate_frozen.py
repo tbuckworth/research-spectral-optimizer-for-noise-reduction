@@ -12,7 +12,7 @@ import torch
 
 from .data import ValidationShard, atomic_json
 from .inference import moving_block_bootstrap
-from .metrics import per_era_corr, summarize_era_scores
+from .metrics import per_era_corr, per_era_correlation_contribution, summarize_era_scores
 from .model import MLPConfig, ResidualMLP
 from .train import _atomic_npz, _evaluate
 
@@ -92,6 +92,86 @@ def _prediction_correlation(candidate: np.ndarray, benchmark: pd.Series,
     }
 
 
+def _evaluate_arrays(prediction: np.ndarray, target_values: np.ndarray,
+                     benchmark_values: np.ndarray, era_values: np.ndarray,
+                     row_indices: np.ndarray, name: str) -> tuple[dict, pd.DataFrame]:
+    ids = pd.Index([f"row_{int(row)}" for row in row_indices], name="id")
+    pred = pd.Series(np.asarray(prediction, dtype=np.float64), index=ids, name=name)
+    target = pd.Series(np.asarray(target_values, dtype=np.float64), index=ids, name="target")
+    benchmark = pd.Series(
+        np.asarray(benchmark_values, dtype=np.float64), index=ids, name="benchmark"
+    )
+    eras = pd.Series(
+        [f"{int(value):04d}" for value in era_values], index=ids, name="era"
+    )
+    corr = per_era_corr(pred, target, eras)[name]
+    bmc = per_era_correlation_contribution(pred, benchmark, target, eras)[name]
+    return {
+        "rows": len(row_indices), "eras": int(eras.nunique()),
+        "corr": summarize_era_scores(corr).loc[name].to_dict(),
+        "bmc": summarize_era_scores(bmc).loc[name].to_dict(),
+    }, pd.DataFrame({"corr": corr, "bmc": bmc})
+
+
+def _secondary_analyses(shard: ValidationShard, predictions: dict[str, np.ndarray]) -> tuple[dict, pd.DataFrame]:
+    definitions: dict[str, tuple[np.ndarray, str, str]] = {}
+    for target_name, benchmark_name in (
+        ("target_ender_20", "v53_lgbm_ender20"),
+        ("target_teager2b_20", "v53_lgbm_ender20"),
+        ("target_ender_60", "v53_lgbm_ender60"),
+    ):
+        if target_name in shard.manifest["targets"] and benchmark_name in shard.manifest["benchmarks"]:
+            definitions[target_name] = (
+                np.asarray(shard.targets[:, shard.target_index(target_name)], dtype=np.float64),
+                benchmark_name,
+                "released historical target; secondary only",
+            )
+    ensemble_names = ("target_cyrusd_20", "target_ender_20", "target_teager2b_20")
+    if all(name in shard.manifest["targets"] for name in ensemble_names):
+        values = np.column_stack([
+            np.asarray(shard.targets[:, shard.target_index(name)], dtype=np.float64)
+            for name in ensemble_names
+        ])
+        covered = np.isfinite(values).all(axis=1)
+        ranked = np.column_stack([
+            _rank_within_era(values[covered, column], shard.eras[covered])
+            for column in range(values.shape[1])
+        ])
+        ensemble = np.full(len(shard.eras), np.nan, dtype=np.float64)
+        ensemble[covered] = _rank_within_era(ranked.mean(axis=1), shard.eras[covered])
+        definitions["target_20_rank_ensemble"] = (
+            ensemble, "v53_lgbm_ender20",
+            "equal rank average of Cyrusd20, Ender20 and Teager2b20; secondary only",
+        )
+    reports, per_era_rows = {}, []
+    for target_name, (target_values, benchmark_name, definition) in definitions.items():
+        covered = np.isfinite(target_values)
+        indices = np.flatnonzero(covered)
+        benchmark_column = shard.benchmark_index(benchmark_name)
+        benchmark_values = np.asarray(
+            shard.benchmarks[indices, benchmark_column], dtype=np.float64
+        )
+        target_report = {"definition": definition, "benchmark": benchmark_name, "models": {}}
+        model_eras = {}
+        for model_name, prediction in predictions.items():
+            summary, era_scores = _evaluate_arrays(
+                prediction[covered], target_values[covered], benchmark_values,
+                shard.eras[covered], indices, model_name,
+            )
+            target_report["models"][model_name] = summary
+            model_eras[model_name] = era_scores
+            for era, row in era_scores.iterrows():
+                per_era_rows.append({
+                    "target": target_name, "model": model_name, "era": era,
+                    "corr": row["corr"], "bmc": row["bmc"],
+                })
+        target_report["spectral_minus_adamw"] = moving_block_bootstrap(
+            model_eras["spectral"]["corr"], model_eras["adamw"]["corr"]
+        ).to_dict()
+        reports[target_name] = target_report
+    return reports, pd.DataFrame(per_era_rows)
+
+
 def evaluate(shard_root: Path, freeze_path: Path, adamw_models: list[Path],
              spectral_models: list[Path], output: Path, device_name: str = "auto",
              batch_size: int = 4096) -> dict:
@@ -128,13 +208,16 @@ def evaluate(shard_root: Path, freeze_path: Path, adamw_models: list[Path],
     )
     benchmark_era = per_era_corr(benchmark.rename("ender20"), target, eras)["ender20"]
     transform = freeze["candidate_transform"]
-    base_candidate = adamw[covered] if transform["arm"] == "adamw" else spectral[covered]
-    benchmark_rank = _rank_within_era(benchmark.to_numpy(), shard.eras[indices])
-    candidate = _rank_within_era(
-        transform["model_weight"] * base_candidate
-        + transform["benchmark_weight"] * benchmark_rank,
-        shard.eras[indices],
+    base_candidate = adamw if transform["arm"] == "adamw" else spectral
+    benchmark_rank_full = _rank_within_era(
+        np.asarray(shard.benchmarks[:, benchmark_column], dtype=np.float64), shard.eras
     )
+    candidate_full = _rank_within_era(
+        transform["model_weight"] * base_candidate
+        + transform["benchmark_weight"] * benchmark_rank_full,
+        shard.eras,
+    )
+    candidate = candidate_full[covered]
     candidate_summary, candidate_era = _evaluate(
         candidate, shard, indices, target_column, benchmark_column
     )
@@ -157,6 +240,10 @@ def evaluate(shard_root: Path, freeze_path: Path, adamw_models: list[Path],
     output.mkdir(parents=True, exist_ok=True)
     per_era.to_csv(output / "official-validation-per-era.csv")
     _plots(per_era, output)
+    secondary, secondary_per_era = _secondary_analyses(
+        shard, {"adamw": adamw, "spectral": spectral, "candidate": candidate_full}
+    )
+    secondary_per_era.to_csv(output / "official-validation-secondary-per-era.csv", index=False)
     _atomic_npz(output / "official-validation-predictions.npz", row_index=indices,
                 era=shard.eras[indices], adamw=adamw[covered], spectral=spectral[covered],
                 candidate=candidate,
@@ -173,6 +260,7 @@ def evaluate(shard_root: Path, freeze_path: Path, adamw_models: list[Path],
         "spectral_minus_ender20": spectral_minus_ender20.to_dict(),
         "candidate_minus_ender20": candidate_minus_ender20.to_dict(),
         "prediction_correlation": prediction_correlation,
+        "secondary": secondary,
         "freeze_manifest_sha256": shard.manifest["freeze_manifest_sha256"],
     }
     atomic_json(output / "official-validation-report.json", report)

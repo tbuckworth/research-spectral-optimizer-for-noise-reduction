@@ -55,10 +55,10 @@ def test_frozen_evaluator_scores_candidate_and_named_benchmark_column(tmp_path: 
     shard = tmp_path / "validation-shard"
     shard.mkdir()
     np.save(shard / "X_u8.npy", rng.integers(0, 5, (rows, 3), dtype=np.uint8))
-    np.save(shard / "targets_f32.npy", rng.uniform(0, 1, (rows, 1)).astype(np.float32))
+    np.save(shard / "targets_f32.npy", rng.uniform(0, 1, (rows, 4)).astype(np.float32))
     np.save(shard / "era_i16.npy", np.repeat(np.arange(100, 108), 20).astype(np.int16))
     # Ender20 is deliberately column 1: the evaluator must resolve by name.
-    np.save(shard / "benchmarks_f32.npy", rng.uniform(0, 1, (rows, 2)).astype(np.float32))
+    np.save(shard / "benchmarks_f32.npy", rng.uniform(0, 1, (rows, 3)).astype(np.float32))
     adamw, spectral = tmp_path / "adamw.pt", tmp_path / "spectral.pt"
     _model_artifact(adamw, "adamw-signature", feature_names, 2)
     _model_artifact(spectral, "spectral-signature", feature_names, 3)
@@ -75,8 +75,10 @@ def test_frozen_evaluator_scores_candidate_and_named_benchmark_column(tmp_path: 
     }))
     (shard / "manifest.json").write_text(json.dumps({
         "split": "validation", "data_version": "v5.3", "rows": rows,
-        "feature_names": feature_names, "targets": ["target_cyrusd_20"],
-        "benchmarks": ["decoy", "v53_lgbm_ender20"],
+        "feature_names": feature_names,
+        "targets": ["target_cyrusd_20", "target_ender_20", "target_teager2b_20",
+                    "target_ender_60"],
+        "benchmarks": ["decoy", "v53_lgbm_ender20", "v53_lgbm_ender60"],
         "freeze_manifest_sha256": sha256(freeze),
     }))
     output = tmp_path / "evaluation"
@@ -85,6 +87,11 @@ def test_frozen_evaluator_scores_candidate_and_named_benchmark_column(tmp_path: 
     assert report["candidate_transform"]["model_weight"] == 0.5
     assert report["candidate_minus_ender20"]["samples"] == 10_000
     assert report["prediction_correlation"]["candidate_vs_ender20"]["eras"] == 8
+    assert set(report["secondary"]) == {
+        "target_ender_20", "target_teager2b_20", "target_ender_60",
+        "target_20_rank_ensemble",
+    }
+    assert report["secondary"]["target_ender_60"]["benchmark"] == "v53_lgbm_ender60"
     saved = np.load(output / "official-validation-predictions.npz")
     np.testing.assert_array_equal(saved["benchmark"], np.load(
         shard / "benchmarks_f32.npy"
