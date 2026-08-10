@@ -4,7 +4,7 @@
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=32G
 #SBATCH --time=23:30:00
-#SBATCH --signal=B:USR1@900
+#SBATCH --signal=B:USR1@3600
 #SBATCH --output=/mnt/nw/home/t.buckworth/numerai-competitive/slurm-%x-%j.out
 
 set -euo pipefail
