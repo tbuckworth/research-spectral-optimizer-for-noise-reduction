@@ -16,6 +16,11 @@ STATUS="$PROJECT/results/monitor-${SPLIT}-u${UPDATES}-s${SEED}.log"
 
 while squeue -u t.buckworth -h -o '%i' | awk -v first="$FIRST_JOB" -v last="$LAST_JOB" \
     '$1 >= first && $1 <= last {found=1} END {exit !found}'; do
+  if squeue -u t.buckworth -h -o '%i|%r' | awk -F'|' -v first="$FIRST_JOB" -v last="$LAST_JOB" \
+      '$1 >= first && $1 <= last && $2 ~ /DependencyNeverSatisfied/ {found=1} END {exit !found}'; then
+    printf '%s dependency failure; stage cannot run\n' "$(date -Is)" >> "$STATUS"
+    exit 1
+  fi
   printf '%s jobs still active\n' "$(date -Is)" >> "$STATUS"
   sleep 60
 done
