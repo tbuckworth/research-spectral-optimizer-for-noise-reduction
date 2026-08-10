@@ -39,7 +39,9 @@ bash slurm/submit-selected.sh SELECTION.json 20000 0 ENV_JOB_ID SPLIT...
 
 Submission scripts print tab-separated job provenance. `monitor-stage.sh` refuses incomplete
 coverage and dependency failures. GPU jobs use the dependency-built environment with `--no-sync`
-so concurrent jobs never mutate it.
+so concurrent jobs never mutate it. Jobs receive `SIGUSR1` one hour before the free-partition
+walltime and atomically checkpoint; `resume-checkpointed-stage.sh` resubmits only those exact
+manifested tasks without changing their config, seed, fold, or update target.
 
 After all outer folds, aggregate only untouched nested-outer predictions:
 
