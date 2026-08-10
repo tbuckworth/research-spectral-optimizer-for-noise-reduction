@@ -1,0 +1,34 @@
+[project]
+name = "numerai-competitive-spectral"
+version = "0.1.0"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+  "numpy>=2.0,<3",
+  "pandas>=2.2,<3",
+  "pyarrow>=18,<22",
+  "scipy>=1.14,<2",
+  "torch>=2.5,<3",
+  "numerai-tools>=0.6,<1",
+  "numerapi>=2.20,<3",
+  "optuna>=4,<5",
+  "matplotlib>=3.9,<4",
+  "seaborn>=0.13,<1",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/numerai_competitive"]
+
+[dependency-groups]
+dev = ["pytest>=8,<9", "ruff>=0.9,<1"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
