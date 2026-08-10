@@ -6,6 +6,7 @@ import torch
 
 from numerai_competitive.live import export_callable
 from numerai_competitive.model import MLPConfig, ResidualMLP
+from numerai_competitive.predict_live import predict
 from numerai_competitive.validate_live import validate
 
 
@@ -26,3 +27,8 @@ def test_target_free_live_resource_validator(tmp_path):
     assert report["status"] == "pass" and report["rows"] == 3
     assert report["model_count"] == 1 and report["artifact_bytes"] > 0
     assert json.loads((tmp_path / "report.json").read_text())["status"] == "pass"
+    csv_path = predict(callable_path, tmp_path / "live.parquet", tmp_path / "live.csv")
+    csv = pd.read_csv(csv_path, index_col="id")
+    assert csv.index.tolist() == index.tolist()
+    assert list(csv.columns) == ["prediction"]
+    assert not list(tmp_path.glob("*.tmp"))
