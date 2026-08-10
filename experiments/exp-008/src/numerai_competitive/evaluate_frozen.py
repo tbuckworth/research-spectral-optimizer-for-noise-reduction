@@ -69,6 +69,29 @@ def _plots(per_era: pd.DataFrame, output: Path) -> None:
     plt.close(fig)
 
 
+def _prediction_correlation(candidate: np.ndarray, benchmark: pd.Series,
+                            eras: pd.Series) -> dict[str, float | int]:
+    frame = pd.DataFrame(
+        {"candidate": np.asarray(candidate, dtype=np.float64),
+         "benchmark": benchmark.to_numpy(dtype=np.float64), "era": eras.to_numpy()},
+        index=benchmark.index,
+    )
+    per_era = frame.groupby("era", sort=False).apply(
+        lambda group: group["candidate"].corr(group["benchmark"]),
+        include_groups=False,
+    )
+    if not np.isfinite(per_era).all():
+        raise ValueError("candidate-benchmark prediction correlation is non-finite")
+    return {
+        "global": float(frame["candidate"].corr(frame["benchmark"])),
+        "per_era_mean": float(per_era.mean()),
+        "per_era_std": float(per_era.std(ddof=1)),
+        "per_era_min": float(per_era.min()),
+        "per_era_max": float(per_era.max()),
+        "eras": len(per_era),
+    }
+
+
 def evaluate(shard_root: Path, freeze_path: Path, adamw_models: list[Path],
              spectral_models: list[Path], output: Path, device_name: str = "auto",
              batch_size: int = 4096) -> dict:
@@ -85,14 +108,17 @@ def evaluate(shard_root: Path, freeze_path: Path, adamw_models: list[Path],
     target_column = shard.target_index("target_cyrusd_20")
     covered = np.isfinite(shard.targets[:, target_column])
     indices = np.flatnonzero(covered)
-    adam_summary, adam_era = _evaluate(adamw[covered], shard, indices, target_column,
-                                       shard.benchmark_index("v53_lgbm_ender20"))
+    benchmark_column = shard.benchmark_index("v53_lgbm_ender20")
+    adam_summary, adam_era = _evaluate(
+        adamw[covered], shard, indices, target_column, benchmark_column
+    )
     spectral_summary, spectral_era = _evaluate(
-        spectral[covered], shard, indices, target_column,
-        shard.benchmark_index("v53_lgbm_ender20"),
+        spectral[covered], shard, indices, target_column, benchmark_column,
     )
     ids = pd.Index([f"row_{i}" for i in indices])
-    benchmark = pd.Series(np.asarray(shard.benchmarks[indices, 0], dtype=np.float64), index=ids)
+    benchmark = pd.Series(
+        np.asarray(shard.benchmarks[indices, benchmark_column], dtype=np.float64), index=ids
+    )
     target = pd.Series(np.asarray(shard.targets[indices, target_column], dtype=np.float64), index=ids)
     eras = pd.Series([f"{int(value):04d}" for value in shard.eras[indices]], index=ids)
     benchmark_era = per_era_corr(benchmark.rename("ender20"), target, eras)["ender20"]
@@ -100,11 +126,11 @@ def evaluate(shard_root: Path, freeze_path: Path, adamw_models: list[Path],
     adamw_minus_ender20 = moving_block_bootstrap(adam_era["corr"], benchmark_era)
     spectral_minus_ender20 = moving_block_bootstrap(spectral_era["corr"], benchmark_era)
     prediction_correlation = {
-        "adamw_vs_ender20": float(np.corrcoef(adamw[covered], benchmark.to_numpy())[0, 1]),
-        "spectral_vs_ender20": float(
-            np.corrcoef(spectral[covered], benchmark.to_numpy())[0, 1]
+        "adamw_vs_ender20": _prediction_correlation(adamw[covered], benchmark, eras),
+        "spectral_vs_ender20": _prediction_correlation(spectral[covered], benchmark, eras),
+        "spectral_vs_adamw": _prediction_correlation(
+            spectral[covered], pd.Series(adamw[covered], index=ids), eras
         ),
-        "spectral_vs_adamw": float(np.corrcoef(spectral[covered], adamw[covered])[0, 1]),
     }
     per_era = pd.DataFrame({
         "adamw": adam_era["corr"], "spectral": spectral_era["corr"],
@@ -115,7 +141,8 @@ def evaluate(shard_root: Path, freeze_path: Path, adamw_models: list[Path],
     _plots(per_era, output)
     _atomic_npz(output / "official-validation-predictions.npz", row_index=indices,
                 era=shard.eras[indices], adamw=adamw[covered], spectral=spectral[covered],
-                target=shard.targets[indices, target_column], benchmark=shard.benchmarks[indices, 0])
+                target=shard.targets[indices, target_column],
+                benchmark=shard.benchmarks[indices, benchmark_column])
     report = {
         "status": "complete", "target": "target_cyrusd_20",
         "resolved_rows": int(covered.sum()), "resolved_eras": len(np.unique(shard.eras[covered])),
