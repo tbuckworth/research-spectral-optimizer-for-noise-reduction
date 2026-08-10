@@ -1,0 +1,37 @@
+{
+  "protocol_id": "2026-08-03-followup-spectral-optimizer-redo-pxp-filter-walk-freeze-20260804",
+  "fold": 1,
+  "arm": "B",
+  "seed": 0,
+  "config": {
+    "arm": "B",
+    "optimizer": "AdamW+StableSpectralGradientFilter",
+    "learning_rate": 0.003,
+    "weight_decay": 0.0,
+    "dropout": 0.0,
+    "decay": 0.99,
+    "warmup": 100,
+    "normalize": "none",
+    "weighting": "hard",
+    "alpha": 1.0,
+    "soft_residual": true,
+    "mode": "fixed",
+    "rank": 16,
+    "variant": "base",
+    "relative_eig_tol": 1e-08,
+    "stabilize_every": 100
+  },
+  "config_hash": "e0cbe2673cacfd678fa5b5cf14e2aa5db2751bfcfd29ae54183a7b2dde240359",
+  "model_signature": "8d8253b16a83876a66471f0b49bfb70df2b42cfbdbf52181d7bfe8106d81176f",
+  "steps": 2301,
+  "extension": {
+    "triggered": false,
+    "reason": "paired endpoint fixed to existing AdamW model",
+    "original_N": 2301,
+    "final_N": 2301
+  },
+  "loss_first": 0.04996708035469055,
+  "loss_terminal": 0.05008690804243088,
+  "seconds": 23.5131893157959,
+  "model_file": "work/B-refit-seed0.pt"
+}

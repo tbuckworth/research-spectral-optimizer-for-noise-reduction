@@ -1,0 +1,134 @@
+{
+  "selection_scope": "TRAIN-to-VALID only; TEST untouched",
+  "fixed_intervention": "stable hard p\u00d7p filter; relative eig tol=1e-8",
+  "ranks": [
+    1,
+    2,
+    4,
+    8,
+    16,
+    32
+  ],
+  "replicas": [
+    0,
+    1,
+    2
+  ],
+  "by_rank": {
+    "1": {
+      "rank": 1,
+      "n": 3,
+      "mean_valid": 0.0026989462181048747,
+      "std_valid": 0.0050172302830330745,
+      "scores": [
+        -0.00308185156752132,
+        0.0052586149576833415,
+        0.005920075264152602
+      ],
+      "mean_seconds": 21.33126227060954,
+      "mean_seconds_per_step": 0.01066563113530477,
+      "realized_k_median": 1.0,
+      "median_kept_norm": 0.2129637349086503,
+      "median_cosine": 0.21296376152402094
+    },
+    "2": {
+      "rank": 2,
+      "n": 3,
+      "mean_valid": -0.0030976265172451534,
+      "std_valid": 0.00333396316481475,
+      "scores": [
+        0.0007294081099876141,
+        -0.0053726197717104416,
+        -0.004649667890012632
+      ],
+      "mean_seconds": 20.153351942698162,
+      "mean_seconds_per_step": 0.01007667597134908,
+      "realized_k_median": 2.0,
+      "median_kept_norm": 0.9998723169167837,
+      "median_cosine": 0.9998722416574449
+    },
+    "4": {
+      "rank": 4,
+      "n": 3,
+      "mean_valid": 0.0005913591314158964,
+      "std_valid": 0.00497114430463342,
+      "scores": [
+        0.0019404325990555248,
+        0.004748724329720987,
+        -0.004915079534528822
+      ],
+      "mean_seconds": 13.75304619471232,
+      "mean_seconds_per_step": 0.00687652309735616,
+      "realized_k_median": 4.0,
+      "median_kept_norm": 0.9999220271905264,
+      "median_cosine": 0.9999219926529953
+    },
+    "8": {
+      "rank": 8,
+      "n": 3,
+      "mean_valid": -0.003208818998941871,
+      "std_valid": 0.006803341067049425,
+      "scores": [
+        0.004357729329571332,
+        -0.00882128956293436,
+        -0.005162896763462587
+      ],
+      "mean_seconds": 13.834886948267618,
+      "mean_seconds_per_step": 0.00691744347413381,
+      "realized_k_median": 8.0,
+      "median_kept_norm": 0.7968176702658335,
+      "median_cosine": 0.7968176981815178
+    },
+    "16": {
+      "rank": 16,
+      "n": 3,
+      "mean_valid": 0.0028568586087546776,
+      "std_valid": 0.0010744073962359595,
+      "scores": [
+        0.0040947723352003735,
+        0.0021669901280454706,
+        0.0023088133630181883
+      ],
+      "mean_seconds": 14.689930359522501,
+      "mean_seconds_per_step": 0.007344965179761252,
+      "realized_k_median": 16.0,
+      "median_kept_norm": 0.9999585847059885,
+      "median_cosine": 0.9999586462239082
+    },
+    "32": {
+      "rank": 32,
+      "n": 3,
+      "mean_valid": -0.0034997828395718377,
+      "std_valid": 0.002235902564234641,
+      "scores": [
+        -0.006028648671084466,
+        -0.0026857813630013373,
+        -0.0017849184846297115
+      ],
+      "mean_seconds": 16.409806807835896,
+      "mean_seconds_per_step": 0.008204903403917949,
+      "realized_k_median": 20.333333333333332,
+      "median_kept_norm": 0.9999629755814871,
+      "median_cosine": 0.9999630437471231
+    }
+  },
+  "selected_rank": 16,
+  "selected_config": {
+    "arm": "B",
+    "optimizer": "AdamW+StableSpectralGradientFilter",
+    "learning_rate": 0.003,
+    "weight_decay": 0.0,
+    "dropout": 0.0,
+    "decay": 0.99,
+    "warmup": 100,
+    "normalize": "none",
+    "weighting": "hard",
+    "alpha": 1.0,
+    "soft_residual": true,
+    "mode": "fixed",
+    "rank": 16,
+    "variant": "base",
+    "relative_eig_tol": 1e-08,
+    "stabilize_every": 100
+  }
+}

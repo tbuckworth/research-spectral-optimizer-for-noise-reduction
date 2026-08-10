@@ -1,0 +1,101 @@
+{
+  "status": "passed",
+  "scope": "common trajectory through step 300000",
+  "evaluation_steps": [
+    100,
+    1000,
+    10000,
+    20000,
+    30000,
+    40000,
+    50000,
+    60000,
+    70000,
+    80000,
+    90000,
+    100000,
+    110000,
+    120000,
+    130000,
+    140000,
+    150000,
+    160000,
+    170000,
+    180000,
+    190000,
+    200000,
+    210000,
+    220000,
+    230000,
+    240000,
+    250000,
+    260000,
+    270000,
+    280000,
+    290000,
+    300000
+  ],
+  "hardware_caveat": "Ranks 1024 and 1536 ran concurrently on RTX 3090; all other arms ran on L40. Small between-rank differences are not clean rank-only causal estimates.",
+  "artifacts": {
+    "AdamW": {
+      "file": "out/adamw-r0-seed20260805-million.json",
+      "sha256": "9be4feff307df184b8f0f34e302fbcf3d614e4b8c2e6ab3c9c3cd4299efa4e7c",
+      "bytes": 80183,
+      "rank": 0,
+      "hardware": "L40",
+      "evaluation_count_used": 32,
+      "source_terminal_step": 1000000,
+      "checks": "passed"
+    },
+    "Top 1,024": {
+      "file": "out/spectral-top-r1024-seed20260805-300k-3090.json",
+      "sha256": "a20959f305f4c75862c7b18d1c43bbc41d5a745978dc58c70fc3414129a39ae1",
+      "bytes": 35314,
+      "rank": 1024,
+      "hardware": "RTX 3090",
+      "evaluation_count_used": 32,
+      "source_terminal_step": 300000,
+      "checks": "passed"
+    },
+    "Top 1,536": {
+      "file": "out/spectral-top-r1536-seed20260805-300k-3090.json",
+      "sha256": "0812e82ac65f4dd6312471ce8f01012ad4b7008f8443a445bf71436ba7c3b92d",
+      "bytes": 35335,
+      "rank": 1536,
+      "hardware": "RTX 3090",
+      "evaluation_count_used": 32,
+      "source_terminal_step": 300000,
+      "checks": "passed"
+    },
+    "Top 2,048": {
+      "file": "out/spectral-top-r2048-seed20260805-million.json",
+      "sha256": "298320fd61dc0709996524acf948d4f6513913c22b8eb90c6f001fe8635cdfcc",
+      "bytes": 111427,
+      "rank": 2048,
+      "hardware": "L40",
+      "evaluation_count_used": 32,
+      "source_terminal_step": 1000000,
+      "checks": "passed"
+    },
+    "Top 3,072": {
+      "file": "out/recovery/spectral-top-r3072-seed20260805-stopped-760k.json",
+      "sha256": "d0084af7a8bf959d4870fa57df223496348ebbe510620d087d256f592eea2d52",
+      "bytes": 85418,
+      "rank": 3072,
+      "hardware": "L40",
+      "evaluation_count_used": 32,
+      "source_terminal_step": 760000,
+      "checks": "passed"
+    },
+    "Top 4,096": {
+      "file": "out/recovery/spectral-top-r4096-seed20260805-pre-second-handoff-550k.json",
+      "sha256": "7d55915a2a911441458af1f0e28bec36378d187218001646393ac84b02edf1f7",
+      "bytes": 62535,
+      "rank": 4096,
+      "hardware": "L40",
+      "evaluation_count_used": 32,
+      "source_terminal_step": 550000,
+      "checks": "passed"
+    }
+  }
+}

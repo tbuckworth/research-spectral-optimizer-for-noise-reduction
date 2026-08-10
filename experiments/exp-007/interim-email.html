@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Interim Numerai spectral optimizer results</title>
+</head>
+<body style="margin:0;background:#f3f4f6;color:#202124;font-family:Arial,Helvetica,sans-serif;line-height:1.5">
+  <div style="max-width:920px;margin:0 auto;padding:28px 16px">
+    <div style="background:#ffffff;border:1px solid #e2e5e9;border-radius:12px;padding:28px">
+      <h1 style="font-size:25px;margin:0 0 8px">Interim million-step Numerai results</h1>
+      <p style="margin:0 0 22px;color:#5f6368">Completed arms: AdamW and blockwise spectral top rank 2,048. Ranks 3,072 and 4,096 are still running or queued and are excluded here.</p>
+
+      <div style="background:#f4effa;border-left:5px solid #7440a4;padding:14px 16px;margin:0 0 24px">
+        <strong>Interim result:</strong> spectral rank 2,048 achieved a validation-selected rolling correlation of <strong>0.01996</strong>, versus <strong>0.01365</strong> for AdamW—about 46% higher—while fitting the training set much less aggressively.
+      </div>
+
+      <table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:24px">
+        <thead>
+          <tr style="background:#f6f7f8;text-align:left">
+            <th style="padding:10px;border:1px solid #dfe1e5">Optimizer</th>
+            <th style="padding:10px;border:1px solid #dfe1e5">Selected step</th>
+            <th style="padding:10px;border:1px solid #dfe1e5">Rolling VALID corr.</th>
+            <th style="padding:10px;border:1px solid #dfe1e5">Raw VALID corr.</th>
+            <th style="padding:10px;border:1px solid #dfe1e5">TEST corr. at selection</th>
+            <th style="padding:10px;border:1px solid #dfe1e5">TRAIN corr. at selection</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="padding:10px;border:1px solid #dfe1e5">AdamW</td>
+            <td style="padding:10px;border:1px solid #dfe1e5">50,000</td>
+            <td style="padding:10px;border:1px solid #dfe1e5">0.01365</td>
+            <td style="padding:10px;border:1px solid #dfe1e5">0.00955</td>
+            <td style="padding:10px;border:1px solid #dfe1e5">0.01008</td>
+            <td style="padding:10px;border:1px solid #dfe1e5">0.37589</td>
+          </tr>
+          <tr style="background:#fbf9fd">
+            <td style="padding:10px;border:1px solid #dfe1e5"><strong>Spectral top 2,048</strong></td>
+            <td style="padding:10px;border:1px solid #dfe1e5">160,000</td>
+            <td style="padding:10px;border:1px solid #dfe1e5"><strong>0.01996</strong></td>
+            <td style="padding:10px;border:1px solid #dfe1e5"><strong>0.01819</strong></td>
+            <td style="padding:10px;border:1px solid #dfe1e5"><strong>0.02384</strong></td>
+            <td style="padding:10px;border:1px solid #dfe1e5">0.07258</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2 style="font-size:19px;margin:26px 0 10px">Validation-selected comparison</h2>
+      <img src="cid:selection" alt="Validation-selected checkpoint comparison" style="display:block;width:100%;height:auto;border:1px solid #e2e5e9;border-radius:8px">
+
+      <h2 style="font-size:19px;margin:26px 0 10px">Correlation through one million steps</h2>
+      <img src="cid:correlation" alt="Train validation and test correlation trajectories" style="display:block;width:100%;height:auto;border:1px solid #e2e5e9;border-radius:8px">
+
+      <h2 style="font-size:19px;margin:26px 0 10px">Loss through one million steps</h2>
+      <img src="cid:mse" alt="Train validation and test MSE trajectories" style="display:block;width:100%;height:auto;border:1px solid #e2e5e9;border-radius:8px">
+
+      <p style="font-size:13px;color:#5f6368;margin:24px 0 0"><strong>Protocol note:</strong> checkpoint selection uses only a five-checkpoint rolling validation correlation. TEST is shown because requested, but it was evaluated repeatedly and is therefore exploratory rather than a pristine final holdout. Conclusions remain interim until the 3,072- and 4,096-rank arms finish and the complete audit is run.</p>
+    </div>
+  </div>
+</body>
+</html>

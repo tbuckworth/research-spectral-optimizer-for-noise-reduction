@@ -1,14 +1,13 @@
 <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 700px; margin: 0 auto; color: #1a1a1a; line-height: 1.6;">
 
   <!-- Header -->
-  <div style="background: #f0f4f8; border-left: 4px solid #dc2626; padding: 16px 20px; margin-bottom: 24px;">
+  <div style="background: #f0f4f8; border-left: 4px solid #2563eb; padding: 16px 20px; margin-bottom: 24px;">
     <h1 style="margin: 0 0 8px 0; font-size: 20px; color: #1e293b;">
-      Can a spectral gradient-filtering optimizer cut through the noise in financial time-series data?
+      Does spectral gradient filtering reduce noise when training on financial time-series data?
     </h1>
     <div style="font-size: 14px; color: #64748b;">
-      Autonomous AI Safety Research Report &middot; 1 August 2026
-      &middot; <a href="https://github.com/tbuckworth/tasks/issues/2073" style="color: #64748b;">Original idea</a>
-      &middot; <span style="background: #fef2f2; color: #991b1b; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">RUN INCOMPLETE</span>
+      Autonomous AI Safety Research Report · 2 August 2026
+      · <a href="https://github.com/tbuckworth/tasks/issues/2073" style="color: #64748b;">Original idea</a>
     </div>
   </div>
 
@@ -16,10 +15,10 @@
   <div style="margin-bottom: 24px;">
     <h2 style="font-size: 16px; color: #1e293b; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px;">What We Investigated</h2>
     <p style="font-size: 14px; margin: 12px 0;">
-      We tested whether the <strong>Spectral Optimizer</strong> — an existing gradient-filtering wrapper from a prior project — improves out-of-sample prediction when training neural networks on large, extremely noisy financial data. The optimizer computes the gradient of the loss for each individual training sample, builds the matrix of similarities between those per-sample gradients, and keeps only the gradient directions that many samples agree on (using a threshold from random matrix theory, the Marchenko&ndash;Pastur bound). The hypothesis: financial return prediction is a very low signal-to-noise regime, so filtering out "noise" gradient directions should help a model generalize instead of memorizing noise.
+      A prior project built a "Spectral Optimizer": a wrapper around the standard AdamW optimizer that computes the gradient of the loss for each training sample individually, builds the matrix of similarities between those per-sample gradients, and keeps only the update directions that many samples agree on — using a threshold from random matrix theory (the Marchenko–Pastur law, which says how large a similarity eigenvalue must be before it is distinguishable from pure noise). Its strongest prior result was label-noise robustness: on MNIST digits with 90% of labels randomised, it reached ~80% accuracy where Adam reached ~37%.
     </p>
     <p style="font-size: 14px; margin: 12px 0;">
-      The test bed was the <strong>Numerai dataset</strong> (v5) — a large public tournament dataset of obfuscated stock-market features with era-based (time-blocked) train/test structure, widely regarded as a canonical noisy financial benchmark. The plan compared the Spectral Optimizer against a well-tuned <strong>AdamW</strong> (the standard Adam optimizer with decoupled weight decay) on a small multi-layer perceptron (MLP), with a recurrent GRU (Gated Recurrent Unit) arm as a stretch goal, under a pre-registered statistical protocol: strict temporal separation between tuning and verdict data, multiple random seeds, and block-bootstrap confidence intervals.
+      This run asked whether that noise-filtering mechanism transfers to a genuinely hard low-signal domain: predicting financial returns. We tested whether the filter improves out-of-sample performance over a properly tuned AdamW baseline on the Numerai v5 tournament dataset (a large, public, deliberately obfuscated financial dataset with time-period-based evaluation), and whether any effect is consistent across two architectures — a plain multilayer perceptron (MLP) and a recurrent network (GRU). Understanding when gradient-consensus filtering helps and when it does not matters for building training methods that are robust to noisy data, and the outcome was genuinely uncertain in both directions: the prior work itself found the filter hurts when the useful signal is weak, which is exactly the financial regime.
     </p>
   </div>
 
@@ -27,36 +26,24 @@
   <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px 20px; margin-bottom: 24px;">
     <h2 style="margin: 0 0 12px 0; font-size: 16px; color: #1e293b;">Bottom Line</h2>
     <p style="font-size: 14px; margin: 0 0 12px 0;">
-      <strong>The run terminated before answering the headline question</strong> — an orchestration failure, not a scientific one (details below). The final head-to-head GPU experiment actually finished on the cluster, but its results were never retrieved or analyzed, so no helps/hurts verdict was computed. The run did bank one substantive scientific result along the way: a <strong>proof that the optimizer's "consensus" mechanism cannot see the prediction target at all</strong> on this class of task (single-output regression) — what it filters reflects the structure of the input features, not the signal being learned. That is a genuine boundary result for the method, and it means any benefit the optimizer might still show on financial data would come from generic regularization, not from "amplifying signal that samples agree on."
+      <strong>Negative result — and a well-explained one.</strong> The spectral filter showed no evidence of benefit, and at the pre-registered operating point it significantly <em>degraded</em> out-of-sample performance on both architectures. Two mechanistic findings explain why: (1)&nbsp;a mathematical proof that for this loss type the filter is inherently blind to the prediction targets, so it cannot be selecting "signal" directions; and (2)&nbsp;matched controls showing the filter's supposedly clever eigenvalue-based selection performs statistically the same as projecting onto a <em>random</em> subspace of equal size. The label-noise success story does not transfer to low-signal financial regression.
     </p>
     <table style="border-collapse: collapse; width: 100%; font-size: 14px;">
-      <tr><td style="padding: 4px 12px 4px 0; color: #64748b; white-space: nowrap; vertical-align: top;">Status</td><td style="padding: 4px 0;">Incomplete — stopped mid-experiment-phase; the final verdict experiment ran on the GPU but was never analyzed; no paper or audit was produced. The run is resumable at low cost (no new GPU work needed).</td></tr>
-      <tr><td style="padding: 4px 12px 4px 0; color: #64748b; white-space: nowrap; vertical-align: top;">Novelty</td><td style="padding: 4px 0;">Assessed NOVEL before experiments began. Closest existing work is Gradient Agreement Filtering (Chaubard et al., 2024), which uses simple pairwise agreement checks on image classification; no published work applies random-matrix-theory spectral filtering of per-sample gradients to financial prediction.</td></tr>
-      <tr><td style="padding: 4px 12px 4px 0; color: #64748b; white-space: nowrap; vertical-align: top;">Experiments</td><td style="padding: 4px 0;">2 pass, 1 fail (the fail converted into the mechanistic finding), 1 executed but unanalyzed, 1 never started (of 5 planned)</td></tr>
-      <tr><td style="padding: 4px 12px 4px 0; color: #64748b; white-space: nowrap; vertical-align: top;">Results audit</td><td style="padding: 4px 0;">Not run — the run failed before the audit step. Nothing in this email has been checked beyond the executing agent's own logs, and even in completed runs the audit is an automated self-check by the same model family, not independent verification.</td></tr>
-      <tr><td style="padding: 4px 12px 4px 0; color: #64748b; white-space: nowrap; vertical-align: top;">Repo</td><td style="padding: 4px 0;"><a href="https://github.com/tbuckworth/research-spectral-optimizer-for-noise-reduction" style="color: #2563eb;">GitHub link</a> (all code, experiment plans, and completed results; no paper PDF — the paper step never ran)</td></tr>
+      <tr><td style="padding: 4px 12px 4px 0; color: #64748b; white-space: nowrap; vertical-align: top;">Novelty</td><td style="padding: 4px 0;">Novel (with caveats) — Marchenko–Pastur cleaning is standard in quantitative finance but applied to <em>returns</em> covariance, never to training gradients; the closest method (Gradient Agreement Filtering, 2024) uses simpler pairwise checks on image classification. No published work combines per-sample gradient spectral filtering with financial prediction.</td></tr>
+      <tr><td style="padding: 4px 12px 4px 0; color: #64748b; white-space: nowrap; vertical-align: top;">Experiments</td><td style="padding: 4px 0;">5 executed — 4 pass, 1 partial fail (the failing diagnostic produced the run's central proof)</td></tr>
+      <tr><td style="padding: 4px 12px 4px 0; color: #64748b; white-space: nowrap; vertical-align: top;">Results audit</td><td style="padding: 4px 0;">Honest-negative (true-null): the audit re-ran the decisive experiment with fresh random seeds and an independently rebuilt evaluation dataset, and reproduced the result in direction and magnitude. Note this audit is an automated self-check by the same model family — it lowers uncertainty, but it is not independent human verification.</td></tr>
+      <tr><td style="padding: 4px 12px 4px 0; color: #64748b; white-space: nowrap; vertical-align: top;">Repo</td><td style="padding: 4px 0;"><a href="https://github.com/tbuckworth/research-spectral-optimizer-for-noise-reduction" style="color: #2563eb;">GitHub link</a> (includes paper PDF)</td></tr>
     </table>
-  </div>
-
-  <!-- Why the run failed -->
-  <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px 20px; margin-bottom: 24px;">
-    <h2 style="margin: 0 0 12px 0; font-size: 16px; color: #991b1b;">Why the Run Ended Incomplete</h2>
-    <p style="font-size: 14px; margin: 0 0 8px 0;">
-      This was a workflow failure, not an experimental one. The final comparison experiment (exp-004) was submitted to the MATS Slurm cluster as job 6439. While that job sat in the queue and then ran, the autonomous wrapper launched three consecutive Step-9 sessions; each one correctly set up watchers and waited for the job, but ended its session without advancing the workflow state. After three attempts with no state change, the wrapper marked the whole run failed at 17:36 — <strong>one hour after the GPU job had already finished successfully</strong> (16:36, 5.4&nbsp;minutes of GPU time, all four training arms &times; three seeds completed cleanly).
-    </p>
-    <p style="font-size: 14px; margin: 0;">
-      The complete raw outputs (per-era predictions for every arm and seed) are still sitting on the cluster, un-retrieved. Resuming would need only a file copy plus the already-written local analysis to produce the pre-registered verdict. The retry logic treating "waiting on a queued cluster job" as a failed attempt is the same class of problem as the recently fixed "provider usage limit treated as failure" bug, and likely needs an analogous fix.
-    </p>
   </div>
 
   <!-- Approach -->
   <div style="margin-bottom: 24px;">
     <h2 style="font-size: 16px; color: #1e293b; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px;">Approach</h2>
     <p style="font-size: 14px; margin: 12px 0;">
-      All experiments used the existing <code>SpectralConsensusFilter</code> implementation (reused from the prior optimizers project, per the original request — not recreated), wrapped around AdamW, training a small MLP (~200k parameters) on 705 features from the Numerai v5 dataset, on a single NVIDIA L40 GPU on the MATS cluster. The protocol was unusually strict for an autonomous run: hyperparameter tuning was confined to a 388-era tuning block, a 4-era embargo separated tuning from a held-out 255-era verdict block, the filter mode and all thresholds were frozen <em>before</em> any verdict data was seen, and the planned comparison had four arms — filter-on, filter-off (identical config), a random-subspace control (project onto <em>random</em> directions of the same dimension, to separate "the spectral choice matters" from "any projection helps"), and a Gradient Agreement Filtering baseline.
+      We reused the existing Spectral Optimizer code (per the original brief — not a reimplementation) and evaluated it on Numerai v5 data under a fully pre-registered protocol: hyperparameters were tuned on one block of time periods ("eras") and the final verdict was computed on a later, strictly separated block, with an embargo gap between them to prevent leakage. The comparison was the filter switched on vs. off around an identically tuned AdamW baseline, run on both an MLP and a GRU with multiple random seeds. Crucially, the design included a control arm that projects gradients onto a <em>random</em> subspace matched in size and update magnitude to what the spectral filter selects — this isolates whether the eigenvalue-based selection itself does anything beyond generic projection. All experiments ran on free-partition L40 GPUs on the MATS Slurm cluster (~15 minutes total, plus ~9 minutes of audit re-execution).
     </p>
     <p style="font-size: 13px; color: #475569; margin: 12px 0;">
-      The headline metric is <strong>mean per-era Numerai correlation</strong> — the correlation between the model's predictions and true stock returns, computed within each time period ("era") and averaged. On this benchmark, legitimately good models score roughly +0.01 to +0.04; suspiciously higher usually means data leakage. The pre-registered bar for a "helps" or "hurts" verdict was a paired difference of at least 0.004 with a bootstrap confidence interval excluding zero.
+      The headline metric is <strong>mean per-era correlation</strong>: within each time period, the correlation between the model's predictions and the true returns (Numerai's standard score), averaged across the 255 held-out evaluation eras. Higher is better; the tuned baseline scored about +0.0064, so effects of a few thousandths are large in relative terms. Uncertainty is quantified with a moving-block bootstrap, a confidence-interval method that respects the fact that adjacent time periods are correlated.
     </p>
   </div>
 
@@ -73,50 +60,64 @@
     </thead>
     <tbody>
       <tr>
-        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top;">1</td>
-        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top;">Does the filter engage with <em>target signal</em> on financial gradients? (Plus code-integration, data-protocol, and GPU-throughput checks.)</td>
-        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top;"><span style="background: #fef2f2; color: #991b1b; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">FAIL</span></td>
-        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top;">The filter does non-trivial, selective work (it is not degenerate), but a control test — shuffling the prediction targets — produced <em>identical</em> filtering behavior, and the experiment proved mathematically that it must (see Surprising Findings). "Consensus" here measures input structure, not signal. All infrastructure sub-checks passed.</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9;">1</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9;">Does the filter meaningfully "engage" with financial gradients, and does its selection depend on the actual prediction targets?</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9;"><span style="background: #fef2f2; color: #991b1b; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">PARTIAL FAIL</span></td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9;">Infrastructure worked, but the target-dependence check failed <em>by mathematical proof</em>: for single-output mean-squared-error training, the filter's selection is provably identical no matter what the targets are. It measures feature structure, not signal.</td>
       </tr>
       <tr>
-        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top;">2</td>
-        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top;">Can per-sample gradients be computed efficiently through a recurrent GRU model (needed for the second-architecture arm)?</td>
-        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top;"><span style="background: #dcfce7; color: #166534; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">PASS</span></td>
-        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top;">Yes — vectorized per-sample gradients through a hand-rolled GRU match a reference implementation to ~2&times;10<sup>&minus;6</sup>, and a projected sequence-model training run fits easily in the GPU budget (~4 minutes).</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9;">2</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9;">Can per-sample gradients be computed efficiently through a recurrent (GRU) network?</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9;"><span style="background: #dcfce7; color: #166534; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">PASS</span></td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9;">Yes — the vectorised implementation matches a slow reference computation to within floating-point precision, enabling the second architecture arm.</td>
       </tr>
       <tr>
-        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top;">3</td>
-        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top;">Is the baseline sane and the comparison statistically winnable? (Tuned AdamW sweep, power analysis, leakage checks.)</td>
-        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top;"><span style="background: #dcfce7; color: #166534; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">PASS</span></td>
-        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top;">Tuned AdamW scored +0.0196 mean per-era correlation — inside the sanity band for legitimate models, with no data-leakage signature. Power analysis said the design could detect the pre-registered effect size with ~90% probability, so a verdict was genuinely reachable (go/no-go gate: GO).</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9;">3</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9;">Is the baseline sane and the experiment powerful enough to detect an effect if one exists?</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9;"><span style="background: #dcfce7; color: #166534; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">PASS</span></td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9;">Tuned AdamW landed in the expected performance band and the design had an estimated 91% chance of reaching a definitive verdict — so the negative result below is not "we couldn't tell".</td>
       </tr>
       <tr>
-        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top;">4</td>
-        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top;">The verdict experiment: filter-on vs filter-off vs random-subspace vs agreement-filtering baseline, 3 seeds each, on 255 held-out eras.</td>
-        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top;"><span style="background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">NOT ANALYZED</span></td>
-        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top;">The GPU job completed cleanly (all 12 training runs), but the run was marked failed before results were pulled back. The pre-registered verdict was never computed; the raw per-era outputs remain on the cluster.</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9;">4</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9;">Main pre-registered comparison on the MLP: filter on vs. off, plus the random-subspace control</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9;"><span style="background: #fef2f2; color: #991b1b; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">HURTS</span></td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9;">The filter reduced mean per-era correlation by 0.0053 (95% confidence interval −0.0089 to −0.0018) against a +0.0064 baseline — wiping out most of the model's edge. And it was statistically indistinguishable from the random-subspace control: the "spectral" part adds nothing.</td>
       </tr>
       <tr>
-        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top;">5</td>
-        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top;">Conditional second-architecture (GRU) comparison arm.</td>
-        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top;"><span style="background: #f1f5f9; color: #475569; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">NOT RUN</span></td>
-        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top;">Was gated on experiment 4's outcome, which never arrived.</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9;">5</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9;">Does the verdict replicate on a different architecture (GRU)?</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9;"><span style="background: #dcfce7; color: #166534; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">PASS</span></td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9;">Yes — same harm (−0.0048, CI −0.0076 to −0.0021) and the same spectral-vs-random null, despite the filter behaving completely differently internally on this architecture.</td>
       </tr>
     </tbody>
   </table>
+
+  <!-- Why It Failed -->
+  <div style="margin-bottom: 24px;">
+    <h2 style="font-size: 16px; color: #1e293b; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px;">Why It Failed</h2>
+    <p style="font-size: 14px; margin: 12px 0;">
+      Two findings jointly close the case. First, the <strong>target-independence proof</strong>: for a single-output model trained with mean-squared error, each sample's gradient is just ± (the sign of its prediction error) times a direction that depends only on the input features — not the targets. So the similarity structure the filter eigendecomposes is <em>exactly the same</em> under any shuffling of the targets (verified numerically to machine precision, ~10<sup>−16</sup>). The filter cannot be finding "directions where samples agree about the signal", because its selection never sees the signal. Second, the <strong>random-subspace control</strong>: when you match the filter's update size and dimensionality but pick the directions at random, performance is statistically identical on both architectures. The prior label-noise success evidently worked through a mechanism (multi-class classification gradients <em>do</em> depend on labels) that simply does not exist in this regression setting.
+    </p>
+    <p style="font-size: 14px; margin: 12px 0;">
+      One honest caveat on the headline: the tuning budget was compute-matched overall, which left the spectral arm only ~1 effective tuning trial vs. 12 for the baseline. The pre-registered claim was therefore downgraded to "<strong>no evidence of benefit under the affordable tuning budget</strong>", with the raw degradation numbers reported alongside rather than claimed as the method's ceiling.
+    </p>
+  </div>
 
   <!-- Surprising Findings -->
   <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 16px 20px; margin-bottom: 24px;">
     <h2 style="margin: 0 0 12px 0; font-size: 16px; color: #92400e;">Surprising Findings</h2>
     <ol style="font-size: 14px; padding-left: 20px; margin: 0;">
       <li style="margin-bottom: 12px;">
-        <strong>The optimizer's core diagnostic is provably blind to the prediction target on this task.</strong> For any model with a single output trained with mean-squared error, each sample's gradient is just (prediction error) &times; (a direction that depends only on the inputs). After the normalization the filter applies, changing the targets can only flip signs — and the experiment proved this leaves the entire eigenvalue spectrum the filter relies on <em>exactly unchanged</em> (verified numerically to 10<sup>&minus;15</sup>). So on regression tasks like this one, the "consensus" the filter detects is structure in the input features, not agreement about the signal. This also explains, retroactively, why the prior project's MNIST classification results <em>were</em> target-sensitive: multi-class cross-entropy gradients don't factor this way. This is the run's banked deliverable — a clean boundary result for where the method's mechanism can and cannot apply.
+        A planned sanity check failed by <em>proof</em> rather than by noise. The diagnostic comparing the filter's behaviour on real vs. shuffled targets came back exactly identical — leading to the discovery that for this loss class the filter is mathematically blind to targets. This retroactively reframes the prior project's "consensus on signal" interpretation: whatever helped on noisy-label MNIST, it cannot have been target-aware selection in any single-output regression setting.
       </li>
       <li style="margin-bottom: 12px;">
-        <strong>The filter is an amplifier, not a shrinker.</strong> The filtered update exceeded the plain averaged gradient in size on 25&ndash;70% of training steps — the filter discards components that point in conflicting directions and effectively amplifies what remains. The mental model of it as "gentle denoising shrinkage" is wrong.
+        The filter <em>amplifies</em> rather than shrinks. The implicit hypothesis was regularisation-by-shrinkage — discarding noisy directions should make updates smaller and safer. Instead, on the MLP the filtered update was around 10× the size of the mean gradient on a large fraction of steps. It behaves like a rescaled projection, not a denoiser.
       </li>
       <li style="margin-bottom: 12px;">
-        <strong>The winner's curse showed up on schedule.</strong> The best tuned baseline configuration scored +0.0196 in the hyperparameter sweep but only ~+0.014 when re-run on fresh seeds — a textbook illustration of why the protocol froze its effect-size threshold using the seed-replicated number, not the sweep winner.
+        Completely different internal behaviour, identical harm. On the MLP the filter kept ~1 direction and amplified heavily; on the GRU it kept ~60 directions with mild attenuation. Both produced near-identical degradation and the same "no better than random directions" null — strong evidence the effect is generic subspace projection, not anything spectral.
+      </li>
+      <li style="margin-bottom: 12px;">
+        The audit found a latent crash the original runs never hit: the eigendecomposition stochastically fails to converge in 32-bit floating point under certain seeds (the original 6-of-6 seed runs were simply lucky). A mathematically equivalent 64-bit fallback fixed it and reproduced all results; the defect is disclosed in the paper as an implementation-robustness issue, not a validity issue.
       </li>
     </ol>
   </div>
@@ -126,13 +127,13 @@
     <h2 style="font-size: 16px; color: #1e293b; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px;">Limitations</h2>
     <ol style="font-size: 14px; padding-left: 20px;">
       <li style="margin-bottom: 8px;">
-        <strong>No verdict on the motivating question.</strong> Whether the Spectral Optimizer helps or hurts out-of-sample performance on financial data remains open. The raw data to answer it exists on the cluster; only the retrieval and the already-scripted pre-registered analysis are missing.
+        <strong>Small-scale, low-edge regime.</strong> To fit the free 30-minute GPU partition, the verdict used subsampled data (batch ≈1024, subsampled eras), and the evaluation-period baseline edge (+0.0064) was weaker than in the tuning period. Claims are explicitly scoped to this regime; a full-scale run (~$50–100 of cloud GPU) would test whether the harm persists at scale.
       </li>
       <li style="margin-bottom: 8px;">
-        <strong>No results audit and no paper.</strong> The workflow's red-team audit step and paper compilation never ran, so all numbers above come solely from the executing agent's own experiment logs.
+        <strong>Tuning asymmetry.</strong> The spectral arm got ~1 effective hyperparameter trial vs. the baseline's 12, which is why the headline claim is "no evidence of benefit under this budget" rather than "the method is harmful at its best configuration". The GRU arm also ran on a fallback configuration rather than a full re-tune.
       </li>
       <li style="margin-bottom: 8px;">
-        <strong>Any future "hurts" verdict is already capped.</strong> The tuning budget was asymmetric (12 tuning trials for AdamW vs ~1 for the spectral arm), so under the pre-registered rules a negative result could only be stated as "no evidence of benefit under the affordable tuning budget," not "the optimizer hurts."
+        <strong>The escape route is known but untested.</strong> The target-independence proof applies only to single-output mean-squared-error losses. Multi-output, ranking, or correlation-aligned losses make the filter's selection target-dependent again — the mechanism could in principle work there, and this is the cheapest follow-up if the idea is worth rescuing.
       </li>
     </ol>
   </div>
@@ -141,13 +142,13 @@
   <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px 20px; margin-bottom: 24px;">
     <h2 style="margin: 0 0 12px 0; font-size: 16px; color: #1e293b;">Links</h2>
     <ul style="list-style: none; padding: 0; margin: 0; font-size: 14px;">
-      <li style="margin-bottom: 4px;"><a href="https://github.com/tbuckworth/research-spectral-optimizer-for-noise-reduction" style="color: #2563eb;">GitHub repo</a> (experiment code, plans, and completed results; no paper — the run stopped before the write-up step)</li>
-      <li style="margin-bottom: 4px;"><a href="https://github.com/tbuckworth/tasks/issues/2073" style="color: #2563eb;">Original research idea (issue #2073)</a></li>
+      <li style="margin-bottom: 4px;"><a href="https://github.com/tbuckworth/research-spectral-optimizer-for-noise-reduction" style="color: #2563eb;">GitHub repo</a> (includes paper PDF and all experiment code)</li>
+      <li style="margin-bottom: 4px;"><a href="https://github.com/tbuckworth/tasks/issues/2073" style="color: #2563eb;">Original research idea</a> (GitHub issue #2073)</li>
     </ul>
   </div>
 
   <!-- Footer -->
   <div style="font-size: 12px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 12px;">
-    Generated by the autonomous AI safety researcher agent &middot; Claude fable
+    Generated by the autonomous AI safety researcher agent · Claude fable
   </div>
 </div>

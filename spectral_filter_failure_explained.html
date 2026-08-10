@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>What went wrong in the spectral gradient filter?</title>
+  <script>
+    window.MathJax = {
+      tex: {inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']]},
+      svg: {fontCache: 'global'}
+    };
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+  <style>
+    :root { --ink:#17222d; --muted:#5d6975; --paper:#fbfaf7; --card:#fff;
+      --blue:#1667a8; --green:#087f5b; --red:#b42318; --amber:#a15c00; --line:#dce1e5; }
+    * { box-sizing:border-box; }
+    body { margin:0; color:var(--ink); background:var(--paper); font:18px/1.62 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    main { max-width:1000px; margin:auto; padding:58px 34px 100px; }
+    h1 { font-size:46px; line-height:1.08; letter-spacing:-1.5px; margin:0 0 18px; }
+    h2 { font-size:30px; line-height:1.2; margin:64px 0 18px; border-top:1px solid var(--line); padding-top:30px; }
+    h3 { font-size:22px; margin:30px 0 8px; }
+    p { margin:12px 0; }
+    .lede { font-size:23px; color:#334453; max-width:850px; }
+    .answer { margin:30px 0; padding:24px 28px; border-left:6px solid var(--red); background:#fff2f0; border-radius:8px; }
+    .answer strong { color:var(--red); }
+    .note { padding:18px 22px; background:#eef6fc; border:1px solid #bdd8ec; border-radius:10px; }
+    .good { padding:18px 22px; background:#edf8f3; border:1px solid #b8ddce; border-radius:10px; }
+    .warn { padding:18px 22px; background:#fff7e8; border:1px solid #ead09e; border-radius:10px; }
+    .small { font-size:15px; color:var(--muted); }
+    code { font-size:.88em; background:#edf0f2; padding:2px 5px; border-radius:4px; }
+    table { width:100%; border-collapse:collapse; margin:22px 0; background:var(--card); }
+    th,td { padding:12px 14px; border-bottom:1px solid var(--line); text-align:right; }
+    th:first-child,td:first-child { text-align:left; }
+    th { background:#edf2f5; }
+    .bad { color:var(--red); font-weight:700; }
+    .ok { color:var(--green); font-weight:700; }
+    .formula { overflow-x:auto; margin:20px 0; padding:18px; background:white; border:1px solid var(--line); border-radius:10px; }
+    .diagram { display:grid; grid-template-columns:1fr 64px 1fr; align-items:center; margin:26px 0; }
+    .box { min-height:145px; padding:20px; border-radius:12px; border:2px solid #aac2d3; background:#f4f9fc; }
+    .arrow { text-align:center; font-size:38px; color:var(--blue); }
+    ol li, ul li { margin:7px 0; }
+    .steps { counter-reset:step; list-style:none; padding:0; }
+    .steps li { position:relative; margin:18px 0; padding:4px 0 4px 54px; }
+    .steps li:before { counter-increment:step; content:counter(step); position:absolute; left:0; top:0; width:36px; height:36px; border-radius:50%; background:var(--blue); color:white; text-align:center; line-height:36px; font-weight:700; }
+    svg { max-width:100%; height:auto; display:block; margin:20px auto; background:white; border:1px solid var(--line); border-radius:10px; }
+    .toc a { color:var(--blue); text-decoration:none; }
+    .verdict { font-size:26px; line-height:1.4; }
+    @media(max-width:700px) { main{padding:34px 20px 70px} h1{font-size:37px}.diagram{grid-template-columns:1fr}.arrow{transform:rotate(90deg)} }
+  </style>
+</head>
+<body><main>
+  <h1>What went wrong in the spectral gradient filter?</h1>
+  <p class="lede">A from-first-principles explanation of the intended mathematics, the invariant the implementation broke, the evidence from the Numerai MLP, and what should be changed.</p>
+
+  <div class="answer verdict">
+    <strong>Short answer:</strong> the rank-one covariance idea is sound. The primary demonstrated problem is that, beyond a small rank, the code's supposed eigenvectors stop being mutually perpendicular. Consequently, the operation called a “projection” is not actually a projection. A secondary demonstrated problem is that the cutoff for retaining eigenvalues depends on the arbitrary numerical scale of the loss.
+  </div>
+
+  <div class="toc note">
+    <strong>Road map.</strong> We will build up four ideas: a gradient is a vector; eigenvectors define preferred directions; an orthogonal projection can only remove length; and the measured code violates that last fact.
+  </div>
+
+  <h2>1. What objects are we talking about?</h2>
+  <p>The MLP has \(p=625{,}025\) trainable numbers. At one training step, differentiating the loss produces one derivative for every number. Put all those derivatives into one long column:</p>
+  <div class="formula">\[
+    g_t = \begin{bmatrix}
+      \frac{\partial L_t}{\partial \theta_1}\\[3pt]
+      \frac{\partial L_t}{\partial \theta_2}\\
+      \vdots\\
+      \frac{\partial L_t}{\partial \theta_p}
+    \end{bmatrix}\in\mathbb{R}^{p}.
+  \]</div>
+  <p>This is the gradient at step \(t\). AdamW normally receives this entire vector.</p>
+
+  <p>The spectral filter tries to estimate directions in which gradients have repeatedly varied. Abstractly, the history of centred gradients defines a covariance matrix</p>
+  <div class="formula">\[
+    C_t \approx (1-\beta)\sum_{i\le t}\beta^{t-i}
+      (g_i-\bar g_i)(g_i-\bar g_i)^\top,
+    \qquad C_t\in\mathbb{R}^{p\times p}.
+  \]</div>
+  <p>Here \(\beta=0.99\). This really is a \(p\times p\) object conceptually. It is far too large to construct, so the code stores only a low-rank eigendecomposition:</p>
+  <div class="formula">\[
+      C_t \approx V_t\Lambda_tV_t^\top,
+      \qquad V_t=[v_1\;v_2\;\cdots\;v_k].
+  \]</div>
+  <p>Each \(v_i\) is a length-\(p\) eigenvector. \(V_t\) therefore has shape \(p\times k\), not \(p\times p\). It represents the top \(k\) directions of the implicit \(p\times p\) covariance.</p>
+
+  <h2>2. What should “project the gradient” mean?</h2>
+  <p>Suppose first that there is one unit direction \(v\). The component of \(g\) pointing along \(v\) is</p>
+  <div class="formula">\[
+      g_{\parallel}=v(v^\top g).
+  \]</div>
+  <p>The scalar \(v^\top g\) says how much of \(g\) points along \(v\); multiplying by \(v\) turns that scalar back into a vector.</p>
+
+  <svg viewBox="0 0 800 360" role="img" aria-label="Projection of a gradient onto one direction">
+    <defs><marker id="arrowhead" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#1667a8"/></marker><marker id="greenhead" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#087f5b"/></marker></defs>
+    <line x1="90" y1="290" x2="710" y2="290" stroke="#81909b" stroke-width="3"/><text x="690" y="326" font-size="20" fill="#5d6975">direction v</text>
+    <line x1="150" y1="290" x2="590" y2="75" stroke="#1667a8" stroke-width="6" marker-end="url(#arrowhead)"/><text x="600" y="75" font-size="24" fill="#1667a8">raw gradient g</text>
+    <line x1="150" y1="290" x2="590" y2="290" stroke="#087f5b" stroke-width="7" marker-end="url(#greenhead)"/><text x="420" y="270" font-size="23" fill="#087f5b">projection</text>
+    <line x1="590" y1="75" x2="590" y2="290" stroke="#b42318" stroke-width="3" stroke-dasharray="9 7"/><text x="603" y="190" font-size="19" fill="#b42318">removed</text>
+  </svg>
+
+  <p>For \(k\) mutually perpendicular unit directions collected in \(V\), the formula becomes</p>
+  <div class="formula">\[
+      g_{\mathrm{filtered}} = VV^\top g.
+  \]</div>
+
+  <p>But this short formula is valid only when the columns of \(V\) are orthonormal:</p>
+  <div class="formula">\[
+      v_i^\top v_j =
+      \begin{cases}1,&i=j,\\0,&i\ne j,\end{cases}
+      \qquad\text{equivalently}\qquad V^\top V=I_k.
+  \]</div>
+  <p>“Orthonormal” simply means every column has length one and every pair of different columns meets at a right angle.</p>
+
+  <h2>3. A projection has a non-negotiable property</h2>
+  <p>An orthogonal projection may retain all of a vector or remove part of it. It cannot make the vector longer. Mathematically, if \(P=VV^\top\) and \(V^\top V=I\), then</p>
+  <div class="formula">\[
+  \begin{aligned}
+      \|Pg\|^2
+      &= (VV^\top g)^\top(VV^\top g)\\
+      &= g^\top V\underbrace{(V^\top V)}_{I}V^\top g\\
+      &= g^\top VV^\top g\\
+      &\le g^\top g = \|g\|^2.
+  \end{aligned}
+  \]</div>
+  <div class="good"><strong>Diagnostic invariant:</strong> a correct hard spectral projection must always satisfy \(\|g_{\mathrm{filtered}}\|/\|g\|\le1\), apart from tiny floating-point error.</div>
+
+  <h2>4. What did the actual code do?</h2>
+  <p>The implementation uses a streaming rank-one update. That is reasonable: one new gradient changes the covariance by a rank-one term. It updates a small \((k+1)\times(k+1)\) Gram matrix, diagonalises it, and reconstructs the new large basis.</p>
+  <p>The delicate reconstruction contains division by the new singular values:</p>
+  <div class="formula">\[
+      \text{coefficients} = U\,\operatorname{diag}\!\left(\frac{1}{s_1},\ldots,\frac{1}{s_k}\right),
+      \qquad s_i=\sqrt{\lambda_i}.
+  \]</div>
+  <p>This is algebraically correct in exact arithmetic. Numerically, it becomes dangerous when \(\lambda_i\) is tiny: dividing by \(\sqrt{\lambda_i}\) magnifies any rounding error. The implementation performs most of this in single precision and does not reorthogonalise the reconstructed columns.</p>
+
+  <div class="diagram">
+    <div class="box"><strong>Exact arithmetic</strong><br>Small eigensystem is solved exactly.<br>Reconstruction preserves perpendicular columns.<br>\(V^\top V=I\).</div>
+    <div class="arrow">→</div>
+    <div class="box" style="border-color:#d9948d;background:#fff3f1"><strong>Observed fp32 computation</strong><br>Tiny retained eigenvalues amplify error.<br>Columns become overlapping or badly scaled.<br>\(V^\top V\ne I\).</div>
+  </div>
+
+  <h2>5. Direct measurements from the Numerai MLP</h2>
+  <p>I replayed 500 actual MLP training steps and measured the basis during the 400 filtering-active steps. The key statistic was</p>
+  <div class="formula">\[
+      \delta_{\mathrm{orth}}=\left\|V^\top V-I\right\|_2.
+  \]</div>
+  <p>A healthy value is close to zero. The results were:</p>
+
+  <table>
+    <thead><tr><th>Nominal rank</th><th>Median realised rank</th><th>Median \(\delta_{\mathrm{orth}}\)</th><th>Interpretation</th></tr></thead>
+    <tbody>
+      <tr><td>8</td><td>8</td><td>0.000081</td><td class="ok">Healthy</td></tr>
+      <tr><td>128</td><td>25</td><td class="bad">24.57</td><td class="bad">Not an orthonormal basis</td></tr>
+      <tr><td>2048</td><td>25</td><td class="bad">24.57</td><td class="bad">Not an orthonormal basis</td></tr>
+    </tbody>
+  </table>
+
+  <p>A value around 24.6 is not a minor precision discrepancy. It means the matrix is nowhere near an orthonormal eigenbasis. This also explains why the measured “projection” sometimes increased gradient norm.</p>
+
+  <div class="answer"><strong>This is the strongest demonstrated flaw.</strong> Once the basis loses orthonormality, \(VV^\top g\) is no longer the nearest vector in a subspace. It is just multiplication by a poorly conditioned matrix.</div>
+
+  <h2>6. Was incorporating the current gradient first the problem?</h2>
+  <p>No—not primarily. The objection that motivated the diagnostic was correct. I measured the same raw gradient against:</p>
+  <ol>
+    <li>the basis from previous gradients only; and</li>
+    <li>the basis immediately after its rank-one update with the current gradient.</li>
+  </ol>
+  <table>
+    <thead><tr><th>Nominal rank</th><th>Cosine before update</th><th>Cosine after update</th><th>Change</th></tr></thead>
+    <tbody>
+      <tr><td>8</td><td>0.997602</td><td>0.997661</td><td>+0.000059</td></tr>
+      <tr><td>128/2048</td><td>0.998785</td><td>0.999385</td><td>+0.000600</td></tr>
+    </tbody>
+  </table>
+  <p>The update makes the basis somewhat more aligned with the current gradient, as expected, but does not insert the whole gradient direction. My earlier explanation attributed too much to this ordering. The orthogonality failure is vastly more serious.</p>
+
+  <h2>7. What is wrong with the fixed threshold?</h2>
+  <p>The code retains eigenvalues satisfying</p>
+  <div class="formula">\[
+      \lambda_i > 10^{-12}.
+  \]</div>
+  <p>This is an absolute threshold. But multiplying every gradient by a constant \(a\) multiplies every covariance eigenvalue by \(a^2\):</p>
+  <div class="formula">\[
+      g_i' = a g_i
+      \quad\Longrightarrow\quad
+      C'=a^2C
+      \quad\Longrightarrow\quad
+      \lambda_i'=a^2\lambda_i.
+  \]</div>
+  <p>The eigenvectors do not change. Therefore, the conceptual spectral directions are identical whether the loss is written in pounds, pence, or one-thousandths. A sensible rank decision should normally be unchanged too.</p>
+
+  <p>Yet replaying the identical gradients at different scales produced:</p>
+  <table>
+    <thead><tr><th>Gradient scaling</th><th>Median realised rank</th></tr></thead>
+    <tbody><tr><td>\(10^{-3}\)</td><td>22</td></tr><tr><td>\(1\)</td><td>25</td></tr><tr><td>\(10^3\)</td><td>25</td></tr></tbody>
+  </table>
+  <p>This confirms scale dependence. It is not the sole cause of the catastrophic orthogonality error, but it helps retain numerically meaningless directions in some regimes and discard equivalent directions in others.</p>
+
+  <p>A relative criterion is more natural:</p>
+  <div class="formula">\[
+      \frac{\lambda_i}{\lambda_{\max}} > \varepsilon_{\mathrm{relative}}.
+  \]</div>
+  <p>Because both numerator and denominator scale by \(a^2\), their ratio is invariant to global gradient scaling.</p>
+
+  <h2>8. Why did “almost the same cosine” coexist with bad training?</h2>
+  <p>Cosine measures angle only:</p>
+  <div class="formula">\[
+      \cos(g,\tilde g)=\frac{g^\top\tilde g}{\|g\|\,\|\tilde g\|}.
+  \]</div>
+  <p>It deliberately ignores overall length. Two vectors can have cosine almost one while one is longer, or while small components have been repeatedly distorted. Moreover, neural training is sequential: changing step 1 changes the parameters, which changes the gradient observed at step 2, and so on.</p>
+  <div class="warn"><strong>But this was not itself a diagnosis.</strong> Saying that small differences can accumulate only explains how a small intervention might eventually matter. It does not identify why this intervention was mathematically wrong. The broken orthogonality invariant does.</div>
+
+  <h2>9. What should a corrected implementation guarantee?</h2>
+  <ol class="steps">
+    <li><strong>Use a scale-invariant cutoff.</strong> Retain directions based primarily on \(\lambda_i/\lambda_{\max}\), spectral energy, or effective rank—not solely \(\lambda_i>10^{-12}\).</li>
+    <li><strong>Use higher precision for the small update.</strong> The \((k+1)\times(k+1)\) eigensystem and reconstruction coefficients should be computed in fp64.</li>
+    <li><strong>Maintain an orthonormal factorisation.</strong> Use a numerically stable incremental SVD/QR procedure. Naively applying QR only to \(V\) is insufficient unless the corresponding small covariance factor is transformed consistently.</li>
+    <li><strong>Assert the defining invariants.</strong> During development, fail if \(\|V^\top V-I\|\) becomes appreciable, if eigenvalues are unordered/negative beyond tolerance, or if a hard projection increases norm.</li>
+    <li><strong>Retest mechanics before finance performance.</strong> Verify scale invariance, known synthetic covariance recovery, and exact agreement with a directly formed small \(p\times p\) covariance.</li>
+  </ol>
+
+  <h2>10. Exactly what is established?</h2>
+  <div class="good">
+    <strong>High confidence, directly measured:</strong>
+    <ul>
+      <li>At rank 8, the maintained basis remained close to orthonormal.</li>
+      <li>At larger nominal ranks, it became severely non-orthonormal.</li>
+      <li>The resulting operation could increase gradient norm and was not an orthogonal projection.</li>
+      <li>The absolute eigenvalue threshold makes realised rank depend on gradient scale.</li>
+      <li>Using the current gradient in the rank-one update only modestly increased same-step alignment.</li>
+    </ul>
+  </div>
+  <div class="warn" style="margin-top:18px">
+    <strong>Not yet established:</strong>
+    <ul>
+      <li>That a numerically corrected spectral optimizer will improve Numerai performance.</li>
+      <li>The best relative threshold or rank rule.</li>
+      <li>Whether history-only projection is ultimately preferable to update-then-project.</li>
+    </ul>
+  </div>
+
+  <p class="small" style="margin-top:60px">Diagnostic source: <code>exp-f11/src/diagnose_filter.py</code>. Raw output: <code>exp-f11/out/filter-mechanism-diagnostic.json</code>. Run on the actual Numerai MLP gradient stream, 500 steps, 400 filtering-active steps, 5 August 2026.</p>
+</main></body></html>
