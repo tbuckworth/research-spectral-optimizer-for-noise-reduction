@@ -2,6 +2,7 @@ import cloudpickle
 import numpy as np
 import pandas as pd
 import pytest
+import torch
 
 from numerai_competitive.live import NumeraiMLPPredictor
 from numerai_competitive.model import MLPConfig, ResidualMLP
@@ -35,3 +36,25 @@ def test_live_callable_rejects_schema_and_range_errors():
         predictor(pd.DataFrame({"a": [0.5], "b": [0.5]}))
     with pytest.raises(ValueError, match="0..4"):
         predictor(pd.DataFrame({"a": [5], "b": [0], "c": [0]}))
+
+
+def test_live_ensemble_ranks_each_seed_before_averaging():
+    first = _artifact()
+    second = _artifact()
+    with torch.no_grad():
+        for parameter in second["model"].values():
+            parameter.mul_(-1)
+    frame = pd.DataFrame(
+        [[0, 2, 4], [1, 2, 3], [4, 0, 1], [3, 1, 2]], columns=["a", "b", "c"]
+    )
+    ensemble = NumeraiMLPPredictor([first, second], batch_size=2)(frame)["prediction"]
+    individual = [NumeraiMLPPredictor(artifact, batch_size=2)(frame)["prediction"]
+                  for artifact in (first, second)]
+    pd.testing.assert_series_equal(ensemble, (individual[0] + individual[1]) / 2)
+
+
+def test_live_ensemble_rejects_mismatched_artifacts():
+    first, second = _artifact(), _artifact()
+    second["feature_names"] = ["a", "b", "different"]
+    with pytest.raises(ValueError, match="feature schemas differ"):
+        NumeraiMLPPredictor([first, second])

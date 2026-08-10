@@ -1,6 +1,8 @@
 """Target-free conventional and Model Upload prediction callable."""
 from __future__ import annotations
 
+import argparse
+from collections.abc import Sequence
 from pathlib import Path
 
 import cloudpickle
@@ -14,19 +16,33 @@ from .model import MLPConfig, ResidualMLP
 class NumeraiMLPPredictor:
     """CPU-only callable with the official two-argument Model Upload interface."""
 
-    def __init__(self, artifact: dict, batch_size: int = 4096) -> None:
-        self.feature_names = tuple(artifact["feature_names"])
-        self.data_version = artifact["data_version"]
+    def __init__(self, artifacts: dict | Sequence[dict], batch_size: int = 4096) -> None:
+        artifacts = [artifacts] if isinstance(artifacts, dict) else list(artifacts)
+        if not artifacts:
+            raise ValueError("at least one model artifact is required")
+        self.feature_names = tuple(artifacts[0]["feature_names"])
+        self.data_version = artifacts[0]["data_version"]
         self.batch_size = int(batch_size)
-        self.model = ResidualMLP(MLPConfig(**artifact["model_config"]))
-        self.model.load_state_dict(artifact["model"])
-        self.model.eval()
-        self.model.to("cpu")
+        self.models = []
+        for artifact in artifacts:
+            if tuple(artifact["feature_names"]) != self.feature_names:
+                raise ValueError("ensemble model feature schemas differ")
+            if artifact["data_version"] != self.data_version:
+                raise ValueError("ensemble model data versions differ")
+            model = ResidualMLP(MLPConfig(**artifact["model_config"]))
+            model.load_state_dict(artifact["model"])
+            model.eval()
+            model.to("cpu")
+            self.models.append(model)
 
     @classmethod
     def from_file(cls, path: Path, batch_size: int = 4096) -> NumeraiMLPPredictor:
-        artifact = torch.load(path, map_location="cpu", weights_only=False)
-        return cls(artifact, batch_size=batch_size)
+        return cls.from_files([path], batch_size=batch_size)
+
+    @classmethod
+    def from_files(cls, paths: Sequence[Path], batch_size: int = 4096) -> NumeraiMLPPredictor:
+        artifacts = [torch.load(path, map_location="cpu", weights_only=False) for path in paths]
+        return cls(artifacts, batch_size=batch_size)
 
     def _features(self, frame: pd.DataFrame) -> np.ndarray:
         missing = sorted(set(self.feature_names) - set(frame.columns))
@@ -47,24 +63,41 @@ class NumeraiMLPPredictor:
         del live_benchmark_models  # Reserved for a separately frozen blend.
         torch.set_num_threads(1)
         values = self._features(live_features)
-        predictions = []
+        predictions = [[] for _ in self.models]
         with torch.inference_mode():
             for start in range(0, len(values), self.batch_size):
                 batch = torch.from_numpy(values[start:start + self.batch_size])
-                predictions.append(self.model(batch).numpy())
-        raw = np.concatenate(predictions) if predictions else np.empty(0, dtype=np.float32)
-        if not np.isfinite(raw).all():
-            raise ValueError("model emitted non-finite predictions")
-        # Exact scoring is rank based; interior percentile ranks preserve it and
-        # satisfy the Tournament submission range without clipping ties.
-        ranked = pd.Series(raw).rank(method="average").to_numpy(dtype=np.float64)
-        ranked = (ranked - 0.5) / max(1, len(ranked))
-        return pd.DataFrame({"prediction": ranked}, index=live_features.index)
+                for model_index, model in enumerate(self.models):
+                    predictions[model_index].append(model(batch).numpy())
+        ranked_models = []
+        for chunks in predictions:
+            raw = np.concatenate(chunks) if chunks else np.empty(0, dtype=np.float32)
+            if not np.isfinite(raw).all():
+                raise ValueError("model emitted non-finite predictions")
+            # Match sealed evaluation: rank each seed model, then average the seed ranks.
+            ranked = pd.Series(raw).rank(method="average").to_numpy(dtype=np.float64)
+            ranked_models.append((ranked - 0.5) / max(1, len(ranked)))
+        ensemble = np.mean(ranked_models, axis=0)
+        return pd.DataFrame({"prediction": ensemble}, index=live_features.index)
 
 
-def export_callable(model_artifact: Path, output: Path, batch_size: int = 4096) -> Path:
-    predictor = NumeraiMLPPredictor.from_file(model_artifact, batch_size=batch_size)
+def export_callable(model_artifacts: Sequence[Path], output: Path,
+                    batch_size: int = 4096) -> Path:
+    predictor = NumeraiMLPPredictor.from_files(model_artifacts, batch_size=batch_size)
     output.parent.mkdir(parents=True, exist_ok=True)
     with output.open("wb") as handle:
         cloudpickle.dump(predictor, handle)
     return output
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model", type=Path, action="append", required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--batch-size", type=int, default=4096)
+    args = parser.parse_args()
+    print(export_callable(args.model, args.output, args.batch_size))
+
+
+if __name__ == "__main__":
+    main()
