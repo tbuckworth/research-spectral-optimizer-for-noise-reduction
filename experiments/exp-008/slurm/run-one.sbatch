@@ -10,6 +10,7 @@ set -euo pipefail
 PROJECT=/mnt/nw/home/t.buckworth/numerai-competitive
 SHARDS=/ephemeral/t.buckworth/numerai-v5.3
 export UV_CACHE_DIR=/ephemeral/t.buckworth/uv-cache
+export CUBLAS_WORKSPACE_CONFIG=:4096:8
 cd "$PROJECT"
 "$PROJECT/uv" sync --frozen
 "$PROJECT/uv" run python -c \
