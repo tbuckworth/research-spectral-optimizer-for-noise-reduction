@@ -96,7 +96,16 @@ def evaluate(shard_root: Path, freeze_path: Path, adamw_models: list[Path],
     target = pd.Series(np.asarray(shard.targets[indices, target_column], dtype=np.float64), index=ids)
     eras = pd.Series([f"{int(value):04d}" for value in shard.eras[indices]], index=ids)
     benchmark_era = per_era_corr(benchmark.rename("ender20"), target, eras)["ender20"]
-    bootstrap = moving_block_bootstrap(spectral_era["corr"], adam_era["corr"])
+    spectral_minus_adamw = moving_block_bootstrap(spectral_era["corr"], adam_era["corr"])
+    adamw_minus_ender20 = moving_block_bootstrap(adam_era["corr"], benchmark_era)
+    spectral_minus_ender20 = moving_block_bootstrap(spectral_era["corr"], benchmark_era)
+    prediction_correlation = {
+        "adamw_vs_ender20": float(np.corrcoef(adamw[covered], benchmark.to_numpy())[0, 1]),
+        "spectral_vs_ender20": float(
+            np.corrcoef(spectral[covered], benchmark.to_numpy())[0, 1]
+        ),
+        "spectral_vs_adamw": float(np.corrcoef(spectral[covered], adamw[covered])[0, 1]),
+    }
     per_era = pd.DataFrame({
         "adamw": adam_era["corr"], "spectral": spectral_era["corr"],
         "ender20": benchmark_era,
@@ -112,7 +121,10 @@ def evaluate(shard_root: Path, freeze_path: Path, adamw_models: list[Path],
         "resolved_rows": int(covered.sum()), "resolved_eras": len(np.unique(shard.eras[covered])),
         "adamw": adam_summary, "spectral": spectral_summary,
         "ender20": summarize_era_scores(benchmark_era).loc["ender20"].to_dict(),
-        "spectral_minus_adamw": bootstrap.to_dict(),
+        "spectral_minus_adamw": spectral_minus_adamw.to_dict(),
+        "adamw_minus_ender20": adamw_minus_ender20.to_dict(),
+        "spectral_minus_ender20": spectral_minus_ender20.to_dict(),
+        "prediction_correlation": prediction_correlation,
         "freeze_manifest_sha256": shard.manifest["freeze_manifest_sha256"],
     }
     atomic_json(output / "official-validation-report.json", report)
