@@ -27,3 +27,6 @@ Failures are retained. An integrity or deterministic-restart failure is repaired
 not silently converted into a smaller model/rank; the exact config is retried on the same free L40
 with reduced non-model overhead, otherwise recorded as a failed complete procedure in both paired
 arms. Runtime never selects or disqualifies an optimizer.
+
+Artifact cadence is non-scientific: runs retain about 200 diagnostic points and one atomic mid-run
+restart checkpoint. Final predictions/results replace the checkpoint on successful completion.

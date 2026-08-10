@@ -20,6 +20,6 @@ def test_search_draw_materializes_to_train_config(arm_index):
 def test_artifact_cadence_scales_without_changing_budget():
     draw = generate_search(n=1)[0]
     value = materialize_config(draw, input_dim=780, updates=100_000)
-    assert value["checkpoint_every"] == 10_000
+    assert value["checkpoint_every"] == 50_000
     assert value["log_every"] == 500
     assert value["examples"] == 100_000 * draw["batch_size"]
