@@ -12,6 +12,8 @@ SHARDS=/ephemeral/t.buckworth/numerai-v5.3
 export UV_CACHE_DIR=/ephemeral/t.buckworth/uv-cache
 cd "$PROJECT"
 "$PROJECT/uv" sync --frozen
+"$PROJECT/uv" run python -c \
+  'import torch; assert torch.cuda.is_available(), "CUDA unavailable; refusing CPU fallback"'
 "$PROJECT/uv" run python -m numerai_competitive.run_task \
   --search configs/search-v1.json --shards "$SHARDS" \
   --output "$PROJECT/results/${TASK_NAME}" --arm "$TASK_ARM" \
