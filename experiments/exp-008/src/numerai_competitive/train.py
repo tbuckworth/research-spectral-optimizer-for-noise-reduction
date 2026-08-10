@@ -46,6 +46,7 @@ class TrainConfig:
     eval_batch_size: int = 4096
     log_every: int = 50
     checkpoint_every: int = 250
+    save_model: bool = False
     filter: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -220,6 +221,7 @@ def run_training(shard_root: Path, split: EraSplit, config: TrainConfig, output_
     checkpoint_path = output_dir / "checkpoint.pt"
     result_path = output_dir / "result.json"
     prediction_path = output_dir / "validation_predictions.npz"
+    model_path = output_dir / "model.pt"
     signature = _config_hash(config, split)
     logs: list[dict[str, Any]] = []
     start_update = 0
@@ -314,7 +316,17 @@ def run_training(shard_root: Path, split: EraSplit, config: TrainConfig, output_
         "updates": config.updates, "examples": config.example_budget,
         "validation": validation, "logs": logs, "peak_cuda_memory_bytes": peak,
         "prediction_file": prediction_path.name,
+        "model_file": model_path.name if config.save_model else None,
     }
+    if config.save_model:
+        _atomic_torch(model_path, {
+            "signature": signature,
+            "model_config": asdict(config.model),
+            "model": model.state_dict(),
+            "target": config.target,
+            "feature_names": shard.manifest["feature_names"],
+            "data_version": shard.manifest["data_version"],
+        })
     atomic_json(result_path, result)
     if checkpoint_path.exists():
         checkpoint_path.unlink()

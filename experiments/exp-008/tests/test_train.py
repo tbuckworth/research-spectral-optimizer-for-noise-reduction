@@ -115,3 +115,14 @@ def test_corr_keeps_era_without_benchmark_coverage(tmp_path: Path):
 def test_validation_named_path_is_rejected(tmp_path: Path):
     with pytest.raises(ValueError, match="sealed"):
         run_training(tmp_path / "validation.parquet", SPLIT, _config(), tmp_path / "out")
+
+
+def test_explicit_final_model_artifact_is_target_free(tmp_path: Path):
+    shard_dir = tmp_path / "shard"
+    shard_dir.mkdir()
+    result = run_training(_shard(shard_dir), SPLIT, _config(save_model=True), tmp_path / "out")
+    artifact = torch.load(tmp_path / "out" / result["model_file"], weights_only=False)
+    assert set(artifact) == {
+        "signature", "model_config", "model", "target", "feature_names", "data_version",
+    }
+    assert not any("target" in key for key in artifact["model"])
