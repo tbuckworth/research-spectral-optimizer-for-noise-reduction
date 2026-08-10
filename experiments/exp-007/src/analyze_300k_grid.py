@@ -46,6 +46,13 @@ def rolling(values, width=5):
     return np.convolve(np.asarray(values, dtype=float), np.ones(width) / width, mode="valid")
 
 
+def expected_realized_rank(total_rank, step, block_count=30):
+    """Rank is capped by both configuration and centered sample count."""
+    q, remainder = divmod(total_rank, block_count)
+    caps = [q + (index < remainder) for index in range(block_count)]
+    return sum(min(cap, step - 1) for cap in caps)
+
+
 data = {}
 audit = {
     "status": "passed",
@@ -94,7 +101,7 @@ for name, (path, rank, hardware) in ARMS.items():
             assert filt["step"] == row["step"]
             assert filt["block_count"] == 30
             assert filt["requested_total_rank"] == rank
-            assert filt["realized_total_basis_rank"] == rank
+            assert filt["realized_total_basis_rank"] == expected_realized_rank(rank, row["step"])
             assert filt["projection_mode"] == "top"
             assert math.isfinite(filt["mean_effective_rank"])
     data[name] = {"payload": payload, "curve": curve, "hardware": hardware}
@@ -153,17 +160,20 @@ def plot_trajectories(metric, filename, ylabel):
         for axis, split in zip(axes, ("train", "valid", "test")):
             axis.plot(steps, [row[split][metric] for row in curve], color=COLORS[name],
                       linestyle=style, linewidth=1.65, label=label)
-    labels = ("TRAIN monitor", "Full VALID", "Full exploratory TEST")
-    for axis, split in zip(axes, labels):
-        axis.set_ylabel(f"{split}\n{ylabel}")
+    labels = (("TRAIN monitor\ncorrelation", "Full VALID\ncorrelation",
+               "Full exploratory TEST\ncorrelation")
+              if metric == "mean_per_era_corr"
+              else ("TRAIN monitor MSE", "Full VALID MSE", "Exploratory TEST MSE"))
+    for axis, label in zip(axes, labels):
+        axis.set_ylabel(label)
         axis.grid(alpha=.2)
         if metric == "mean_per_era_corr":
             axis.axhline(0, color=".6", linewidth=.8)
     axes[0].legend(frameon=False, ncol=2, fontsize=9)
     axes[-1].set_xlabel("Training step")
-    fig.suptitle("Overparameterized Numerai MLP — common 300k horizon")
+    axes[0].set_title("Overparameterized Numerai MLP — common 300k horizon")
     fig.patch.set_facecolor("white")
-    fig.tight_layout(rect=(0, 0, 1, .97))
+    fig.tight_layout()
     fig.savefig(FIG / filename, dpi=180, bbox_inches="tight", facecolor="white")
     plt.close(fig)
 
@@ -184,9 +194,9 @@ axis.set_xticks(x, [name.replace("Top ", "Top\n") for name in names])
 axis.set_ylabel("Mean per-era correlation")
 axis.set_title("Rank comparison at validation-selected checkpoints (0–300k)")
 axis.grid(axis="y", alpha=.2); axis.legend(frameon=False)
-axis.text(.99, .02, "Dashed trajectory arms (1,024/1,536) ran on RTX 3090; others on L40",
-          transform=axis.transAxes, ha="right", va="bottom", fontsize=8, color="#666")
-fig.patch.set_facecolor("white"); fig.tight_layout()
+fig.text(.5, .015, "Ranks 1,024 and 1,536 ran on RTX 3090; all other arms ran on L40",
+         ha="center", va="bottom", fontsize=9, color="#666")
+fig.patch.set_facecolor("white"); fig.tight_layout(rect=(0, .045, 1, 1))
 fig.savefig(FIG / "rank_saturation_300k.png", dpi=180, bbox_inches="tight", facecolor="white")
 plt.close(fig)
 

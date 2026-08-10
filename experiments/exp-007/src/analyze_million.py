@@ -42,6 +42,13 @@ def rolling(values, width=5):
     return np.convolve(values, np.ones(width) / width, mode="valid")
 
 
+def expected_realized_rank(total_rank, step, block_count=30):
+    """Rank is capped by both configuration and centered sample count."""
+    q, remainder = divmod(total_rank, block_count)
+    caps = [q + (index < remainder) for index in range(block_count)]
+    return sum(min(cap, step - 1) for cap in caps)
+
+
 data = {}
 audit = {
     "status": "passed",
@@ -95,7 +102,8 @@ for name, filename in FILES.items():
             assert filt["step"] == row["step"]
             assert filt["block_count"] == 30
             assert filt["requested_total_rank"] == EXPECTED_RANKS[name]
-            assert filt["realized_total_basis_rank"] == EXPECTED_RANKS[name]
+            assert filt["realized_total_basis_rank"] == expected_realized_rank(
+                EXPECTED_RANKS[name], row["step"])
             assert filt["projection_mode"] == "top"
             assert math.isfinite(filt["mean_effective_rank"])
     data[name] = payload
