@@ -1,8 +1,8 @@
 """Deterministic nested expanding era splits with target-horizon purges."""
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass
-from typing import Sequence
 
 
 def era_key(era: str | int) -> int:

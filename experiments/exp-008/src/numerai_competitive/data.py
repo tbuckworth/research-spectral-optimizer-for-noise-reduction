@@ -142,7 +142,7 @@ def build_train_shard(source: Path, destination: Path, feature_set: str = "all")
         "targets": list(TARGETS),
         "benchmarks": list(BENCHMARKS),
         "rows": n,
-        "eras": int(len(np.unique(era))),
+        "eras": len(np.unique(era)),
         "era_min": int(era.min()),
         "era_max": int(era.max()),
         "id_sequence_sha256": ids_hash.hexdigest(),
@@ -166,7 +166,7 @@ class TrainShard:
     manifest: dict
 
     @classmethod
-    def open(cls, root: Path) -> "TrainShard":
+    def open(cls, root: Path) -> TrainShard:
         root = root.resolve()
         manifest = json.loads((root / "manifest.json").read_text())
         if manifest.get("split") != "train" or manifest.get("data_version") != "v5.3":

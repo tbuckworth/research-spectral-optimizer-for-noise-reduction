@@ -16,10 +16,10 @@ with ``V`` of shape ``(p, rank)`` and updated through a small symmetric
 from __future__ import annotations
 
 import math
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 import torch
-
 
 OPERATION_ORDER = (
     "backward -> optional shared clipping -> covariance update -> projection "

@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-import numpy as np
 import pandas as pd
 from numerai_tools.scoring import correlation_contribution, numerai_corr
 

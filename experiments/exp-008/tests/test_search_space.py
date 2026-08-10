@@ -9,8 +9,8 @@ def test_search_is_symmetric_and_deterministic():
     assert len(adamw) == len(spectral) == 40
     spectral_only = {"rank", "decay", "filter_strength", "filter_warmup",
                      "filter_update_every", "filter_mode"}
-    for key in adamw:
-        left = {k: v for k, v in adamw[key].items() if k != "arm"}
+    for key, adamw_config in adamw.items():
+        left = {k: v for k, v in adamw_config.items() if k != "arm"}
         right = {k: v for k, v in spectral[key].items()
                  if k not in spectral_only and k != "arm"}
         assert left == right

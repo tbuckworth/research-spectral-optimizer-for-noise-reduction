@@ -6,7 +6,9 @@ import pytest
 from numerai_tools.scoring import correlation_contribution, numerai_corr
 
 from numerai_competitive.metrics import (
-    per_era_corr, per_era_correlation_contribution, summarize_era_scores,
+    per_era_corr,
+    per_era_correlation_contribution,
+    summarize_era_scores,
 )
 
 

@@ -1,6 +1,5 @@
 from numerai_competitive.splits import assert_no_future_leakage, inner_splits_20d, outer_splits_20d
 
-
 ERAS = [f"{i:04d}" for i in range(1, 575)]
 
 
