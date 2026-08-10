@@ -7,7 +7,10 @@ import re
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
+
+from .data import sha256
 
 TASK = re.compile(
     r"stage-(?P<split>.+)-u(?P<updates>\d+)-s(?P<seed>\d+)-"
@@ -24,8 +27,38 @@ def collect_stage(results: Path, *, split: str, updates: int, seed: int,
                 split, updates, seed):
             continue
         result = json.loads(result_path.read_text())
+        arm, config_id = match["arm"], int(match["config_id"])
+        expected = {
+            "status": "complete", "split": split, "updates": updates, "seed": seed,
+            "arm": arm, "config_id": config_id,
+        }
+        actual = {
+            "status": result.get("status"), "split": result.get("split", {}).get("name"),
+            "updates": result.get("updates"), "seed": result.get("config", {}).get("seed"),
+            "arm": result.get("config", {}).get("arm"),
+            "config_id": result.get("config", {}).get("search_config_id"),
+        }
+        if actual != expected:
+            raise ValueError(f"{result_path}: result provenance differs from task path")
+        prediction_path = result_path.parent / result["prediction_file"]
+        if not prediction_path.is_file():
+            raise ValueError(f"{result_path}: prediction artifact is missing")
+        with np.load(prediction_path) as saved:
+            required = {"row_index", "era", "target", "benchmark", "prediction",
+                        "per_era_corr", "per_era_bmc"}
+            if not required <= set(saved.files):
+                raise ValueError(f"{prediction_path}: incomplete prediction schema")
+            n = len(saved["row_index"])
+            if (n != result["validation"]["rows"]
+                    or any(len(saved[key]) != n for key in
+                           ("era", "target", "benchmark", "prediction"))
+                    or len(np.unique(saved["row_index"])) != n
+                    or not np.isfinite(saved["prediction"]).all()
+                    or not np.isfinite(saved["target"]).all()
+                    or not np.isfinite(saved["per_era_corr"]).all()):
+                raise ValueError(f"{prediction_path}: corrupt or misaligned prediction arrays")
         rows.append({
-            "arm": match["arm"], "config_id": int(match["config_id"]),
+            "arm": arm, "config_id": config_id,
             "split": split, "updates": updates, "seed": seed,
             "corr_mean": result["validation"]["corr"]["mean"],
             "corr_sharpe": result["validation"]["corr"]["sharpe"],
@@ -33,6 +66,9 @@ def collect_stage(results: Path, *, split: str, updates: int, seed: int,
             "parameters": result["parameter_count"],
             "peak_cuda_gib": result["peak_cuda_memory_bytes"] / 2**30,
             "elapsed_seconds": result["logs"][-1]["elapsed_seconds"],
+            "examples": result["examples"], "signature": result["signature"],
+            "result_sha256": sha256(result_path),
+            "prediction_sha256": sha256(prediction_path),
         })
     frame = pd.DataFrame(rows)
     if frame.duplicated(["arm", "config_id"]).any():
