@@ -119,8 +119,13 @@ def evaluate(shard_root: Path, freeze_path: Path, adamw_models: list[Path],
     benchmark = pd.Series(
         np.asarray(shard.benchmarks[indices, benchmark_column], dtype=np.float64), index=ids
     )
-    target = pd.Series(np.asarray(shard.targets[indices, target_column], dtype=np.float64), index=ids)
-    eras = pd.Series([f"{int(value):04d}" for value in shard.eras[indices]], index=ids)
+    target = pd.Series(
+        np.asarray(shard.targets[indices, target_column], dtype=np.float64),
+        index=ids, name="target",
+    )
+    eras = pd.Series(
+        [f"{int(value):04d}" for value in shard.eras[indices]], index=ids, name="era"
+    )
     benchmark_era = per_era_corr(benchmark.rename("ender20"), target, eras)["ender20"]
     transform = freeze["candidate_transform"]
     base_candidate = adamw[covered] if transform["arm"] == "adamw" else spectral[covered]
