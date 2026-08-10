@@ -126,3 +126,16 @@ def test_explicit_final_model_artifact_is_target_free(tmp_path: Path):
         "signature", "model_config", "model", "target", "feature_names", "data_version",
     }
     assert not any("target" in key for key in artifact["model"])
+
+
+def test_refit_requires_model_artifact_and_has_no_validation_score(tmp_path: Path):
+    shard_dir = tmp_path / "shard"
+    shard_dir.mkdir()
+    split = EraSplit("all_train", ("1", "2", "3", "4", "5", "6"), (), ())
+    result = run_training(_shard(shard_dir), split, _config(save_model=True),
+                          tmp_path / "out", refit=True)
+    assert result["validation"] is None
+    assert result["prediction_file"] is None
+    assert (tmp_path / "out" / "model.pt").is_file()
+    with pytest.raises(ValueError, match="save_model"):
+        run_training(shard_dir, split, _config(save_model=False), tmp_path / "bad", refit=True)

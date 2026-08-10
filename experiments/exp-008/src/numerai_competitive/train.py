@@ -192,7 +192,8 @@ def _evaluate(predictions: np.ndarray, shard: TrainShard, indices: np.ndarray,
 
 
 def run_training(shard_root: Path, split: EraSplit, config: TrainConfig, output_dir: Path,
-                 *, resume: bool = True, stop_after_updates: int | None = None) -> dict[str, Any]:
+                 *, resume: bool = True, stop_after_updates: int | None = None,
+                 refit: bool = False) -> dict[str, Any]:
     """Train exactly one frozen-shard split/config and write restart-safe artifacts."""
     if "validation" in str(Path(shard_root)).lower():
         raise ValueError("validation paths are sealed from the training runner")
@@ -202,7 +203,9 @@ def run_training(shard_root: Path, split: EraSplit, config: TrainConfig, output_
         raise ValueError("model input_dim does not match shard features")
     train_indices = shard.row_indices(list(split.train_eras))
     valid_indices = shard.row_indices(list(split.valid_eras))
-    if not len(valid_indices):
+    if refit and (len(valid_indices) or not config.save_model):
+        raise ValueError("refit requires no validation eras and save_model=True")
+    if not refit and not len(valid_indices):
         raise ValueError("validation fold has no shard rows")
     device = _device(config.device)
     if device.type == "cuda":
@@ -299,23 +302,27 @@ def run_training(shard_root: Path, split: EraSplit, config: TrainConfig, output_
         })
         return {"status": "checkpointed", "update": limit, "signature": signature}
 
-    predictions = _predict(model, shard, valid_indices, device, config.eval_batch_size)
-    validation, per_era = _evaluate(predictions, shard, valid_indices,
-                                    shard.target_index(config.target),
-                                    shard.benchmark_index(config.benchmark))
-    _atomic_npz(prediction_path, row_index=valid_indices, era=np.asarray(shard.eras[valid_indices]),
-                target=np.asarray(shard.targets[valid_indices, shard.target_index(config.target)]),
-                benchmark=np.asarray(shard.benchmarks[valid_indices,
-                                                     shard.benchmark_index(config.benchmark)]),
-                prediction=predictions, per_era_name=per_era.index.to_numpy(str),
-                per_era_corr=per_era["corr"].to_numpy(), per_era_bmc=per_era["bmc"].to_numpy())
+    validation = None
+    if not refit:
+        predictions = _predict(model, shard, valid_indices, device, config.eval_batch_size)
+        validation, per_era = _evaluate(predictions, shard, valid_indices,
+                                        shard.target_index(config.target),
+                                        shard.benchmark_index(config.benchmark))
+        _atomic_npz(
+            prediction_path, row_index=valid_indices, era=np.asarray(shard.eras[valid_indices]),
+            target=np.asarray(shard.targets[valid_indices, shard.target_index(config.target)]),
+            benchmark=np.asarray(shard.benchmarks[valid_indices,
+                                                 shard.benchmark_index(config.benchmark)]),
+            prediction=predictions, per_era_name=per_era.index.to_numpy(str),
+            per_era_corr=per_era["corr"].to_numpy(), per_era_bmc=per_era["bmc"].to_numpy(),
+        )
     peak = (int(torch.cuda.max_memory_allocated(device)) if device.type == "cuda" else 0)
     result = {
         "status": "complete", "signature": signature, "split": split.to_dict(),
         "config": asdict(config), "parameter_count": sum(p.numel() for p in model.parameters()),
         "updates": config.updates, "examples": config.example_budget,
         "validation": validation, "logs": logs, "peak_cuda_memory_bytes": peak,
-        "prediction_file": prediction_path.name,
+        "prediction_file": None if refit else prediction_path.name,
         "model_file": model_path.name if config.save_model else None,
     }
     if config.save_model:

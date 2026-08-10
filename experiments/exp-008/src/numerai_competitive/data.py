@@ -286,3 +286,25 @@ class TrainShard:
     def row_indices(self, era_values: tuple[str, ...] | list[str]) -> np.ndarray:
         wanted = np.array([int(x) for x in era_values], dtype=self.eras.dtype)
         return np.flatnonzero(np.isin(self.eras, wanted))
+
+
+@dataclass
+class ValidationShard(TrainShard):
+    """Frozen official validation arrays; intentionally separate from development loading."""
+
+    @classmethod
+    def open(cls, root: Path) -> ValidationShard:
+        root = root.resolve()
+        manifest = json.loads((root / "manifest.json").read_text())
+        if manifest.get("split") != "validation" or manifest.get("data_version") != "v5.3":
+            raise ValueError("validation loader accepts a frozen v5.3 validation shard only")
+        X = np.load(root / "X_u8.npy", mmap_mode="r")
+        targets = np.load(root / "targets_f32.npy", mmap_mode="r")
+        eras = np.load(root / "era_i16.npy", mmap_mode="r")
+        benchmarks = np.load(root / "benchmarks_f32.npy", mmap_mode="r")
+        n = manifest["rows"]
+        if any(len(value) != n for value in (X, targets, eras, benchmarks)):
+            raise ValueError("validation shard row counts disagree with manifest")
+        if "freeze_manifest_sha256" not in manifest:
+            raise ValueError("validation shard lacks freeze provenance")
+        return cls(root, X, targets, eras, benchmarks, manifest)

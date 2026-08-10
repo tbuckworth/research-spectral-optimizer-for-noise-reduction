@@ -4,13 +4,21 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from numerai_competitive.data import TrainShard, _feature_codes, _validate_freeze_manifest
+from numerai_competitive.data import (
+    TrainShard,
+    ValidationShard,
+    _feature_codes,
+    _validate_freeze_manifest,
+)
 
 
 def test_loader_rejects_validation_manifest(tmp_path: Path):
     (tmp_path / "manifest.json").write_text(json.dumps({"split": "validation", "data_version": "v5.3"}))
     with pytest.raises(ValueError, match="train shard"):
         TrainShard.open(tmp_path)
+    (tmp_path / "manifest.json").write_text(json.dumps({"split": "train", "data_version": "v5.3"}))
+    with pytest.raises(ValueError, match="validation shard"):
+        ValidationShard.open(tmp_path)
 
 
 def test_loader_rejects_mismatched_rows(tmp_path: Path):
