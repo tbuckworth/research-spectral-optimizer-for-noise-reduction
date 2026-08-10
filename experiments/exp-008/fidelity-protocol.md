@@ -31,3 +31,4 @@ arms. Runtime never selects or disqualifies an optimizer.
 
 Artifact cadence is non-scientific: runs retain about 200 diagnostic points and one atomic mid-run
 restart checkpoint. Final predictions/results replace the checkpoint on successful completion.
+Promoted jobs request 23.5 hours, below the free partition's tested 24-hour QOS ceiling.
