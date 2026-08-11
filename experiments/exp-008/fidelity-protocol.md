@@ -2,6 +2,9 @@
 
 The base protocol below was frozen before completion of the first screen. The primary selection statistic is mean exact
 standalone Numerai CORR. BMC, Sharpe, runtime and official validation do not select configs.
+The primary official benchmark is `v53_lgbm_ender60`, matched to the generic target because the
+pinned `target` is byte-identical to `target_ender_60`. Ender20 is retained only for explicitly
+labelled secondary 20-day-target analyses.
 
 For each outer fold independently:
 

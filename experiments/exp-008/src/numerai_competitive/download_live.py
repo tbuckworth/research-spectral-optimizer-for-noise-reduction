@@ -9,6 +9,7 @@ from pathlib import Path
 import pandas as pd
 from numerapi import NumerAPI
 
+from . import PRIMARY_BENCHMARK
 from .data import _validate_freeze_manifest, atomic_json, sha256
 
 DATASETS = {
@@ -49,10 +50,10 @@ def download_live(destination: Path, freeze_manifest: Path,
             raise ValueError("live and benchmark IDs are empty, duplicated, or misaligned")
         if any(column.startswith("target") for column in live.columns):
             raise ValueError("live fixture unexpectedly contains target columns")
-        if "v53_lgbm_ender20" not in benchmark.columns:
-            raise ValueError("live benchmark lacks frozen Ender20 column")
-        if benchmark["v53_lgbm_ender20"].isna().any():
-            raise ValueError("live Ender20 benchmark contains missing predictions")
+        if PRIMARY_BENCHMARK not in benchmark.columns:
+            raise ValueError("live benchmark lacks frozen Ender60 column")
+        if benchmark[PRIMARY_BENCHMARK].isna().any():
+            raise ValueError("live Ender60 benchmark contains missing predictions")
         artifacts = {}
         for filename, temporary in temporary_paths.items():
             final = destination / filename

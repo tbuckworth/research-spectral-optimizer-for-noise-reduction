@@ -8,6 +8,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from . import PRIMARY_BENCHMARK
 from .data import atomic_json, sha256
 from .metrics import per_era_corr, per_era_correlation_contribution, summarize_era_scores
 
@@ -91,7 +92,7 @@ def select_candidate(oof_path: Path, output: Path,
             metrics = _score(blended, target, benchmark, eras, arrays["split"])
             candidates.append({
                 "arm": arm, "model_weight": float(weight),
-                "benchmark_weight": float(1 - weight), "benchmark": "v53_lgbm_ender20",
+                "benchmark_weight": float(1 - weight), "benchmark": PRIMARY_BENCHMARK,
                 "standalone_stable_positive": stable, "metrics": metrics,
             })
     eligible = [candidate for candidate in candidates if candidate["standalone_stable_positive"]]

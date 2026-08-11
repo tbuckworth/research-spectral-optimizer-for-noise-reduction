@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from . import PRIMARY_BENCHMARK
+
 
 def materialize_config(draw: dict[str, Any], *, input_dim: int, updates: int,
                        seed: int = 0) -> dict[str, Any]:
@@ -23,6 +25,7 @@ def materialize_config(draw: dict[str, Any], *, input_dim: int, updates: int,
         },
         "arm": draw["arm"],
         "target": draw["target"],
+        "benchmark": PRIMARY_BENCHMARK,
         "seed": seed,
         "batch_mode": "row" if draw["batch_mode"] == "rows" else draw["batch_mode"],
         "batch_size": draw["batch_size"],

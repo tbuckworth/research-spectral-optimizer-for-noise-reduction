@@ -33,7 +33,7 @@ def _verify_search_identity(result: dict, *, arm: str, config_id: int, updates: 
         draw, input_dim=feature_dimensions[draw["feature_set"]], updates=updates, seed=seed,
     )
     scientific_keys = (
-        "model", "arm", "target", "seed", "batch_mode", "batch_size", "updates",
+        "model", "arm", "target", "benchmark", "seed", "batch_mode", "batch_size", "updates",
         "examples", "learning_rate", "weight_decay", "loss", "schedule",
         "warmup_updates", "clip_norm",
     )

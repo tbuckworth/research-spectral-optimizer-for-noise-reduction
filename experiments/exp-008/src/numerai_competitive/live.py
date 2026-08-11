@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 import torch
 
+from . import PRIMARY_BENCHMARK
 from .data import sha256
 from .model import MLPConfig, ResidualMLP
 
@@ -21,7 +22,7 @@ class NumeraiMLPPredictor:
 
     def __init__(self, artifacts: dict | Sequence[dict], batch_size: int = 4096,
                  model_weight: float = 1.0,
-                 benchmark_name: str = "v53_lgbm_ender20") -> None:
+                 benchmark_name: str = PRIMARY_BENCHMARK) -> None:
         artifacts = [artifacts] if isinstance(artifacts, dict) else list(artifacts)
         if not artifacts:
             raise ValueError("at least one model artifact is required")

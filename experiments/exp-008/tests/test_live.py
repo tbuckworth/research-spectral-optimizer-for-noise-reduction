@@ -68,7 +68,7 @@ def test_live_frozen_benchmark_blend_requires_exact_benchmark_alignment():
         columns=["a", "b", "c"],
     )
     benchmark = pd.DataFrame(
-        {"v53_lgbm_ender20": [0.1, 0.8, 0.3, 0.6]}, index=index
+        {"v53_lgbm_ender60": [0.1, 0.8, 0.3, 0.6]}, index=index
     )
     blended = predictor(frame, benchmark)
     assert blended.index.equals(index)

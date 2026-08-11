@@ -33,7 +33,7 @@ def _model(path, arm, config_id, seed, updates=5000):
         "signature": f"{arm}-{seed}", "data_version": "v5.3",
         "train_config": {
             "arm": arm, "search_config_id": config_id, "seed": seed, "updates": updates,
-            "target": "target", "feature_set": "medium",
+            "target": "target", "benchmark": "v53_lgbm_ender60", "feature_set": "medium",
         },
         "train_split": {
             "name": "all_train_refit", "train_eras": [f"{i:04d}" for i in range(1, 575)],
@@ -55,7 +55,7 @@ def test_freeze_verifies_complete_model_provenance(tmp_path):
     candidate = tmp_path / "candidate.json"
     candidate.write_text(json.dumps({
         "status": "frozen_train_only_selection",
-        "selected": {"arm": "spectral", "benchmark": "v53_lgbm_ender20",
+        "selected": {"arm": "spectral", "benchmark": "v53_lgbm_ender60",
                      "model_weight": 0.75, "benchmark_weight": 0.25},
     }))
     adamw, spectral = [], []
@@ -90,7 +90,7 @@ def test_freeze_preserves_arm_specific_update_budgets(tmp_path):
     candidate = tmp_path / "candidate.json"
     candidate.write_text(json.dumps({
         "status": "frozen_train_only_selection",
-        "selected": {"arm": "adamw", "benchmark": "v53_lgbm_ender20",
+        "selected": {"arm": "adamw", "benchmark": "v53_lgbm_ender60",
                      "model_weight": 1.0, "benchmark_weight": 0.0},
     }))
     adamw, spectral = tmp_path / "adamw.pt", tmp_path / "spectral.pt"

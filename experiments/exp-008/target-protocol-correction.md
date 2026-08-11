@@ -36,6 +36,12 @@ The pinned v5.3 source hashes remain unchanged; this correction changes which
 released column is the primary objective and adds the main target to materialized
 shards.
 
+The matching official baseline is `v53_lgbm_ender60`, not
+`v53_lgbm_ender20`. The latter was mistakenly used in the first corrected-target
+campaign even though both official benchmark columns were already present in the
+shards. That campaign's primary standalone CORR remains descriptive, but its BMC,
+blend, and benchmark comparisons are excluded from selection and final reporting.
+
 ## Artifact disposition
 
 All completed auxiliary-target artifacts are retained as optimizer-method and
@@ -45,6 +51,14 @@ sealed validation, live-candidate construction, and leaderboard claims.
 When the mismatch was confirmed, jobs 8499 through 8577 were cancelled and the
 associated promotion/supervisor sessions were stopped. No target-corrected jobs
 had started, and no official validation target was revealed.
+
+On 2026-08-12 the benchmark mismatch above was found before F0 promotion. Jobs
+8618 through 8697 were cancelled, all controllers were stopped, and 15 completed
+result files (including the smoke gate) were retained under
+`results-ender20-wrong-benchmark-20260812`. Those model gradients and standalone
+CORR values did not depend on the benchmark, but the campaign is excluded wholesale
+to avoid mixing Ender20 BMC/blend artifacts with the corrected Ender60 procedure.
+Official validation remained sealed.
 
 ## Corrected procedure
 
