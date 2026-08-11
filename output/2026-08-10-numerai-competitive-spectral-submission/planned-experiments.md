@@ -1,5 +1,13 @@
 # Planned Experiments
 
+> **Superseded target field (2026-08-11):** this pre-experiment document selected
+> `target_cyrusd_20`. That was corrected before the current run to the documented
+> v5.3 main `target`; see
+> `experiments/exp-008/target-protocol-correction.md`. Historical main-target
+> evidence remains distinct from live CORR20v2 because the pinned main target
+> equals `target_ender_60`, while live reputation uses unreleased
+> `target_cyrus_20`.
+
 ## Exp-008A — Integrity and current-data harness
 
 Build a v5.3 train-only shard with explicit feature/target metadata and hashes. Implement whole-era walk-forward splits, exact `numerai-tools` CORR/BMC, corruption tests, sealed validation access, deterministic configs/checkpoints and per-era prediction artifacts. Reproduce the released Ender benchmark snapshot as an integration test.

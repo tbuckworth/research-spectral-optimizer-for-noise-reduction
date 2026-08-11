@@ -201,6 +201,12 @@ def evaluate(shard_root: Path, freeze_path: Path, adamw_models: list[Path],
     adamw = _ensemble(adamw_models, "adamw", shard, freeze, device, batch_size)
     spectral = _ensemble(spectral_models, "spectral", shard, freeze, device, batch_size)
     target_column = shard.target_index("target")
+    ender60_column = shard.target_index("target_ender_60")
+    target_equals_ender60 = np.array_equal(
+        shard.targets[:, target_column], shard.targets[:, ender60_column], equal_nan=True,
+    )
+    if not target_equals_ender60:
+        raise ValueError("pinned v5.3 main target no longer equals target_ender_60")
     covered = np.isfinite(shard.targets[:, target_column])
     indices = np.flatnonzero(covered)
     benchmark_column = shard.benchmark_index("v53_lgbm_ender20")
@@ -267,6 +273,11 @@ def evaluate(shard_root: Path, freeze_path: Path, adamw_models: list[Path],
                 benchmark=shard.benchmarks[indices, benchmark_column])
     report = {
         "status": "complete", "target": "target",
+        "target_alias_audit": {
+            "target_equals_target_ender_60": target_equals_ender60,
+            "live_corr20v2_target": "target_cyrus_20",
+            "live_target_released_in_v5_3": False,
+        },
         "resolved_rows": int(covered.sum()), "resolved_eras": len(np.unique(shard.eras[covered])),
         "adamw": adam_summary, "spectral": spectral_summary,
         "candidate": candidate_summary, "candidate_transform": transform,

@@ -153,6 +153,11 @@ def _complete_tree(tmp_path: Path) -> tuple[Path, Path]:
     validation = results / "official-validation"
     validation_report = _write(validation / "official-validation-report.json", {
         "status": "complete", "target": "target",
+        "target_alias_audit": {
+            "target_equals_target_ender_60": True,
+            "live_corr20v2_target": "target_cyrus_20",
+            "live_target_released_in_v5_3": False,
+        },
         "freeze_manifest_sha256": sha256(freeze), "spectral_minus_adamw": {},
         "candidate_minus_ender20": {},
     })

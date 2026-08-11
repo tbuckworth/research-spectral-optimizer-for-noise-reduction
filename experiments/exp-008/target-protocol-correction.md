@@ -7,14 +7,18 @@ Date: 2026-08-11
 The first exp-008 searches set the primary target to the auxiliary column
 `target_cyrusd_20`. Current Numerai v5.3 documentation and the official example
 scripts instead identify the generic `target` column as the main tournament
-development objective. The current CORR20v2 scorer evaluates predictions against
-the corresponding Cyrus-20 endpoint, but that does not make the released
-`target_cyrusd_20` auxiliary column interchangeable with `target`.
+development objective. Current live CORR20v2 reputation is scored against
+`target_cyrus_20`, which is not released in the pinned historical files. The
+released `target_cyrusd_20` auxiliary column is not interchangeable with either
+the generic `target` or the unreleased live payout endpoint.
 
 The two released columns are materially different. On the pinned v5.3 training
 data their row-level correlation is approximately 0.4175702743. Therefore,
 auxiliary-target search results cannot be relabelled or used for the final
-leaderboard-comparable model selection.
+main-target model selection. The pinned generic `target` is also byte-identical
+to `target_ender_60`; consequently, historical main-target CORR is
+Diagnostics-compatible evidence, not a reconstructed live CORR20v2 reputation.
+Only forward unstaked submissions can establish direct leaderboard comparability.
 
 ## Evidence
 

@@ -22,6 +22,11 @@ def test_final_report_keeps_live_and_historical_scales_separate(tmp_path: Path):
                    "spectral": score, "spectral_minus_adamw": _comparison(0.001)})
     validation = _write(tmp_path / "validation.json", {
         "status": "complete", "target": "target", "adamw": score,
+        "target_alias_audit": {
+            "target_equals_target_ender_60": True,
+            "live_corr20v2_target": "target_cyrus_20",
+            "live_target_released_in_v5_3": False,
+        },
         "spectral": score, "candidate": score,
         "ender20": {"mean": 0.019, "sharpe": 1.0},
         "spectral_minus_adamw": _comparison(0.002),
@@ -61,8 +66,10 @@ def test_final_report_keeps_live_and_historical_scales_separate(tmp_path: Path):
     manifest = build_report(outer, validation, leaderboard, freeze, search, output)
     assert manifest["comparability"] == "historical-direct_live-context-only"
     html = (output / "report.html").read_text()
-    assert "not itself a resolved live reputation" in html
+    assert "cannot be converted into a live rank" in html
     assert "<code>target</code>" in html
+    assert "<code>target_cyrus_20</code>" in html
+    assert "<code>target_ender_60</code>" in html
     assert "40 paired configuration IDs" in html
     assert "GPU-feasible high-rank" in html
     assert "Selected AdamW" in html

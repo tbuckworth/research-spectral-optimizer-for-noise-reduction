@@ -55,7 +55,9 @@ def test_frozen_evaluator_scores_candidate_and_named_benchmark_column(tmp_path: 
     shard = tmp_path / "validation-shard"
     shard.mkdir()
     np.save(shard / "X_u8.npy", rng.integers(0, 5, (rows, 3), dtype=np.uint8))
-    np.save(shard / "targets_f32.npy", rng.uniform(0, 1, (rows, 5)).astype(np.float32))
+    targets = rng.uniform(0, 1, (rows, 5)).astype(np.float32)
+    targets[:, 4] = targets[:, 0]
+    np.save(shard / "targets_f32.npy", targets)
     np.save(shard / "era_i16.npy", np.repeat(np.arange(100, 108), 20).astype(np.int16))
     # Ender20 is deliberately column 1: the evaluator must resolve by name.
     np.save(shard / "benchmarks_f32.npy", rng.uniform(0, 1, (rows, 3)).astype(np.float32))
@@ -87,6 +89,7 @@ def test_frozen_evaluator_scores_candidate_and_named_benchmark_column(tmp_path: 
     report = evaluate(shard, freeze, [adamw], [spectral], output, "cpu", 32)
     assert report["status"] == "complete" and report["resolved_eras"] == 8
     assert report["candidate_transform"]["model_weight"] == 0.5
+    assert report["target_alias_audit"]["target_equals_target_ender_60"] is True
     assert report["candidate_minus_ender20"]["samples"] == 10_000
     assert report["prediction_correlation"]["candidate_vs_ender20"]["eras"] == 8
     assert set(report["secondary"]) == {
