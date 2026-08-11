@@ -37,6 +37,10 @@ sbatch slurm/sync-env.sbatch
 bash slurm/submit-selected.sh SELECTION.json 20000 0 ENV_JOB_ID SPLIT...
 ```
 
+`promote-f0-when-ready.sh` waits for the audited F0 table before submitting F1.
+`promote-f1-when-ready.sh` likewise requires both audited F1 temporal-fold tables, selects the
+top-four paired union, and submits the exact three-seed F2 manifest.
+
 Submission scripts print tab-separated job provenance. `monitor-stage.sh` refuses incomplete
 coverage and dependency failures. GPU jobs use the dependency-built environment with `--no-sync`
 so concurrent jobs never mutate it. Jobs receive `SIGUSR1` one hour before the free-partition
