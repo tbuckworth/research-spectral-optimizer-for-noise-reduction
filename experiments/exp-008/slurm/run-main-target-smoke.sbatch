@@ -28,6 +28,7 @@ for feature_set in ("medium", "all"):
     manifest = json.loads((root / feature_set / "manifest.json").read_text())
     assert manifest["split"] == "train"
     assert manifest["targets"][0] == "target"
+    assert manifest["benchmarks"] == ["v53_lgbm_ender20", "v53_lgbm_ender60"]
     targets = np.load(root / feature_set / "targets_f32.npy", mmap_mode="r")
     assert targets.shape[1] == len(manifest["targets"]) == 5
     assert np.isfinite(targets[:, 0]).all()
@@ -50,6 +51,7 @@ result = json.loads(Path(
 ).read_text())
 assert result["status"] == "complete"
 assert result["config"]["target"] == "target"
+assert result["config"]["benchmark"] == "v53_lgbm_ender60"
 assert result["updates"] == 50
 assert math.isfinite(result["validation"]["corr"]["mean"])
 print("main-target training/scoring smoke passed", result["validation"]["corr"]["mean"])
