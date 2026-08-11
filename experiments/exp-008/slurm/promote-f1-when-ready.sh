@@ -46,5 +46,7 @@ fi
 
 tmux new-session -d -s numerai-f2-supervisor \
   "bash '$PROJECT/slurm/supervise-resumable-stage.sh' '$MANIFEST'"
+tmux new-session -d -s numerai-f2-promote \
+  "bash '$PROJECT/slurm/promote-f2-when-ready.sh' '$LAST_JOB'"
 printf '%s submitted F2 union=%s jobs=%s--%s dependency=%s\n' \
   "$(date -Is)" "$EXPECTED" "$FIRST_JOB" "$LAST_JOB" "$DEPENDENCY_JOB" >> "$LOG"

@@ -53,6 +53,9 @@ the independently selected config for each arm on the named untouched outer spli
 uses the same resumable supervisor with `--skip-summary` and must pass the dedicated outer-result
 audit before entering `oof.py`. `submit-refit.sh` is reserved for the later all-train deployment
 refit and must never be used as nested-outer evidence.
+`promote-f2-when-ready.sh` applies that route automatically only after all six audited F2
+fold/seed summaries exist; `audit-outer-when-ready.sh` then blocks until all six arm-specific
+outer results exist and runs the dedicated audit.
 
 After all outer folds, aggregate only untouched nested-outer predictions:
 
