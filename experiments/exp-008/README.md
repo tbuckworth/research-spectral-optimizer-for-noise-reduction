@@ -103,14 +103,16 @@ nested stage are reused only by path; the exact-ID summarizer re-audits their fr
 signature, prediction schema, and hashes. Final summaries use a separate `summary-final-*`
 namespace, so they cannot overwrite the outer-fold selection evidence.
 Once every exact configuration/budget final-selection summary exists, the promotion waiter selects
-one configuration/update pair per arm, submits seeds 0/1/2 for full-train refit, resumes only exact
+one configuration/update pair per arm, submits seeds 0/1/2 for 60-day-purged validation refit,
+resumes only exact
 checkpointed refits, and writes `audit-final-refits-budgeted/refit-audit.json`. The audit checks selection/manifest coverage,
 frozen-search identity, all-train era provenance, signatures, model metadata, state-dict shapes,
 and parameter counts before the later freeze computes full model-file hashes.
 
 ## One-time validation and live bundle
 
-After final canonical-fold selection and three full-train refits per arm, create the freeze:
+After final canonical-fold selection and three 60-day-purged validation refits per arm, create
+the freeze:
 
 ```bash
 uv run python -m numerai_competitive.code_snapshot create \

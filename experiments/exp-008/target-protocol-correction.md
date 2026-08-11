@@ -60,6 +60,13 @@ CORR values did not depend on the benchmark, but the campaign is excluded wholes
 to avoid mixing Ender20 BMC/blend artifacts with the corrected Ender60 procedure.
 Official validation remained sealed.
 
+That Ender60 relaunch still inherited the earlier 20-day split implementation and
+therefore purged only eight eras. On 2026-08-12, before the first spectral cell or
+any promotion completed, jobs 8727 through 8806 were cancelled and the two result
+files (smoke plus one AdamW cell) were retained under
+`results-ender60-wrong-8era-purge-20260812`. The corrected main-target protocol uses
+16-era purges at every development and sealed-validation boundary.
+
 ## Corrected procedure
 
 1. Materialize fresh v5.3 shards containing the main `target`.

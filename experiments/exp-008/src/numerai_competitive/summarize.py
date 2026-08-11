@@ -14,6 +14,7 @@ import pandas as pd
 
 from .data import _load_features, atomic_json, sha256
 from .materialize import materialize_config
+from .splits import resolve_split_60d
 
 TASK = re.compile(
     r"stage-(?P<split>.+)-u(?P<updates>\d+)-s(?P<seed>\d+)-"
@@ -79,6 +80,8 @@ def collect_stage(results: Path, *, split: str, updates: int, seed: int,
                 split, updates, seed):
             continue
         result = json.loads(result_path.read_text())
+        if split.startswith("outer_") and result.get("split") != resolve_split_60d(split).to_dict():
+            raise ValueError(f"{result_path}: split eras differ from frozen 60-day protocol")
         arm, config_id = match["arm"], int(match["config_id"])
         if expected_config_ids is not None and config_id not in expected_config_ids:
             continue

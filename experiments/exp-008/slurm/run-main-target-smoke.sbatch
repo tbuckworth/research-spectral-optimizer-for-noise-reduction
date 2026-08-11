@@ -52,6 +52,9 @@ result = json.loads(Path(
 assert result["status"] == "complete"
 assert result["config"]["target"] == "target"
 assert result["config"]["benchmark"] == "v53_lgbm_ender60"
+assert result["split"]["train_eras"][-1] == "0140"
+assert result["split"]["purged_eras"] == [f"{era:04d}" for era in range(141, 157)]
+assert result["split"]["valid_eras"][0] == "0157"
 assert result["updates"] == 50
 assert math.isfinite(result["validation"]["corr"]["mean"])
 print("main-target training/scoring smoke passed", result["validation"]["corr"]["mean"])

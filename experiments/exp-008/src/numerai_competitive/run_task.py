@@ -8,20 +8,12 @@ from pathlib import Path
 from .data import TrainShard
 from .materialize import materialize_config
 from .model import MLPConfig
-from .splits import inner_splits_20d, outer_splits_20d
+from .splits import resolve_split_60d
 from .train import TrainConfig, run_training
 
 
 def resolve_split(name: str):
-    eras = [f"{i:04d}" for i in range(1, 575)]
-    outer = {split.name: split for split in outer_splits_20d(eras)}
-    all_splits = dict(outer)
-    for split in outer.values():
-        all_splits.update({inner.name: inner for inner in inner_splits_20d(split)})
-    try:
-        return all_splits[name]
-    except KeyError as exc:
-        raise ValueError(f"unknown split {name!r}; choices={sorted(all_splits)}") from exc
+    return resolve_split_60d(name)
 
 
 def main() -> None:

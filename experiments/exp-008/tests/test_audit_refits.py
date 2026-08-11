@@ -29,9 +29,9 @@ def _draw(arm, config_id):
 def _refit(root, draw, seed, updates=100000):
     config = materialize_config(draw, input_dim=3, updates=updates, seed=seed)
     split = {
-        "name": "all_train_refit",
-        "train_eras": [f"{era:04d}" for era in range(1, 575)],
-        "valid_eras": [], "purged_eras": [],
+        "name": "sealed_validation_refit_60d",
+        "train_eras": [f"{era:04d}" for era in range(1, 559)],
+        "valid_eras": [], "purged_eras": [f"{era:04d}" for era in range(559, 575)],
     }
     signature = hashlib.sha256(json.dumps(
         {"config": config, "split": split}, sort_keys=True,

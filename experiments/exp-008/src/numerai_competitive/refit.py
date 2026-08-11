@@ -10,7 +10,7 @@ import numpy as np
 from .data import TrainShard
 from .materialize import materialize_config
 from .model import MLPConfig
-from .splits import EraSplit
+from .splits import sealed_validation_refit_60d
 from .train import TrainConfig, run_training
 
 
@@ -40,7 +40,7 @@ def main() -> None:
     value["model"] = MLPConfig(**value["model"])
     value["save_model"] = True
     eras = tuple(f"{int(era):04d}" for era in np.unique(shard.eras))
-    split = EraSplit("all_train_refit", eras, (), ())
+    split = sealed_validation_refit_60d(eras)
     result = run_training(shard_root, split, TrainConfig(**value), args.output, refit=True)
     print(json.dumps(result, sort_keys=True))
 

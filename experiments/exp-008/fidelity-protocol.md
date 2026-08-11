@@ -5,6 +5,11 @@ standalone Numerai CORR. BMC, Sharpe, runtime and official validation do not sel
 The primary official benchmark is `v53_lgbm_ender60`, matched to the generic target because the
 pinned `target` is byte-identical to `target_ender_60`. Ender20 is retained only for explicitly
 labelled secondary 20-day-target analyses.
+Every train-to-validation boundary purges exactly 16 eras, matching the 60-day main-target
+horizon. The final models used for sealed historical validation train on eras 0001--0558 and
+purge eras 0559--0574 before validation begins. They are not silently reused as the eventual
+production-live refit; after model selection and sealed evaluation, production models may be
+refit without further hyperparameter selection on all then-resolved labeled history.
 
 For each outer fold independently:
 

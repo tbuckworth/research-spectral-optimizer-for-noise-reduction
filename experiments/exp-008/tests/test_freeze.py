@@ -36,8 +36,9 @@ def _model(path, arm, config_id, seed, updates=5000):
             "target": "target", "benchmark": "v53_lgbm_ender60", "feature_set": "medium",
         },
         "train_split": {
-            "name": "all_train_refit", "train_eras": [f"{i:04d}" for i in range(1, 575)],
-            "valid_eras": [], "purged_eras": [],
+            "name": "sealed_validation_refit_60d",
+            "train_eras": [f"{i:04d}" for i in range(1, 559)],
+            "valid_eras": [], "purged_eras": [f"{i:04d}" for i in range(559, 575)],
         },
     }, path)
 
