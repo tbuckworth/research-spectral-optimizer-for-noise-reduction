@@ -34,13 +34,39 @@ def _complete_tree(tmp_path: Path) -> tuple[Path, Path]:
         "file_map_sha256": code_digest,
     })
     base_search = tmp_path / "configs" / "search-v1.json"
-    _write(results / "selection-high-rank-source-r2048.json", {
+    f1_by_outer, f2_by_outer, ordinary_by_outer = {}, {}, {}
+    for number in range(1, 4):
+        ordinary = {number, number + 3, number + 10, number + 20}
+        ordinary_by_outer[number] = ordinary
+        f1_paths, f2_paths = [], []
+        for inner in range(1, number + 2):
+            split = f"outer_{number}_inner_{inner}"
+            f1 = results / f"summary-{split}-u20000-s0" / "scores.csv"
+            f1_rows = ["arm,config_id,corr_mean,split,seed,updates"]
+            for arm in ("adamw", "spectral"):
+                f1_rows.extend(f"{arm},{config},0.1,{split},0,20000"
+                               for config in sorted(ordinary))
+            _write(f1, ("\n".join(f1_rows) + "\n").encode())
+            f1_paths.append(f1)
+            for seed in range(3):
+                f2 = results / f"summary-{split}-u100000-s{seed}" / "scores.csv"
+                f2_rows = ["arm,config_id,corr_mean,split,seed,updates"]
+                f2_rows.extend(f"adamw,{config},0.1,{split},{seed},100000"
+                               for config in sorted(ordinary))
+                f2_rows.extend(f"spectral,{config},0.1,{split},{seed},100000"
+                               for config in sorted(ordinary | {1070512}))
+                _write(f2, ("\n".join(f2_rows) + "\n").encode())
+                f2_paths.append(f2)
+        f1_by_outer[number], f2_by_outer[number] = f1_paths, f2_paths
+    source_path = _write(results / "selection-high-rank-source-r2048.json", {
         "status": "development_only_high_rank_source_selection", "requested_rank": 2048,
         "selected": {"spectral": [7]},
+        "score_sha256": {str(path): sha256(path) for path in f1_by_outer[1]},
     })
     extension = _write(results / "search-v1-high-rank-extension.json", {
         "status": "development_only_high_rank_extension", "source_config_id": 7,
-        "source_search_sha256": sha256(base_search), "configs": [
+        "source_search_sha256": sha256(base_search),
+        "source_selection_sha256": sha256(source_path), "configs": [
             {"arm": "adamw", "config_id": 1070512},
             {"arm": "spectral", "config_id": 1070512, "rank": 512},
         ],
@@ -56,6 +82,19 @@ def _complete_tree(tmp_path: Path) -> tuple[Path, Path]:
         "probe_audit_sha256": sha256(probes), "configs": [],
     })
     for number in range(1, 4):
+        ordinary = ordinary_by_outer[number]
+        _write(results / f"selection-outer_{number}-f1-top4.json", {
+            "status": "f1_selection_augmented_with_gpu_audited_high_ranks",
+            "augmented_search_sha256": sha256(search),
+            "score_sha256": {str(path): sha256(path) for path in f1_by_outer[number]},
+            "selected": {"paired_union": sorted(ordinary),
+                         "high_rank_spectral": [1070512]},
+        })
+        _write(results / f"selection-outer_{number}-f2-top1.json", {
+            "top": 1, "allow_asymmetric": True,
+            "score_sha256": {str(path): sha256(path) for path in f2_by_outer[number]},
+            "selected": {"adamw": [number], "spectral": [number + 3]},
+        })
         _write(results / f"audit-outer_{number}-u100000" / "outer-audit.json", {
             "status": "audit_complete", "split": {"name": f"outer_{number}"},
             "updates": 100_000, "seeds": [0, 1, 2], "cells": 6,
@@ -167,7 +206,7 @@ def test_completion_audit_cross_checks_full_chain(tmp_path):
     report = audit(results, leaderboard, output)
     assert report["status"] == "audit_complete"
     assert report["final_selected"] == {"adamw": 1, "spectral": 4}
-    assert len(report["evidence_sha256"]) == 21
+    assert len(report["evidence_sha256"]) == 27
 
 
 def test_completion_audit_rejects_model_changed_after_freeze(tmp_path):
