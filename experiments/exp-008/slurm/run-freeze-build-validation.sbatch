@@ -24,7 +24,8 @@ done
 "$PROJECT/uv" run --no-sync python -m numerai_competitive.freeze \
   --search configs/search-v1.json --protocol fidelity-protocol.md \
   --candidate-plan results/candidate-plan.json --output "$FREEZE" \
-  --code-commit "$CODE_COMMIT" --adamw-config "$ADAMW_CONFIG" \
+  --code-commit "$CODE_COMMIT" --code-snapshot "$PROJECT/code-snapshot.json" \
+  --code-root "$PROJECT" --adamw-config "$ADAMW_CONFIG" \
   --spectral-config "$SPECTRAL_CONFIG" "${ADAMW_MODELS[@]}" "${SPECTRAL_MODELS[@]}" \
   --updates 100000 --seed 0 --seed 1 --seed 2 --authorize-validation-reveal
 "$PROJECT/uv" run --no-sync python -m numerai_competitive.download_validation \

@@ -402,6 +402,10 @@ def test_sealed_evaluation_submits_only_after_refit_audit_and_candidate(tmp_path
     (results / "candidate-plan.json").write_text(json.dumps({
         "status": "frozen_train_only_selection",
     }))
+    commit = "a" * 40
+    (project / "code-snapshot.json").write_text(json.dumps({
+        "status": "complete", "code_commit": commit,
+    }))
     for arm, config in (("adamw", 7), ("spectral", 8)):
         for seed in range(3):
             directory = results / f"final-refit-u100000-s{seed}-{arm}-c{config}"
@@ -415,7 +419,6 @@ def test_sealed_evaluation_submits_only_after_refit_audit_and_candidate(tmp_path
         "NUMERAI_PROJECT": str(project),
         "PATH": f"{fake_bin}:{os.environ['PATH']}",
     }
-    commit = "a" * 40
     completed = subprocess.run(
         ["bash", SUBMIT_SEALED, commit], env=env, check=True,
         capture_output=True, text=True,
@@ -440,6 +443,9 @@ def test_sealed_evaluation_refuses_disagreeing_refit_audit_before_sbatch(tmp_pat
     }))
     (results / "candidate-plan.json").write_text(json.dumps({
         "status": "frozen_train_only_selection",
+    }))
+    (project / "code-snapshot.json").write_text(json.dumps({
+        "status": "complete", "code_commit": "a" * 40,
     }))
     fake_bin = tmp_path / "bin"
     fake_bin.mkdir()

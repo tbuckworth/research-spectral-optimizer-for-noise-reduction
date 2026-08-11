@@ -107,13 +107,21 @@ and parameter counts before the later freeze computes full model-file hashes.
 After final canonical-fold selection and three full-train refits per arm, create the freeze:
 
 ```bash
+uv run python -m numerai_competitive.code_snapshot create \
+  --repo ../.. --source-prefix experiments/exp-008 --commit COMMIT \
+  --output code-snapshot.json
 uv run python -m numerai_competitive.freeze \
   --search configs/search-v1.json --protocol fidelity-protocol.md \
   --candidate-plan out/candidate-plan.json --output out/freeze.json \
-  --code-commit COMMIT --adamw-config ID --spectral-config ID \
+  --code-commit COMMIT --code-snapshot code-snapshot.json --code-root . \
+  --adamw-config ID --spectral-config ID \
   --adamw-model MODEL ... --spectral-model MODEL ... \
   --updates 100000 --seed 0 --seed 1 --seed 2 --authorize-validation-reveal
 ```
+
+The snapshot hashes the committed execution surface (`src`, `configs`, `slurm`, lockfile and
+protocol) from Git itself. Freeze independently requires the rsynced cluster tree to have exactly
+that file set and byte content; a supplied SHA is not accepted as provenance by itself.
 
 Only then build the validation shard with `--feature-set all` and invoke
 `numerai_competitive.evaluate_frozen`. The all-feature shard is required because independently

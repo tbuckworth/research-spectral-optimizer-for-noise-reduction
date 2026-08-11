@@ -11,11 +11,21 @@ SELECTION="$PROJECT/results/selection-final-top1.json"
 AUDIT="$PROJECT/results/audit-final-refits-u100000/refit-audit.json"
 CANDIDATE="$PROJECT/results/candidate-plan.json"
 FREEZE="$PROJECT/results/freeze.json"
+CODE_SNAPSHOT="$PROJECT/code-snapshot.json"
 OUTPUT="$PROJECT/results/official-validation"
 MANIFEST="$PROJECT/results/submission-sealed-evaluation.tsv"
-for REQUIRED in "$SELECTION" "$AUDIT" "$CANDIDATE"; do
+for REQUIRED in "$SELECTION" "$AUDIT" "$CANDIDATE" "$CODE_SNAPSHOT"; do
   [[ -f $REQUIRED ]] || { echo "required frozen-train artifact missing: $REQUIRED" >&2; exit 1; }
 done
+python3 -c '
+import json,sys
+snapshot=json.load(open(sys.argv[1]))
+raise SystemExit(0 if snapshot.get("status") == "complete"
+                 and snapshot.get("code_commit") == sys.argv[2] else 1)
+' "$CODE_SNAPSHOT" "$CODE_COMMIT" || {
+  echo "code snapshot is incomplete or differs from requested commit" >&2
+  exit 1
+}
 if [[ -e "$FREEZE" || -e "$OUTPUT" || -e "$MANIFEST" || -e "${MANIFEST}.tmp" ]]; then
   echo "freeze, validation output or sealed submission manifest already exists" >&2
   exit 1

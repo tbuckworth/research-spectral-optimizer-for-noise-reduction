@@ -6,6 +6,7 @@ import json
 import re
 from pathlib import Path
 
+from .code_snapshot import verify_snapshot
 from .data import atomic_json, sha256
 
 
@@ -79,11 +80,14 @@ def audit(results: Path, leaderboard_path: Path, output: Path) -> dict:
 
     freeze_path = results / "freeze.json"
     freeze = _json(freeze_path, ("frozen",))
+    code_snapshot_path = results.parent / "code-snapshot.json"
     if (not re.fullmatch(r"[0-9a-f]{40}", freeze.get("code_commit", ""))
             or freeze.get("primary_target") != "target_cyrusd_20"
+            or freeze.get("code_snapshot_sha256") != sha256(code_snapshot_path)
             or freeze.get("candidate_plan_sha256") != sha256(candidate_path)
             or freeze.get("candidate_transform") != candidate.get("selected")):
         raise ValueError("freeze provenance or candidate transformation is inconsistent")
+    verify_snapshot(results.parent, code_snapshot_path, freeze["code_commit"])
     for arm in ("adamw", "spectral"):
         selected = freeze["selected"][arm]
         if (selected.get("config_id") != refit["selected"][arm]
@@ -94,7 +98,7 @@ def audit(results: Path, leaderboard_path: Path, output: Path) -> dict:
                  / "model.pt" for seed in range(3)]
         if [sha256(path) for path in paths] != selected.get("model_sha256"):
             raise ValueError(f"{arm} frozen model hashes differ from final refits")
-    evidence["freeze"] = sha256(freeze_path)
+    evidence.update({"freeze": sha256(freeze_path), "code_snapshot": sha256(code_snapshot_path)})
 
     validation_dir = results / "official-validation"
     validation_marker = _json(validation_dir / "evaluation-complete.json", ("complete",))

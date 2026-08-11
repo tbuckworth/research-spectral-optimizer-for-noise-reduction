@@ -1,3 +1,4 @@
+import hashlib
 import json
 from pathlib import Path
 
@@ -18,6 +19,20 @@ def _write(path: Path, value) -> Path:
 
 def _complete_tree(tmp_path: Path) -> tuple[Path, Path]:
     results = tmp_path / "results"
+    code_files = {}
+    for name in ("pyproject.toml", "uv.lock", "fidelity-protocol.md",
+                 "src/numerai_competitive/code_snapshot.py",
+                 "src/numerai_competitive/freeze.py"):
+        path = _write(tmp_path / name, name.encode())
+        code_files[name] = sha256(path)
+    code_digest = hashlib.sha256(
+        json.dumps(code_files, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    code_snapshot = _write(tmp_path / "code-snapshot.json", {
+        "status": "complete", "code_commit": "a" * 40, "source_prefix": "x",
+        "files": code_files, "file_count": len(code_files),
+        "file_map_sha256": code_digest,
+    })
     for number in range(1, 4):
         _write(results / f"audit-outer_{number}-u100000" / "outer-audit.json", {
             "status": "audit_complete", "split": {"name": f"outer_{number}"},
@@ -55,6 +70,7 @@ def _complete_tree(tmp_path: Path) -> tuple[Path, Path]:
                        "model_sha256": [sha256(path) for path in paths]}
     freeze = _write(results / "freeze.json", {
         "status": "frozen", "code_commit": "a" * 40, "primary_target": "target_cyrusd_20",
+        "code_snapshot_sha256": sha256(code_snapshot),
         "candidate_plan_sha256": sha256(candidate), "candidate_transform": selected,
         "selected": frozen,
     })
@@ -116,7 +132,7 @@ def test_completion_audit_cross_checks_full_chain(tmp_path):
     report = audit(results, leaderboard, output)
     assert report["status"] == "audit_complete"
     assert report["final_selected"] == {"adamw": 1, "spectral": 4}
-    assert len(report["evidence_sha256"]) == 15
+    assert len(report["evidence_sha256"]) == 16
 
 
 def test_completion_audit_rejects_model_changed_after_freeze(tmp_path):
