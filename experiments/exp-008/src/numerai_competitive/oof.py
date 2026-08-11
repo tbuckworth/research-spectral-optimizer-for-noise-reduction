@@ -57,7 +57,7 @@ def _ensemble_split(paths: list[Path], arm: str, expected_seeds: tuple[int, ...]
                 raise ValueError(f"{arm}: seed predictions disagree on {key}")
     ranked = [_rank_within_era(arrays["prediction"], arrays["era"])
               for _, arrays in loaded]
-    return pd.DataFrame({
+    frame = pd.DataFrame({
         "row_index": reference["row_index"].astype(np.int64),
         "era": reference["era"].astype(np.int64),
         "target": reference["target"].astype(np.float64),
@@ -66,6 +66,9 @@ def _ensemble_split(paths: list[Path], arm: str, expected_seeds: tuple[int, ...]
         "split": next(iter(split_names)),
         "config_id": next(iter(config_ids)),
     })
+    for seed, values in zip(expected_seeds, ranked):
+        frame[f"prediction_seed_{seed}"] = values
+    return frame
 
 
 def _group_paths(paths: list[Path], arm: str) -> dict[str, list[Path]]:
@@ -99,6 +102,27 @@ def _score(prediction: pd.Series, target: pd.Series, benchmark: pd.Series,
         "corr": summarize_era_scores(corr).loc[prediction.name].to_dict(),
         "bmc": summarize_era_scores(bmc).loc[prediction.name].to_dict(),
     }, pd.DataFrame({"corr": corr, "bmc": bmc})
+
+
+def _seed_sensitivity(frame: pd.DataFrame, arm: str, expected_seeds: tuple[int, ...],
+                      target: pd.Series, benchmark: pd.Series,
+                      eras: pd.Series) -> dict[str, dict]:
+    reports = {}
+    era_split = pd.Series(frame["split"].to_numpy(), index=eras.index).groupby(
+        eras, sort=False
+    ).first()
+    for seed in expected_seeds:
+        prediction = pd.Series(
+            frame[f"prediction_seed_{seed}"].to_numpy(), index=eras.index,
+            name=f"{arm}_seed_{seed}",
+        )
+        summary, per_era = _score(prediction, target, benchmark, eras)
+        split_mean = per_era["corr"].groupby(era_split).mean()
+        reports[str(seed)] = {
+            **summary,
+            "split_corr_mean": {str(key): float(value) for key, value in split_mean.items()},
+        }
+    return reports
 
 
 def _plot(per_era: pd.DataFrame, output: Path) -> None:
@@ -136,22 +160,35 @@ def aggregate(adamw_paths: list[Path], spectral_paths: list[Path], output: Path,
     )
     adam_summary, adam_era = _score(adam_prediction, target, benchmark, eras)
     spectral_summary, spectral_era = _score(spectral_prediction, target, benchmark, eras)
+    seed_sensitivity = {
+        "adamw": _seed_sensitivity(adamw, "adamw", expected_seeds, target, benchmark, eras),
+        "spectral": _seed_sensitivity(
+            spectral, "spectral", expected_seeds, target, benchmark, eras
+        ),
+    }
     per_era = pd.DataFrame({"adamw": adam_era["corr"], "spectral": spectral_era["corr"]})
     comparison = moving_block_bootstrap(per_era["spectral"], per_era["adamw"])
     output.mkdir(parents=True, exist_ok=True)
     per_era.to_csv(output / "nested-outer-per-era.csv")
     _plot(per_era, output)
+    seed_arrays = {
+        f"{arm}_seed_{seed}": frame[f"prediction_seed_{seed}"].to_numpy()
+        for arm, frame in (("adamw", adamw), ("spectral", spectral))
+        for seed in expected_seeds
+    }
     _atomic_npz(
         output / "nested-outer-predictions.npz", row_index=adamw["row_index"].to_numpy(),
         era=adamw["era"].to_numpy(), target=adamw["target"].to_numpy(),
         benchmark=adamw["benchmark"].to_numpy(), adamw=adamw["prediction"].to_numpy(),
         spectral=spectral["prediction"].to_numpy(), split=adamw["split"].to_numpy(str),
+        **seed_arrays,
     )
     report = {
         "status": "complete", "rows": len(adamw), "eras": int(adamw["era"].nunique()),
         "outer_splits": sorted(adamw["split"].unique().tolist()),
         "expected_seeds": list(expected_seeds), "adamw": adam_summary,
         "spectral": spectral_summary, "spectral_minus_adamw": comparison.to_dict(),
+        "seed_sensitivity": seed_sensitivity,
     }
     atomic_json(output / "nested-outer-report.json", report)
     return report

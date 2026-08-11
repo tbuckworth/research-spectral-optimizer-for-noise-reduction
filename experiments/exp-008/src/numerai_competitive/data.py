@@ -181,6 +181,8 @@ def _validate_freeze_manifest(path: Path) -> dict:
 def build_validation_shard(source: Path, destination: Path, freeze_manifest: Path,
                            feature_set: str) -> Path:
     """Build the official validation shard only after procedure freeze."""
+    if feature_set != "all":
+        raise ValueError("sealed validation must use all features to support either frozen arm")
     source, freeze_manifest = source.resolve(), freeze_manifest.resolve()
     freeze = _validate_freeze_manifest(freeze_manifest)
     validation = source / "validation.parquet"

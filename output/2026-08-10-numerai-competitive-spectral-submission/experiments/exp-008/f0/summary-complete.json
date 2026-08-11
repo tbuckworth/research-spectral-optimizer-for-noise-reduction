@@ -1,0 +1,9 @@
+{
+  "artifacts": {
+    "paired-corr.csv": "c184b42c2563d401254b447d7066a664ea750f874aa2468eb867bac929d4389c",
+    "paired-corr.png": "b987547d5173653ad4503360dccaffd3d5fcf55b7110001e863d2639ceeb5569",
+    "scores.csv": "95cc3760848f6eeccfd7ad34986b35b8519c3b659f47dc899eb2f89ecd9e2b57"
+  },
+  "rows": 80,
+  "status": "complete"
+}

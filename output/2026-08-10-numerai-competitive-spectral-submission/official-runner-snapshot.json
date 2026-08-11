@@ -1,0 +1,20 @@
+{
+  "built_at": "2026-08-11T12:02:56+00:00",
+  "cloudpickle": "3.1.1",
+  "docker_image_id": "sha256:26969634731da15d1f8688ca3d4b62882cda69b0280a3c0f4b6089c295a1f797",
+  "docker_image_size_bytes": 15961885836,
+  "official_repository": "https://github.com/numerai/numerai-predict",
+  "official_runner_commit": "2b6eb43612db25bcf047608b4c1fd61cc3ff3c06",
+  "pandas": "2.3.2",
+  "pyarrow": "18.1.0",
+  "python": "3.12.13",
+  "smoke_test": {
+    "elapsed_seconds": 5,
+    "max_abs_prediction_difference": 0.0,
+    "rows": 3,
+    "status": "pass",
+    "two_argument_callable": true
+  },
+  "status": "wrapper_smoke_passed_pending_frozen_model_test",
+  "torch": "2.8.0+cu128"
+}

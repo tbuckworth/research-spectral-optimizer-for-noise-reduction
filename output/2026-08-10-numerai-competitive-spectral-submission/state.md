@@ -52,3 +52,38 @@ Success criteria are frozen in `success-criteria.md`. They require exact officia
 ## Steps 5–8: Decomposition, Challenge, Plan, Agreement
 
 The fail-fast decomposition was independently challenged by assumption, mentor and pre-mortem reviews. The initial plan received MAJOR_REVISIONS because it partly matched wall-clock cost, gave spectral an asymmetric efficacy screen, lacked nested evaluation of the selection procedure, and exposed too many primary routes. All fix-now items are incorporated in the governing challenge revisions and `planned-experiments.md`. The autonomous execution agreement is confirmed under the user's instruction to plan and execute.
+
+## Step 9: Experiments in progress
+
+F0 completed all 80 paired cells on `outer_1_inner_1` at 5,000 updates and seed 0. A
+post-run audit initially halted because the jobs predated the embedded `search_config_id`
+schema. No result was accepted by directory name alone: all 80 were subsequently verified
+against the frozen search's full scientific configuration, the official feature-set dimensions,
+their split metadata and recomputed signatures, and all prediction artifacts were schema-checked
+and hashed. Spectral won 18/40 pairs but had mean paired CORR delta −0.002653; its best cell was
+0.050616 versus the best AdamW cell at 0.048384. These are selection-fold results only.
+
+The independently ranked top-12 lists formed a 16-configuration paired union. The exact 64-cell
+F1 manifest (16 configurations × 2 arms × 2 inner folds, 20,000 updates, seed 0) passed its
+environment dependency and ran on the free MATS `compute` partition. As of
+2026-08-11T11:20:18Z, 61/64 result cells were complete. The remaining three were spectral cells
+30, 35 and 39 on `outer_1_inner_2`; Slurm accounting showed advancing CPU time and stable memory,
+so they were active rather than stalled. An independent waiter requires both exact 32-cell inner
+summaries before forming the paired top-four union and submitting F2. Official validation remains
+absent and sealed.
+
+A deterministic final report generator is now tested. It will compare nested-outer and sealed
+official-validation scores only on the common historical target/scorer, and place the dated public
+live leaderboard snapshot in a visibly separate context section. It refuses to translate
+historical `target_cyrusd_20` CORR into a live rank; direct rank comparability still requires
+resolved prospective unstaked rounds.
+
+The current official `numerai/numerai-predict` Python 3.12 image was also built locally from full
+commit `2b6eb43612db25bcf047608b4c1fd61cc3ff3c06`. Its content-addressed Docker image ID and exact
+runtime versions are frozen in `official-runner-snapshot.json`. The image build alone is not a
+compatibility result: the final candidate must still execute on the complete live fixture under
+the one-CPU, 4,000,000,000-byte and 600-second limits, and its output must match the independently
+generated prediction path. The complete wrapper has passed a three-row, two-argument callable
+smoke test through the actual network-disabled container with exactly matching predictions. That
+smoke test caught and corrected desktop `uv` discovery and nondeterministic BuildKit-attestation
+provenance before the final candidate run.

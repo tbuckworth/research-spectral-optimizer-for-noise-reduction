@@ -20,3 +20,7 @@ These are historical Diagnostics-compatible benchmark scores. They are much larg
 NumerAPI returned the top 1,000 current model rows. Across those rows, median one-year reputations were CORR20v2 0.00916, MMC 0.00396, BMC 0.00638 and CORJ60 0.01050. The 90th percentiles were 0.01458, 0.00664, 0.00977 and 0.01895 respectively. The rank-1 model had CORR20v2 0.01584, MMC 0.01274, BMC 0.01710 and CORJ60 0.01806.
 
 This snapshot describes the competitive destination. A historical validation score cannot be mapped to one of these ranks; only a resolved forward submission can enter this distribution.
+
+The reproducible retrieval code and a newer raw official snapshot are archived under
+`leaderboard/2026-08-11/`. The dated raw response is authoritative for subsequent comparisons;
+this prose snapshot is retained as the original pre-experiment record.

@@ -7,6 +7,8 @@ import json
 import math
 import os
 import random
+import signal
+import threading
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -229,6 +231,7 @@ def run_training(shard_root: Path, split: EraSplit, config: TrainConfig, output_
     result_path = output_dir / "result.json"
     prediction_path = output_dir / "validation_predictions.npz"
     model_path = output_dir / "model.pt"
+    checkpoint_status_path = output_dir / "checkpoint-status.json"
     signature = _config_hash(config, split)
     logs: list[dict[str, Any]] = []
     start_update = 0
@@ -251,52 +254,10 @@ def run_training(shard_root: Path, split: EraSplit, config: TrainConfig, output_
 
     limit = config.updates if stop_after_updates is None else min(config.updates, stop_after_updates)
     started = time.perf_counter()
-    for update in range(start_update + 1, limit + 1):
-        rows = stream.next()
-        inputs = torch.from_numpy(np.asarray(shard.X[rows], dtype=np.float32) / 4.0).to(device)
-        targets = torch.from_numpy(np.asarray(
-            shard.targets[rows, shard.target_index(config.target)], dtype=np.float32
-        )).to(device)
-        optimizer.zero_grad(set_to_none=True)
-        prediction = model(inputs)
-        loss = (F.mse_loss(prediction, targets) if config.loss == "mse" else
-                F.huber_loss(prediction, targets, delta=config.huber_delta))
-        loss.backward()
-        unclipped_norm = float(torch.nn.utils.clip_grad_norm_(
-            model.parameters(), config.clip_norm if config.clip_norm is not None else float("inf")
-        ))
-        filter_diagnostics = spectral.filter_grad() if spectral is not None else None
-        should_log = update == 1 or update == limit or update % config.log_every == 0
-        before = ([parameter.detach().clone() for parameter in model.parameters()]
-                  if should_log else None)
-        optimizer.step()
-        scheduler.step()
-        if should_log:
-            update_sq = sum(float((parameter.detach() - old).double().square().sum())
-                            for parameter, old in zip(model.parameters(), before))
-            row: dict[str, Any] = {
-                "update": update, "examples": update * config.batch_size,
-                "loss": float(loss.detach()), "learning_rate": scheduler.get_last_lr()[0],
-                "pre_clip_gradient_norm": unclipped_norm,
-                "adamw_parameter_update_norm": math.sqrt(update_sq),
-                "elapsed_seconds": time.perf_counter() - started,
-            }
-            if filter_diagnostics is not None:
-                row["filter"] = filter_diagnostics
-            logs.append(row)
-        if config.checkpoint_every and update < config.updates and update % config.checkpoint_every == 0:
-            _atomic_torch(checkpoint_path, {
-                "signature": signature, "update": update, "model": model.state_dict(),
-                "optimizer": optimizer.state_dict(), "scheduler": scheduler.state_dict(),
-                "filter": None if spectral is None else spectral.state_dict(),
-                "batch_stream": stream.state_dict(), "python_rng": random.getstate(),
-                "numpy_rng": np.random.get_state(), "torch_rng": torch.get_rng_state(),
-                "cuda_rng": torch.cuda.get_rng_state_all() if device.type == "cuda" else None,
-                "logs": logs,
-            })
-    if limit < config.updates:
+
+    def save_checkpoint(update: int, reason: str) -> dict:
         _atomic_torch(checkpoint_path, {
-            "signature": signature, "update": limit, "model": model.state_dict(),
+            "signature": signature, "update": update, "model": model.state_dict(),
             "optimizer": optimizer.state_dict(), "scheduler": scheduler.state_dict(),
             "filter": None if spectral is None else spectral.state_dict(),
             "batch_stream": stream.state_dict(), "python_rng": random.getstate(),
@@ -304,7 +265,74 @@ def run_training(shard_root: Path, split: EraSplit, config: TrainConfig, output_
             "cuda_rng": torch.cuda.get_rng_state_all() if device.type == "cuda" else None,
             "logs": logs,
         })
-        return {"status": "checkpointed", "update": limit, "signature": signature}
+        status = {"status": "checkpointed", "reason": reason, "update": update,
+                  "signature": signature}
+        atomic_json(checkpoint_status_path, status)
+        return status
+
+    stop_requested = False
+    previous_signal_handler = None
+    if threading.current_thread() is threading.main_thread() and hasattr(signal, "SIGUSR1"):
+        previous_signal_handler = signal.getsignal(signal.SIGUSR1)
+
+        def request_stop(_signum, _frame) -> None:
+            nonlocal stop_requested
+            stop_requested = True
+
+        signal.signal(signal.SIGUSR1, request_stop)
+    try:
+        for update in range(start_update + 1, limit + 1):
+            rows = stream.next()
+            inputs = torch.from_numpy(np.asarray(shard.X[rows], dtype=np.float32) / 4.0).to(device)
+            targets = torch.from_numpy(np.asarray(
+                shard.targets[rows, shard.target_index(config.target)], dtype=np.float32
+            )).to(device)
+            optimizer.zero_grad(set_to_none=True)
+            prediction = model(inputs)
+            loss = (F.mse_loss(prediction, targets) if config.loss == "mse" else
+                    F.huber_loss(prediction, targets, delta=config.huber_delta))
+            loss.backward()
+            unclipped_norm = float(torch.nn.utils.clip_grad_norm_(
+                model.parameters(), config.clip_norm
+                if config.clip_norm is not None else float("inf")
+            ))
+            filter_diagnostics = spectral.filter_grad() if spectral is not None else None
+            should_log = update == 1 or update == limit or update % config.log_every == 0
+            before = ([parameter.detach().clone() for parameter in model.parameters()]
+                      if should_log else None)
+            optimizer.step()
+            scheduler.step()
+            if should_log:
+                update_sq = sum(float((parameter.detach() - old).double().square().sum())
+                                for parameter, old in zip(model.parameters(), before))
+                row: dict[str, Any] = {
+                    "update": update, "examples": update * config.batch_size,
+                    "loss": float(loss.detach()), "learning_rate": scheduler.get_last_lr()[0],
+                    "pre_clip_gradient_norm": unclipped_norm,
+                    "adamw_parameter_update_norm": math.sqrt(update_sq),
+                    "elapsed_seconds": time.perf_counter() - started,
+                }
+                if filter_diagnostics is not None:
+                    row["filter"] = filter_diagnostics
+                logs.append(row)
+            if stop_requested and update < config.updates:
+                return save_checkpoint(update, "SIGUSR1")
+            if (config.checkpoint_every and update < config.updates
+                    and update % config.checkpoint_every == 0):
+                _atomic_torch(checkpoint_path, {
+                    "signature": signature, "update": update, "model": model.state_dict(),
+                    "optimizer": optimizer.state_dict(), "scheduler": scheduler.state_dict(),
+                    "filter": None if spectral is None else spectral.state_dict(),
+                    "batch_stream": stream.state_dict(), "python_rng": random.getstate(),
+                    "numpy_rng": np.random.get_state(), "torch_rng": torch.get_rng_state(),
+                    "cuda_rng": torch.cuda.get_rng_state_all() if device.type == "cuda" else None,
+                    "logs": logs,
+                })
+    finally:
+        if previous_signal_handler is not None:
+            signal.signal(signal.SIGUSR1, previous_signal_handler)
+    if limit < config.updates:
+        return save_checkpoint(limit, "stop_after_updates")
 
     validation = None
     if not refit:
@@ -343,6 +371,8 @@ def run_training(shard_root: Path, split: EraSplit, config: TrainConfig, output_
     atomic_json(result_path, result)
     if checkpoint_path.exists():
         checkpoint_path.unlink()
+    if checkpoint_status_path.exists():
+        checkpoint_status_path.unlink()
     return result
 
 

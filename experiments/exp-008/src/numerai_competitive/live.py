@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -11,6 +12,7 @@ import numpy as np
 import pandas as pd
 import torch
 
+from .data import sha256
 from .model import MLPConfig, ResidualMLP
 
 
@@ -30,6 +32,7 @@ class NumeraiMLPPredictor:
             raise ValueError("model weight must be in (0, 1]")
         self.model_weight = float(model_weight)
         self.benchmark_name = benchmark_name
+        self.model_signatures = tuple(artifact.get("signature") for artifact in artifacts)
         self.models = []
         for artifact in artifacts:
             if tuple(artifact["feature_names"]) != self.feature_names:
@@ -102,18 +105,49 @@ class NumeraiMLPPredictor:
 
 
 def export_callable(model_artifacts: Sequence[Path], output: Path,
-                    batch_size: int = 4096, candidate_plan: Path | None = None) -> Path:
+                    batch_size: int = 4096, candidate_plan: Path | None = None,
+                    freeze_manifest: Path | None = None) -> Path:
+    if candidate_plan is not None and freeze_manifest is not None:
+        raise ValueError("supply candidate plan or final freeze manifest, not both")
     kwargs = {}
-    if candidate_plan is not None:
-        selected = json.loads(candidate_plan.read_text())["selected"]
+    freeze = None
+    if freeze_manifest is not None:
+        freeze = json.loads(freeze_manifest.read_text())
+        if freeze.get("status") != "frozen":
+            raise ValueError("final export requires a frozen manifest")
+        selected = freeze["candidate_transform"]
+    elif candidate_plan is not None:
+        plan = json.loads(candidate_plan.read_text())
+        if plan.get("status") != "frozen_train_only_selection":
+            raise ValueError("candidate plan is not frozen train-only selection")
+        selected = plan["selected"]
+    else:
+        selected = None
+    if selected is not None:
         kwargs = {"model_weight": selected["model_weight"],
                   "benchmark_name": selected["benchmark"]}
     predictor = NumeraiMLPPredictor.from_files(
         model_artifacts, batch_size=batch_size, **kwargs
     )
+    if freeze is not None:
+        expected = freeze["selected"][selected["arm"]]
+        if list(predictor.model_signatures) != expected["model_signatures"]:
+            raise ValueError("export model signatures/order differ from final freeze")
+        if [sha256(path) for path in model_artifacts] != expected["model_sha256"]:
+            raise ValueError("export model hashes differ from final freeze")
     output.parent.mkdir(parents=True, exist_ok=True)
-    with output.open("wb") as handle:
-        cloudpickle.dump(predictor, handle)
+    # Numerai's execution image has torch/pandas/cloudpickle, but not this project package.
+    # Explicitly serialize the two small implementation modules by value so unpickling does
+    # not depend on an installed ``numerai_competitive`` module.
+    modules = [sys.modules[__name__], sys.modules[MLPConfig.__module__]]
+    for module in modules:
+        cloudpickle.register_pickle_by_value(module)
+    try:
+        with output.open("wb") as handle:
+            cloudpickle.dump(predictor, handle)
+    finally:
+        for module in modules:
+            cloudpickle.unregister_pickle_by_value(module)
     return output
 
 
@@ -123,8 +157,11 @@ def main() -> None:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--batch-size", type=int, default=4096)
     parser.add_argument("--candidate-plan", type=Path)
+    parser.add_argument("--freeze", type=Path)
     args = parser.parse_args()
-    print(export_callable(args.model, args.output, args.batch_size, args.candidate_plan))
+    print(export_callable(
+        args.model, args.output, args.batch_size, args.candidate_plan, args.freeze
+    ))
 
 
 if __name__ == "__main__":

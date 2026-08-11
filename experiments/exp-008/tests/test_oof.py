@@ -54,8 +54,13 @@ def test_nested_outer_aggregation_is_aligned_seed_ensembled_and_audited(tmp_path
     assert report["rows"] == 160 and report["eras"] == 8
     assert report["outer_splits"] == ["outer_1", "outer_2"]
     assert report["spectral_minus_adamw"]["samples"] == 10_000
+    assert set(report["seed_sensitivity"]["adamw"]) == {"0", "1"}
     assert (output / "nested-outer-corr.png").is_file()
     assert (output / "nested-outer-predictions.npz").is_file()
+    saved = np.load(output / "nested-outer-predictions.npz")
+    assert {"adamw_seed_0", "adamw_seed_1", "spectral_seed_0", "spectral_seed_1"} <= set(
+        saved.files
+    )
 
 
 def test_nested_outer_aggregation_rejects_cross_arm_target_mismatch(tmp_path: Path):

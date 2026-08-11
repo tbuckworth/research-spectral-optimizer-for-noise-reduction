@@ -3,12 +3,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 
 import numpy as np
 import torch
 
+from .code_snapshot import verify_snapshot
 from .data import atomic_json, sha256
 
 
@@ -48,12 +50,15 @@ def _verify_arm(arm: str, config_id: int, models: list[Path], seeds: list[int],
 
 
 def create_freeze(search_path: Path, protocol_path: Path, candidate_path: Path,
-                  output: Path, code_commit: str,
+                  output: Path, code_commit: str, code_snapshot_path: Path, code_root: Path,
                   adamw_config: int, spectral_config: int, adamw_models: list[Path],
                   spectral_models: list[Path], updates: int, seeds: list[int],
                   authorize_validation_reveal: bool) -> dict:
     if not authorize_validation_reveal:
         raise ValueError("validation reveal requires explicit authorization")
+    if not re.fullmatch(r"[0-9a-f]{40}", code_commit):
+        raise ValueError("code commit must be a full lowercase Git SHA")
+    verify_snapshot(code_root, code_snapshot_path, code_commit)
     search = json.loads(search_path.read_text())
     candidate = json.loads(candidate_path.read_text())
     if candidate.get("status") != "frozen_train_only_selection":
@@ -67,6 +72,7 @@ def create_freeze(search_path: Path, protocol_path: Path, candidate_path: Path,
         raise ValueError("candidate plan has an invalid frozen transformation")
     manifest = {
         "status": "frozen", "protocol": search["protocol"], "code_commit": code_commit,
+        "code_snapshot_sha256": sha256(code_snapshot_path),
         "created_at": datetime.now(UTC).isoformat(),
         "search_sha256": sha256(search_path), "fidelity_protocol_sha256": sha256(protocol_path),
         "primary_target": "target_cyrusd_20", "primary_metric": "exact standalone CORR",
@@ -91,6 +97,8 @@ def main() -> None:
     parser.add_argument("--candidate-plan", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--code-commit", required=True)
+    parser.add_argument("--code-snapshot", type=Path, required=True)
+    parser.add_argument("--code-root", type=Path, default=Path("."))
     parser.add_argument("--adamw-config", type=int, required=True)
     parser.add_argument("--spectral-config", type=int, required=True)
     parser.add_argument("--adamw-model", type=Path, action="append", required=True)
@@ -101,6 +109,7 @@ def main() -> None:
     args = parser.parse_args()
     manifest = create_freeze(
         args.search, args.protocol, args.candidate_plan, args.output, args.code_commit,
+        args.code_snapshot, args.code_root,
         args.adamw_config, args.spectral_config, args.adamw_model, args.spectral_model,
         args.updates, args.seed, args.authorize_validation_reveal,
     )

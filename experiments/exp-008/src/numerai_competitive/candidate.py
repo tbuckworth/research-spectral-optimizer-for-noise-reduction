@@ -46,7 +46,16 @@ def select_candidate(oof_path: Path, output: Path,
         required = {"row_index", "era", "target", "benchmark", "adamw", "spectral", "split"}
         if not required <= set(saved.files):
             raise ValueError(f"OOF artifact lacks {sorted(required - set(saved.files))}")
-        arrays = {key: saved[key].copy() for key in required}
+        seed_keys = sorted(
+            key for key in saved.files if key.startswith(("adamw_seed_", "spectral_seed_"))
+        )
+        arrays = {key: saved[key].copy() for key in required | set(seed_keys)}
+    adam_seeds = {key.removeprefix("adamw_seed_") for key in seed_keys
+                  if key.startswith("adamw_seed_")}
+    spectral_seeds = {key.removeprefix("spectral_seed_") for key in seed_keys
+                      if key.startswith("spectral_seed_")}
+    if not adam_seeds or adam_seeds != spectral_seeds:
+        raise ValueError("OOF artifact must contain matching per-seed predictions for both arms")
     lengths = {len(value) for value in arrays.values()}
     if lengths != {len(arrays["row_index"])} or len(np.unique(arrays["row_index"])) != len(
             arrays["row_index"]):
@@ -61,7 +70,20 @@ def select_candidate(oof_path: Path, output: Path,
     for arm in ("adamw", "spectral"):
         model = _rank_within_era(arrays[arm], arrays["era"])
         standalone[arm] = _score(model, target, benchmark, eras, arrays["split"])
-        stable = all(value > 0 for value in standalone[arm]["split_corr_mean"].values())
+        seed_stability = {}
+        for seed in sorted(adam_seeds, key=int):
+            seed_values = _rank_within_era(arrays[f"{arm}_seed_{seed}"], arrays["era"])
+            seed_metrics = _score(seed_values, target, benchmark, eras, arrays["split"])
+            seed_stability[seed] = seed_metrics
+        standalone[arm]["seeds"] = seed_stability
+        stable = (
+            all(value > 0 for value in standalone[arm]["split_corr_mean"].values())
+            and all(
+                value > 0
+                for metrics in seed_stability.values()
+                for value in metrics["split_corr_mean"].values()
+            )
+        )
         for weight in model_weights:
             blended = _rank_within_era(
                 weight * model + (1 - weight) * benchmark_values, arrays["era"]
@@ -89,7 +111,8 @@ def select_candidate(oof_path: Path, output: Path,
         "status": "frozen_train_only_selection",
         "source_oof_sha256": sha256(oof_path),
         "criterion": (
-            "eligible arm has positive standalone mean CORR in every nested outer fold; "
+            "eligible arm and every confirmation seed have positive standalone mean CORR "
+            "in every nested outer fold; "
             "then descending blend mean CORR, worst-fold CORR, BMC, model weight, spectral tie"
         ),
         "model_weights": list(model_weights), "standalone": standalone,

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import signal
 from pathlib import Path
 
 import numpy as np
@@ -93,6 +94,32 @@ def test_checkpoint_resume_is_deterministic(tmp_path: Path):
     left = np.load(tmp_path / "resume" / "validation_predictions.npz")["prediction"]
     right = np.load(tmp_path / "direct" / "validation_predictions.npz")["prediction"]
     np.testing.assert_array_equal(left, right)
+
+
+def test_sigusr1_creates_restartable_checkpoint(tmp_path: Path, monkeypatch):
+    shard_dir = tmp_path / "shard"
+    shard_dir.mkdir()
+    shard = _shard(shard_dir)
+    original_next = BatchStream.next
+    calls = 0
+
+    def interrupted_next(self):
+        nonlocal calls
+        calls += 1
+        rows = original_next(self)
+        if calls == 2:
+            signal.raise_signal(signal.SIGUSR1)
+        return rows
+
+    previous = signal.getsignal(signal.SIGUSR1)
+    monkeypatch.setattr(BatchStream, "next", interrupted_next)
+    result = run_training(shard, SPLIT, _config(), tmp_path / "resume")
+    assert result["status"] == "checkpointed" and result["reason"] == "SIGUSR1"
+    assert json.loads((tmp_path / "resume" / "checkpoint-status.json").read_text())["update"] == 2
+    assert signal.getsignal(signal.SIGUSR1) == previous
+    resumed = run_training(shard, SPLIT, _config(), tmp_path / "resume")
+    assert resumed["status"] == "complete"
+    assert not (tmp_path / "resume" / "checkpoint-status.json").exists()
 
 
 def test_corr_keeps_era_without_benchmark_coverage(tmp_path: Path):

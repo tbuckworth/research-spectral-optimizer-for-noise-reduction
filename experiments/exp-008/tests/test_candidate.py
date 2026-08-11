@@ -20,6 +20,9 @@ def _oof(path, *, unstable: bool = False):
     np.savez_compressed(
         path, row_index=rows, era=eras, target=target, benchmark=benchmark,
         adamw=adamw, spectral=spectral,
+        adamw_seed_0=adamw, adamw_seed_1=adamw + rng.normal(0, 0.02, len(rows)),
+        spectral_seed_0=spectral,
+        spectral_seed_1=spectral + rng.normal(0, 0.02, len(rows)),
         split=np.where(eras <= 4, "outer_1", "outer_2"),
     )
 

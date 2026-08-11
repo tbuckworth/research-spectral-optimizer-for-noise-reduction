@@ -1,0 +1,9 @@
+{
+  "artifacts": {
+    "training-loss-curves.csv": "98b50c5ca04079dc6146736fb694a1250e11e794afd242a192563792dc668055",
+    "training-loss.png": "dadf9a6f916eb1b1924ea84b604416192ad24704b0659e06907362edf8d116c6"
+  },
+  "configs_per_arm": 40,
+  "runs": 80,
+  "status": "complete"
+}
