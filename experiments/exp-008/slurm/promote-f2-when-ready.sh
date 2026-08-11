@@ -34,8 +34,8 @@ for INDEX in $(seq 1 "$INNER_COUNT"); do
   SPLIT="${OUTER_SPLIT}_inner_${INDEX}"
   for BUDGET in 5000 20000 100000; do
     for SEED in 0 1 2; do
-      SUMMARIES+=("$PROJECT/results/summary-${SPLIT}-u${BUDGET}-s${SEED}/scores.csv")
-      MARKERS+=("$PROJECT/results/summary-${SPLIT}-u${BUDGET}-s${SEED}/summary-complete.json")
+      SUMMARIES+=("$PROJECT/results/summary-f2-${SPLIT}-u${BUDGET}-s${SEED}/scores.csv")
+      MARKERS+=("$PROJECT/results/summary-f2-${SPLIT}-u${BUDGET}-s${SEED}/summary-complete.json")
     done
   done
 done

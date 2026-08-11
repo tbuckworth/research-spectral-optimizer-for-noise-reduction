@@ -111,7 +111,7 @@ if [[ $(wc -l < "$MANIFEST") -ne $EXPECTED_ROWS \
 fi
 
 tmux new-session -d -s "$SUPERVISOR_SESSION" \
-  "NUMERAI_SEARCH_CONFIG='$HIGH_RANK_SEARCH' bash '$PROJECT/slurm/supervise-resumable-stage.sh' '$MANIFEST'"
+  "NUMERAI_SEARCH_CONFIG='$HIGH_RANK_SEARCH' NUMERAI_SUMMARY_PREFIX=f2- bash '$PROJECT/slurm/supervise-resumable-stage.sh' '$MANIFEST'"
 tmux new-session -d -s "$PROMOTE_SESSION" \
   "NUMERAI_SEARCH_CONFIG='$HIGH_RANK_SEARCH' bash '$PROJECT/slurm/promote-f2-when-ready.sh' '$LAST_JOB' '$OUTER_SPLIT'"
 printf '%s submitted F2 union=%s jobs=%s--%s dependency=%s\n' \
