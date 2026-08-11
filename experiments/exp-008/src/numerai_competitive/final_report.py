@@ -30,16 +30,37 @@ def _score_rows(report: dict) -> list[tuple[str, float, float]]:
 def _plot(outer: dict, validation: dict, output: Path) -> None:
     panels = [("Nested outer (development)", _score_rows(outer)),
               ("Sealed official validation", _score_rows(validation))]
-    fig, axes = plt.subplots(1, 2, figsize=(11, 4.5))
+    fig, axes = plt.subplots(2, 2, figsize=(12, 8))
     colors = {"adamw": "#377eb8", "spectral": "#e41a1c", "candidate": "#984ea3",
               "ender20": "#4daf4a"}
-    for axis, (title, rows) in zip(axes, panels):
+    for axis, (title, rows) in zip(axes[0], panels):
         names, means, _ = zip(*rows)
         axis.bar(names, means, color=[colors[name] for name in names])
         axis.axhline(0, color="black", linewidth=0.8)
         axis.set_title(title)
         axis.set_ylabel("Mean exact era-wise CORR")
         axis.tick_params(axis="x", rotation=25)
+
+    def intervals(axis, values: list[tuple[str, dict]], title: str) -> None:
+        labels = [label for label, _ in values]
+        estimates = [value["estimate"] for _, value in values]
+        lower = [value["estimate"] - value["ci_low"] for _, value in values]
+        upper = [value["ci_high"] - value["estimate"] for _, value in values]
+        axis.errorbar(labels, estimates, yerr=[lower, upper], fmt="o", capsize=4,
+                      color="#333333", ecolor="#777777")
+        axis.axhline(0, color="black", linewidth=0.8)
+        axis.set(title=title, ylabel="Paired mean CORR difference")
+        axis.tick_params(axis="x", rotation=20)
+
+    intervals(axes[1, 0], [
+        ("nested outer", outer["spectral_minus_adamw"]),
+        ("sealed validation", validation["spectral_minus_adamw"]),
+    ], "Spectral − AdamW (95% block-bootstrap CI)")
+    intervals(axes[1, 1], [
+        ("AdamW", validation["adamw_minus_ender20"]),
+        ("spectral", validation["spectral_minus_ender20"]),
+        ("candidate", validation["candidate_minus_ender20"]),
+    ], "Sealed validation model − Ender20")
     fig.suptitle("Comparable historical evaluation (same target and scorer)")
     fig.tight_layout()
     fig.savefig(output, dpi=180, bbox_inches="tight", facecolor="white")

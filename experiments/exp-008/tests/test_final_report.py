@@ -24,6 +24,8 @@ def test_final_report_keeps_live_and_historical_scales_separate(tmp_path: Path):
         "spectral": score, "candidate": score,
         "ender20": {"mean": 0.019, "sharpe": 1.0},
         "spectral_minus_adamw": _comparison(0.002),
+        "adamw_minus_ender20": _comparison(0.001),
+        "spectral_minus_ender20": _comparison(0.003),
         "candidate_minus_ender20": _comparison(0.003),
     })
     metric = {"label": "CORR20v2", "median": 0.01, "p90": 0.02, "maximum": 0.03}
