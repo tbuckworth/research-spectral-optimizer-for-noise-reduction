@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from numerai_competitive.select_budgeted_configs import select_budgeted_configs
+from numerai_competitive.select_budgeted_configs import restrict_candidates, select_budgeted_configs
 
 
 def _scores() -> pd.DataFrame:
@@ -47,3 +47,24 @@ def test_rejects_duplicate_cell() -> None:
     frame = pd.concat([_scores(), _scores().iloc[[0]]], ignore_index=True)
     with pytest.raises(ValueError, match="duplicate"):
         select_budgeted_configs(frame, 1)
+
+
+def test_restricts_larger_stage_to_preregistered_union() -> None:
+    frame = _scores()
+    extra = frame.copy()
+    extra["config_id"] = 2
+    combined = pd.concat([frame, extra], ignore_index=True)
+    selected = restrict_candidates(combined, [1])
+    assert set(selected["config_id"]) == {1}
+    assert len(selected) == len(frame)
+
+
+@pytest.mark.parametrize("config_ids", [[], [1, 1], [-1]])
+def test_rejects_invalid_candidate_filter(config_ids: list[int]) -> None:
+    with pytest.raises(ValueError, match="config IDs"):
+        restrict_candidates(_scores(), config_ids)
+
+
+def test_rejects_missing_requested_candidate() -> None:
+    with pytest.raises(ValueError, match="missing from scores"):
+        restrict_candidates(_scores(), [1, 2])
