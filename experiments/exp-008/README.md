@@ -166,3 +166,17 @@ uses one CPU, a 4 GB allocation, the complete unprojected live DataFrame (matchi
 runner), and a ten-minute application limit. The same timed inference writes the conventional
 `live_predictions.csv`; no upload occurs. The resulting pickle and fixture can then be copied to
 the desktop for the mandatory official `numerai-predict` Python 3.12 Docker test.
+
+After nested-outer aggregation and the sealed evaluation are complete, render the scale-safe
+comparison report:
+
+```bash
+uv run python -m numerai_competitive.final_report \
+  --outer results/nested-outer/nested-outer-report.json \
+  --validation results/official-validation/official-validation-report.json \
+  --leaderboard leaderboard/leaderboard-summary.json --output results/final-report
+```
+
+The report directly compares only models scored on the same historical target and eras. It shows
+the dated public one-year live reputations in a separate context section and explicitly refuses to
+infer a live rank from historical `target_cyrusd_20` validation CORR.

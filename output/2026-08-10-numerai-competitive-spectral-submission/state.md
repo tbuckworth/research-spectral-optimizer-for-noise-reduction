@@ -64,6 +64,16 @@ and hashed. Spectral won 18/40 pairs but had mean paired CORR delta −0.002653;
 0.050616 versus the best AdamW cell at 0.048384. These are selection-fold results only.
 
 The independently ranked top-12 lists formed a 16-configuration paired union. The exact 64-cell
-F1 manifest (16 configurations × 2 arms × 2 inner folds, 20,000 updates, seed 0) has been audited
-and submitted to the free MATS `compute` partition. It remains dependency-gated on the frozen
-environment synchronization job. Official validation remains sealed.
+F1 manifest (16 configurations × 2 arms × 2 inner folds, 20,000 updates, seed 0) passed its
+environment dependency and ran on the free MATS `compute` partition. As of
+2026-08-11T11:20:18Z, 61/64 result cells were complete. The remaining three were spectral cells
+30, 35 and 39 on `outer_1_inner_2`; Slurm accounting showed advancing CPU time and stable memory,
+so they were active rather than stalled. An independent waiter requires both exact 32-cell inner
+summaries before forming the paired top-four union and submitting F2. Official validation remains
+absent and sealed.
+
+A deterministic final report generator is now tested. It will compare nested-outer and sealed
+official-validation scores only on the common historical target/scorer, and place the dated public
+live leaderboard snapshot in a visibly separate context section. It refuses to translate
+historical `target_cyrusd_20` CORR into a live rank; direct rank comparability still requires
+resolved prospective unstaked rounds.
