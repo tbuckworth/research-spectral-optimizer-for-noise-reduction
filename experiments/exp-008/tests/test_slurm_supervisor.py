@@ -17,6 +17,7 @@ SUBMIT_REFIT = Path(__file__).parents[1] / "slurm" / "submit-refit.sh"
 BUILD_OOF = Path(__file__).parents[1] / "slurm" / "build-oof-candidate.sh"
 SUBMIT_SEALED = Path(__file__).parents[1] / "slurm" / "submit-sealed-evaluation.sh"
 SUBMIT_LIVE = Path(__file__).parents[1] / "slurm" / "submit-live-bundle.sh"
+MAIN_TARGET_SMOKE = Path(__file__).parents[1] / "slurm" / "run-main-target-smoke.sbatch"
 PROMOTERS = [
     Path(__file__).parents[1] / "slurm" / name
     for name in (
@@ -32,6 +33,12 @@ def test_f2_uses_separate_summary_namespace_from_f0_and_f1():
     f2_promoter = PROMOTERS[2].read_text()
     assert "NUMERAI_SUMMARY_PREFIX=f2-" in f1_promoter
     assert "summary-f2-${SPLIT}-u${BUDGET}-s${SEED}" in f2_promoter
+
+
+def test_main_target_smoke_gates_matching_ender60_benchmark():
+    script = MAIN_TARGET_SMOKE.read_text()
+    assert 'result["config"]["target"] == "target"' in script
+    assert 'result["config"]["benchmark"] == "v53_lgbm_ender60"' in script
 
 
 def _executable(path: Path, body: str) -> None:
