@@ -87,7 +87,10 @@ uv run python -m numerai_competitive.freeze \
   --updates 100000 --seed 0 --seed 1 --seed 2 --authorize-validation-reveal
 ```
 
-Only then build the validation shard and invoke `numerai_competitive.evaluate_frozen`. It emits
+Only then build the validation shard with `--feature-set all` and invoke
+`numerai_competitive.evaluate_frozen`. The all-feature shard is required because independently
+selected AdamW and spectral winners may use different feature subsets; each frozen model selects
+its own named columns during inference. The evaluator emits
 raw per-era predictions, rolling/cumulative plots, BMC, era-wise benchmark correlations, and
 moving-block intervals for spectral-minus-AdamW and each candidate-minus-Ender comparison.
 

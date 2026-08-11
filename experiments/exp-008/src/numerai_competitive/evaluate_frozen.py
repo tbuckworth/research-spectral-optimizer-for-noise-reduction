@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 import torch
 
-from .data import ValidationShard, atomic_json
+from .data import ValidationShard, atomic_json, sha256
 from .inference import moving_block_bootstrap
 from .metrics import per_era_corr, per_era_correlation_contribution, summarize_era_scores
 from .model import MLPConfig, ResidualMLP
@@ -26,15 +26,26 @@ def _rank_within_era(values: np.ndarray, eras: np.ndarray) -> np.ndarray:
 
 def _predict_artifact(artifact: dict, shard: ValidationShard, device: torch.device,
                       batch_size: int) -> np.ndarray:
-    if tuple(artifact["feature_names"]) != tuple(shard.manifest["feature_names"]):
-        raise ValueError("model and validation feature schemas differ")
+    model_features = tuple(artifact["feature_names"])
+    shard_features = tuple(shard.manifest["feature_names"])
+    if len(set(model_features)) != len(model_features) or len(set(shard_features)) != len(
+            shard_features):
+        raise ValueError("model or validation feature schema contains duplicates")
+    positions = {name: index for index, name in enumerate(shard_features)}
+    if any(name not in positions for name in model_features):
+        raise ValueError("model feature schema is not a subset of validation features")
+    feature_indices = np.asarray([positions[name] for name in model_features], dtype=np.int64)
+    if artifact["model_config"]["input_dim"] != len(model_features):
+        raise ValueError("model input dimension differs from its frozen feature schema")
     model = ResidualMLP(MLPConfig(**artifact["model_config"]))
     model.load_state_dict(artifact["model"])
     model.eval().to(device)
     output = []
     with torch.inference_mode():
         for start in range(0, len(shard.X), batch_size):
-            values = np.asarray(shard.X[start:start + batch_size], dtype=np.float32) / 4
+            values = np.asarray(
+                shard.X[start:start + batch_size][:, feature_indices], dtype=np.float32
+            ) / 4
             output.append(model(torch.from_numpy(values).to(device)).float().cpu().numpy())
     return np.concatenate(output).astype(np.float32)
 
@@ -42,6 +53,9 @@ def _predict_artifact(artifact: dict, shard: ValidationShard, device: torch.devi
 def _ensemble(paths: list[Path], arm: str, shard: ValidationShard, freeze: dict,
               device: torch.device, batch_size: int) -> np.ndarray:
     expected = freeze["selected"][arm]
+    hashes = [sha256(path) for path in paths]
+    if hashes != expected["model_sha256"]:
+        raise ValueError(f"{arm} model hashes/order differ from frozen manifest")
     artifacts = [torch.load(path, map_location="cpu", weights_only=False) for path in paths]
     signatures = [artifact["signature"] for artifact in artifacts]
     if signatures != expected["model_signatures"]:
@@ -176,9 +190,9 @@ def evaluate(shard_root: Path, freeze_path: Path, adamw_models: list[Path],
              spectral_models: list[Path], output: Path, device_name: str = "auto",
              batch_size: int = 4096) -> dict:
     shard = ValidationShard.open(shard_root)
+    if shard.manifest.get("feature_set") != "all":
+        raise ValueError("frozen evaluation requires an all-feature validation shard")
     freeze = json.loads(freeze_path.read_text())
-    from .data import sha256
-
     if shard.manifest["freeze_manifest_sha256"] != sha256(freeze_path):
         raise ValueError("validation shard and supplied freeze manifest differ")
     device = torch.device("cuda" if device_name == "auto" and torch.cuda.is_available()
@@ -238,6 +252,7 @@ def evaluate(shard_root: Path, freeze_path: Path, adamw_models: list[Path],
         "candidate": candidate_era["corr"], "ender20": benchmark_era,
     })
     output.mkdir(parents=True, exist_ok=True)
+    (output / "evaluation-complete.json").unlink(missing_ok=True)
     per_era.to_csv(output / "official-validation-per-era.csv")
     _plots(per_era, output)
     secondary, secondary_per_era = _secondary_analyses(
@@ -263,7 +278,18 @@ def evaluate(shard_root: Path, freeze_path: Path, adamw_models: list[Path],
         "secondary": secondary,
         "freeze_manifest_sha256": shard.manifest["freeze_manifest_sha256"],
     }
-    atomic_json(output / "official-validation-report.json", report)
+    report_path = output / "official-validation-report.json"
+    atomic_json(report_path, report)
+    artifact_names = (
+        "official-validation-per-era.csv", "official-validation-corr.png",
+        "official-validation-secondary-per-era.csv", "official-validation-predictions.npz",
+        "official-validation-report.json",
+    )
+    atomic_json(output / "evaluation-complete.json", {
+        "status": "complete", "artifacts": {
+            name: sha256(output / name) for name in artifact_names
+        },
+    })
     return report
 
 
