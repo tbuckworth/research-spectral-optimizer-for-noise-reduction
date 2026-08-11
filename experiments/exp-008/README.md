@@ -64,6 +64,12 @@ refit and must never be used as nested-outer evidence.
 fold/seed summaries exist; `audit-outer-when-ready.sh` then blocks until all six arm-specific
 outer results exist and runs the dedicated audit.
 
+For an unattended complete nested run, start `slurm/continue-nested-pipeline.sh` in tmux while
+outer 1 is active. It waits for each audited outer result, submits a fresh environment gate before
+launching outer 2 and outer 3, builds the audited OOF/candidate handoff, and starts final canonical
+selection/refits. It stops at the final-refit audit: validation is still revealed only through the
+separate immutable-freeze command.
+
 After all outer folds, aggregate only untouched nested-outer predictions:
 
 ```bash

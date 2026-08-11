@@ -9,6 +9,7 @@ OUTER_AUDIT = Path(__file__).parents[1] / "slurm" / "audit-outer-when-ready.sh"
 SUBMIT_STAGE = Path(__file__).parents[1] / "slurm" / "submit-stage.sh"
 SUBMIT_SELECTED = Path(__file__).parents[1] / "slurm" / "submit-selected.sh"
 LAUNCH_OUTER = Path(__file__).parents[1] / "slurm" / "launch-outer.sh"
+CONTINUE_NESTED = Path(__file__).parents[1] / "slurm" / "continue-nested-pipeline.sh"
 SUBMIT_REFIT = Path(__file__).parents[1] / "slurm" / "submit-refit.sh"
 BUILD_OOF = Path(__file__).parents[1] / "slurm" / "build-oof-candidate.sh"
 SUBMIT_SEALED = Path(__file__).parents[1] / "slurm" / "submit-sealed-evaluation.sh"
@@ -293,6 +294,58 @@ def test_launch_outer_rejects_duplicate_manifest_coverage(tmp_path):
     assert failed.returncode != 0
     assert "40 configs x two arms" in failed.stderr
     assert not (project / "results" / "submission-outer_2-f0-u5000-s0.tsv").exists()
+
+
+def test_nested_controller_launches_remaining_outers_and_final_stage(tmp_path):
+    project = tmp_path / "project"
+    results = project / "results"
+    (project / "slurm").mkdir(parents=True)
+    first = results / "audit-outer_1-u100000"
+    first.mkdir(parents=True)
+    (first / "outer-audit.json").write_text(json.dumps({
+        "status": "audit_complete", "split": {"name": "outer_1"},
+    }))
+    _executable(project / "slurm" / "sync-env.sbatch", "exit 0\n")
+    launches = project / "launches"
+    _executable(
+        project / "slurm" / "launch-outer.sh",
+        f'printf "%s\\n" "$*" >> "{launches}"\n'
+        'number=${1#outer_}\n'
+        'mkdir -p "$NUMERAI_PROJECT/results/audit-outer_${number}-u100000"\n'
+        'printf \'{"status":"audit_complete","split":{"name":"%s"}}\\n\' "$1" > '
+        '"$NUMERAI_PROJECT/results/audit-outer_${number}-u100000/outer-audit.json"\n',
+    )
+    _executable(
+        project / "slurm" / "build-oof-candidate.sh",
+        'mkdir -p "$NUMERAI_PROJECT/results/nested-outer"\n'
+        'printf \'{"status":"complete"}\\n\' > '
+        '"$NUMERAI_PROJECT/results/nested-outer/nested-outer-report.json"\n'
+        'printf \'{"status":"frozen_train_only_selection"}\\n\' > '
+        '"$NUMERAI_PROJECT/results/candidate-plan.json"\n',
+    )
+    _executable(
+        project / "slurm" / "launch-final-selection.sh",
+        f'printf "%s\\n" "$*" >> "{launches}"\n'
+        'touch "$NUMERAI_PROJECT/results/submission-final-selection-u100000.tsv"\n'
+        'mkdir -p "$NUMERAI_PROJECT/results/audit-final-refits-u100000"\n'
+        'printf \'{"status":"audit_complete","cells":6,"updates":100000,'
+        '"seeds":[0,1,2]}\\n\' > '
+        '"$NUMERAI_PROJECT/results/audit-final-refits-u100000/refit-audit.json"\n',
+    )
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    sbatch_calls = tmp_path / "sbatch-calls"
+    _executable(fake_bin / "sbatch", f'printf "%s\\n" "$*" >> "{sbatch_calls}"\necho 9001\n')
+    env = os.environ | {
+        "NUMERAI_PROJECT": str(project), "NUMERAI_POLL_SECONDS": "0",
+        "PATH": f"{fake_bin}:{os.environ['PATH']}",
+    }
+    subprocess.run(["bash", CONTINUE_NESTED], check=True, env=env)
+    assert launches.read_text().splitlines() == ["outer_2 9001", "outer_3 9001", "9001"]
+    assert len(sbatch_calls.read_text().splitlines()) == 3
+    assert "ready for immutable freeze" in (
+        results / "continue-nested-pipeline.log"
+    ).read_text()
 
 
 def test_build_oof_resolves_three_audited_folds_and_three_seeds(tmp_path):
