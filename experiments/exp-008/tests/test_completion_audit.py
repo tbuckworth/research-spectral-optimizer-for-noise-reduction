@@ -119,8 +119,10 @@ def _complete_tree(tmp_path: Path) -> tuple[Path, Path]:
         "official_sha256": sha256(official_predictions), "runner_commit": "b" * 40,
         "image_id": "sha256:" + "c" * 64,
     })
+    leaderboard_raw = _write(tmp_path / "leaderboard-raw.json", [{"rank": 1}])
     leaderboard = _write(tmp_path / "leaderboard.json", {
-        "status": "complete", "summary": {"rows": 1000},
+        "status": "complete", "round": 9, "summary": {"rows": 1000},
+        "raw_sha256": sha256(leaderboard_raw),
     })
     report_dir = results / "final-report"
     report_html = _write(report_dir / "report.html", b"report")
@@ -143,7 +145,7 @@ def test_completion_audit_cross_checks_full_chain(tmp_path):
     report = audit(results, leaderboard, output)
     assert report["status"] == "audit_complete"
     assert report["final_selected"] == {"adamw": 1, "spectral": 4}
-    assert len(report["evidence_sha256"]) == 16
+    assert len(report["evidence_sha256"]) == 17
 
 
 def test_completion_audit_rejects_model_changed_after_freeze(tmp_path):

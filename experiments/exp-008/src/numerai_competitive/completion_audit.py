@@ -151,8 +151,12 @@ def audit(results: Path, leaderboard_path: Path, output: Path) -> dict:
                      "official_container": sha256(official_path)})
 
     leaderboard = _json(leaderboard_path, ("complete",))
-    if not leaderboard.get("summary", {}).get("rows"):
-        raise ValueError("public leaderboard snapshot is empty")
+    leaderboard_raw = leaderboard_path.parent / "leaderboard-raw.json"
+    if (not leaderboard.get("summary", {}).get("rows")
+            or not isinstance(leaderboard.get("round"), int)
+            or not leaderboard_raw.is_file()
+            or leaderboard.get("raw_sha256") != sha256(leaderboard_raw)):
+        raise ValueError("public leaderboard snapshot is empty or raw response is inconsistent")
     report_dir = results / "final-report"
     report_manifest_path = report_dir / "report-manifest.json"
     report_manifest = _json(report_manifest_path, ("complete",))
@@ -167,6 +171,7 @@ def audit(results: Path, leaderboard_path: Path, output: Path) -> dict:
         raise ValueError("final report does not expose both selected configurations")
     _verify_named_hashes(report_dir, report_manifest.get("artifacts", {}))
     evidence.update({"leaderboard": sha256(leaderboard_path),
+                     "leaderboard_raw": sha256(leaderboard_raw),
                      "final_report": sha256(report_manifest_path)})
 
     result = {
