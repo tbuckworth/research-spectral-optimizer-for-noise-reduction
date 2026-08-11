@@ -12,6 +12,7 @@ def collect_candidates(selections: list[Path], audits: list[Path]) -> dict:
     if len(selections) != 3 or len(audits) != 3:
         raise ValueError("final selection requires exactly three outer selections and audits")
     winners: dict[str, list[int]] = {"adamw": [], "spectral": []}
+    winner_pairs: dict[str, list[dict[str, int]]] = {"adamw": [], "spectral": []}
     outer_folds = []
     for expected_number, (selection_path, audit_path) in enumerate(
         zip(selections, audits, strict=True), start=1,
@@ -21,20 +22,38 @@ def collect_candidates(selections: list[Path], audits: list[Path]) -> dict:
         expected_split = f"outer_{expected_number}"
         if (audit.get("status") != "audit_complete"
                 or audit.get("split", {}).get("name") != expected_split
-                or audit.get("updates") != 100000
                 or audit.get("seeds") != [0, 1, 2]
                 or audit.get("cells") != 6):
             raise ValueError(f"{audit_path}: incomplete or misordered outer audit")
         selected = selection.get("selected", {})
+        selected_updates = selection.get("selected_updates", {})
         selected_winners = {}
+        selected_budgets = {}
         for arm in ("adamw", "spectral"):
             ids = selected.get(arm, [])
             if len(ids) != 1 or not isinstance(ids[0], int) or ids[0] < 0:
                 raise ValueError(f"{selection_path}: {arm} must contain one config ID")
             selected_winners[arm] = ids[0]
             winners[arm].append(ids[0])
+            if selected_updates:
+                budgets = selected_updates.get(arm, [])
+                if len(budgets) != 1 or budgets[0] not in {5000, 20000, 100000}:
+                    raise ValueError(f"{selection_path}: {arm} must contain one allowed budget")
+                budget = budgets[0]
+            elif audit.get("updates") == 100000:
+                budget = 100000
+            else:
+                raise ValueError(f"{selection_path}: selected update budget is missing")
+            selected_budgets[arm] = budget
+            winner_pairs[arm].append({"config_id": ids[0], "updates": budget})
         if audit.get("selected") != selected_winners:
             raise ValueError(f"{audit_path}: audited winners differ from selection")
+        audited_updates = audit.get("updates")
+        if (isinstance(audited_updates, dict) and audited_updates != selected_budgets) or (
+            isinstance(audited_updates, int)
+            and any(value != audited_updates for value in selected_budgets.values())
+        ):
+            raise ValueError(f"{audit_path}: audited budgets differ from selection")
         outer_folds.append({
             "split": expected_split,
             "selection": str(selection_path),
@@ -42,11 +61,18 @@ def collect_candidates(selections: list[Path], audits: list[Path]) -> dict:
             "audit": str(audit_path),
             "audit_sha256": sha256(audit_path),
             "selected": selected_winners,
+            "selected_updates": selected_budgets,
         })
     selected = {
         arm: sorted(set(ids)) for arm, ids in winners.items()
     }
     selected["paired_union"] = sorted(set(selected["adamw"]) | set(selected["spectral"]))
+    budgeted_candidates = sorted(
+        {
+            (entry["config_id"], entry["updates"])
+            for entries in winner_pairs.values() for entry in entries
+        },
+    )
     return {
         "status": "outer_winners_audited",
         "criterion": (
@@ -54,6 +80,19 @@ def collect_candidates(selections: list[Path], audits: list[Path]) -> dict:
         ),
         "outer_folds": outer_folds,
         "selected": selected,
+        "arm_candidates": {
+            arm: [
+                {"config_id": config_id, "updates": updates}
+                for config_id, updates in sorted({
+                    (entry["config_id"], entry["updates"]) for entry in entries
+                })
+            ]
+            for arm, entries in winner_pairs.items()
+        },
+        "budgeted_candidates": [
+            {"config_id": config_id, "updates": updates}
+            for config_id, updates in budgeted_candidates
+        ],
     }
 
 

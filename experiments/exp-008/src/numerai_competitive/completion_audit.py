@@ -100,27 +100,37 @@ def audit(results: Path, leaderboard_path: Path, output: Path) -> dict:
                 or not 4 <= len(ordinary) <= 8):
             raise ValueError(f"outer_{number} F1 selection omits audited candidates")
         f2_scores = [
-            results / f"summary-outer_{number}_inner_{inner}-u100000-s{seed}" / "scores.csv"
-            for inner in range(1, inner_count + 1) for seed in range(3)
+            results / f"summary-outer_{number}_inner_{inner}-u{budget}-s{seed}" / "scores.csv"
+            for inner in range(1, inner_count + 1)
+            for budget in (5000, 20000, 100000) for seed in range(3)
         ]
-        f2_path = results / f"selection-outer_{number}-f2-top1.json"
+        f2_path = results / f"selection-outer_{number}-f2-budget-top1.json"
         f2 = json.loads(f2_path.read_text())
         _verify_score_hashes(f2.get("score_sha256", {}), f2_scores)
         for score_path in f2_scores:
             coverage = _score_arm_ids(score_path)
-            if (coverage["adamw"] != ordinary
-                    or coverage["spectral"] != ordinary | set(extension_ids)):
+            is_long_budget = "-u100000-" in score_path.parent.name
+            expected_spectral = ordinary | set(extension_ids) if is_long_budget else ordinary
+            if coverage["adamw"] != ordinary or coverage["spectral"] != expected_spectral:
                 raise ValueError(f"{score_path}: F2 arm/config coverage is inconsistent")
         if (f2.get("top") != 1 or f2.get("allow_asymmetric") is not True
                 or any(len(f2.get("selected", {}).get(arm, [])) != 1
                        for arm in ("adamw", "spectral"))):
             raise ValueError(f"outer_{number} F2 selection is not exact asymmetric top-1")
+        if any(
+            len(f2.get("selected_updates", {}).get(arm, [])) != 1
+            or f2["selected_updates"][arm][0] not in {5000, 20000, 100000}
+            for arm in ("adamw", "spectral")
+        ):
+            raise ValueError(f"outer_{number} F2 selection lacks exact update budgets")
         evidence[f"outer_{number}_f1_selection"] = sha256(f1_path)
         evidence[f"outer_{number}_f2_selection"] = sha256(f2_path)
-        path = results / f"audit-outer_{number}-u100000" / "outer-audit.json"
+        path = results / f"audit-outer_{number}-budgeted" / "outer-audit.json"
         value = _json(path, ("audit_complete",))
         if (value.get("split", {}).get("name") != f"outer_{number}"
-                or value.get("updates") != 100_000 or value.get("seeds") != [0, 1, 2]
+                or value.get("updates") != {
+                    arm: f2["selected_updates"][arm][0] for arm in ("adamw", "spectral")
+                } or value.get("seeds") != [0, 1, 2]
                 or value.get("cells") != 6):
             raise ValueError(f"outer_{number} audit has wrong split, updates or seeds")
         if set(value.get("selected", {})) != {"adamw", "spectral"}:
@@ -128,7 +138,13 @@ def audit(results: Path, leaderboard_path: Path, output: Path) -> dict:
         if any(value["selected"][arm] != f2["selected"][arm][0]
                for arm in ("adamw", "spectral")):
             raise ValueError(f"outer_{number} audit differs from its F2 selection")
-        outer_selected[str(number)] = value["selected"]
+        outer_selected[str(number)] = {
+            arm: {
+                "config_id": value["selected"][arm],
+                "updates": value["updates"][arm],
+            }
+            for arm in ("adamw", "spectral")
+        }
         evidence[f"outer_{number}_audit"] = sha256(path)
 
     nested_path = results / "nested-outer" / "nested-outer-report.json"
@@ -144,7 +160,9 @@ def audit(results: Path, leaderboard_path: Path, output: Path) -> dict:
     union_path = results / "selection-final-outer-winner-union.json"
     union = _json(union_path, ("outer_winners_audited",))
     expected_by_arm = {
-        arm: sorted({outer_selected[str(number)][arm] for number in range(1, 4)})
+        arm: sorted({
+            outer_selected[str(number)][arm]["config_id"] for number in range(1, 4)
+        })
         for arm in ("adamw", "spectral")
     }
     expected_union = sorted(set(expected_by_arm["adamw"]) | set(expected_by_arm["spectral"]))
@@ -152,11 +170,26 @@ def audit(results: Path, leaderboard_path: Path, output: Path) -> dict:
             or union.get("selected", {}).get("spectral") != expected_by_arm["spectral"]
             or union.get("selected", {}).get("paired_union") != expected_union):
         raise ValueError("final candidate union differs from audited outer winners")
+    expected_budgeted = sorted({
+        (
+            outer_selected[str(number)][arm]["config_id"],
+            outer_selected[str(number)][arm]["updates"],
+        )
+        for number in range(1, 4) for arm in ("adamw", "spectral")
+    })
+    if union.get("budgeted_candidates") != [
+        {"config_id": config_id, "updates": updates}
+        for config_id, updates in expected_budgeted
+    ]:
+        raise ValueError("final budgeted candidate union differs from outer winners")
     evidence["outer_winner_union"] = sha256(union_path)
 
-    refit_path = results / "audit-final-refits-u100000" / "refit-audit.json"
+    refit_path = results / "audit-final-refits-budgeted" / "refit-audit.json"
     refit = _json(refit_path, ("audit_complete",))
-    if (refit.get("cells") != 6 or refit.get("updates") != 100_000
+    if (refit.get("cells") != 6
+            or set(refit.get("updates", {})) != {"adamw", "spectral"}
+            or any(value not in {5000, 20000, 100000}
+                   for value in refit.get("updates", {}).values())
             or refit.get("seeds") != [0, 1, 2]
             or set(refit.get("selected", {})) != {"adamw", "spectral"}):
         raise ValueError("final refit audit is not the exact two-arm, three-seed procedure")
@@ -165,8 +198,16 @@ def audit(results: Path, leaderboard_path: Path, output: Path) -> dict:
     if any(final_selection.get("selected", {}).get(arm) != [refit["selected"][arm]]
            for arm in ("adamw", "spectral")):
         raise ValueError("final refit audit differs from final canonical-fold selection")
+    if any(final_selection.get("selected_updates", {}).get(arm)
+           != [refit["updates"][arm]] for arm in ("adamw", "spectral")):
+        raise ValueError("final refit budgets differ from final canonical-fold selection")
     if any(refit["selected"][arm] not in expected_union for arm in ("adamw", "spectral")):
         raise ValueError("final selected config was not an audited outer winner")
+    if any(
+        (refit["selected"][arm], refit["updates"][arm]) not in expected_budgeted
+        for arm in ("adamw", "spectral")
+    ):
+        raise ValueError("final selected config/budget was not an audited outer winner")
     evidence["final_refit_audit"] = sha256(refit_path)
     evidence["final_selection"] = sha256(final_selection_path)
 
@@ -187,9 +228,11 @@ def audit(results: Path, leaderboard_path: Path, output: Path) -> dict:
         selected = freeze["selected"][arm]
         if (selected.get("config_id") != refit["selected"][arm]
                 or selected.get("seeds") != [0, 1, 2]
-                or selected.get("updates") != 100_000):
+                or selected.get("updates") != refit["updates"][arm]):
             raise ValueError(f"{arm} freeze differs from final refit audit")
-        paths = [results / f"final-refit-u100000-s{seed}-{arm}-c{selected['config_id']}"
+        paths = [results / (
+            f"final-refit-u{selected['updates']}-s{seed}-{arm}-c{selected['config_id']}"
+        )
                  / "model.pt" for seed in range(3)]
         if [sha256(path) for path in paths] != selected.get("model_sha256"):
             raise ValueError(f"{arm} frozen model hashes differ from final refits")

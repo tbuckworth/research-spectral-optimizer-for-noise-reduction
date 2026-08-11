@@ -19,9 +19,9 @@ ADAMW_MODELS=()
 SPECTRAL_MODELS=()
 for SEED in 0 1 2; do
   ADAMW_MODELS+=(--adamw-model \
-    "$PROJECT/results/final-refit-u100000-s${SEED}-adamw-c${ADAMW_CONFIG}/model.pt")
+    "$PROJECT/results/final-refit-u${ADAMW_UPDATES}-s${SEED}-adamw-c${ADAMW_CONFIG}/model.pt")
   SPECTRAL_MODELS+=(--spectral-model \
-    "$PROJECT/results/final-refit-u100000-s${SEED}-spectral-c${SPECTRAL_CONFIG}/model.pt")
+    "$PROJECT/results/final-refit-u${SPECTRAL_UPDATES}-s${SEED}-spectral-c${SPECTRAL_CONFIG}/model.pt")
 done
 "$PROJECT/uv" run --no-sync python -m numerai_competitive.evaluate_frozen \
   --shard "$SHARD" --freeze "$FREEZE" "${ADAMW_MODELS[@]}" "${SPECTRAL_MODELS[@]}" \

@@ -18,9 +18,9 @@ ADAMW_MODELS=()
 SPECTRAL_MODELS=()
 for SEED in 0 1 2; do
   ADAMW_MODELS+=(--adamw-model \
-    "$PROJECT/results/final-refit-u100000-s${SEED}-adamw-c${ADAMW_CONFIG}/model.pt")
+    "$PROJECT/results/final-refit-u${ADAMW_UPDATES}-s${SEED}-adamw-c${ADAMW_CONFIG}/model.pt")
   SPECTRAL_MODELS+=(--spectral-model \
-    "$PROJECT/results/final-refit-u100000-s${SEED}-spectral-c${SPECTRAL_CONFIG}/model.pt")
+    "$PROJECT/results/final-refit-u${SPECTRAL_UPDATES}-s${SEED}-spectral-c${SPECTRAL_CONFIG}/model.pt")
 done
 "$PROJECT/uv" run --no-sync python -m numerai_competitive.freeze \
   --search "$SEARCH_CONFIG" --protocol fidelity-protocol.md \
@@ -28,7 +28,8 @@ done
   --code-commit "$CODE_COMMIT" --code-snapshot "$PROJECT/code-snapshot.json" \
   --code-root "$PROJECT" --adamw-config "$ADAMW_CONFIG" \
   --spectral-config "$SPECTRAL_CONFIG" "${ADAMW_MODELS[@]}" "${SPECTRAL_MODELS[@]}" \
-  --updates 100000 --seed 0 --seed 1 --seed 2 --authorize-validation-reveal
+  --adamw-updates "$ADAMW_UPDATES" --spectral-updates "$SPECTRAL_UPDATES" \
+  --seed 0 --seed 1 --seed 2 --authorize-validation-reveal
 "$PROJECT/uv" run --no-sync python -m numerai_competitive.download_validation \
   --destination "$SOURCE" --freeze "$FREEZE"
 if [[ -e "$SHARD" ]]; then

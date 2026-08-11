@@ -80,13 +80,15 @@ def _selected_config(search: dict, freeze: dict, arm: str) -> dict:
                if config.get("arm") == arm and config.get("config_id") == config_id]
     if len(matches) != 1:
         raise ValueError(f"{arm}: frozen config is absent or duplicated in search manifest")
-    if selected.get("updates") != 100_000 or selected.get("seeds") != [0, 1, 2]:
+    if (selected.get("updates") not in {5_000, 20_000, 100_000}
+            or selected.get("seeds") != [0, 1, 2]):
         raise ValueError(f"{arm}: final training horizon or seeds differ from protocol")
-    return matches[0]
+    return {**matches[0], "training_updates": selected["updates"]}
 
 
 def _config_rows(configs: dict[str, dict]) -> str:
-    shared = ("config_id", "feature_set", "width", "depth", "activation", "residual",
+    shared = ("config_id", "training_updates", "feature_set", "width", "depth",
+              "activation", "residual",
               "normalization", "dropout", "batch_mode", "batch_size", "learning_rate",
               "weight_decay", "schedule", "warmup_fraction", "clip_grad_norm")
     spectral = ("rank", "decay", "filter_mode", "filter_strength", "filter_warmup",

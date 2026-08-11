@@ -52,7 +52,8 @@ def _verify_arm(arm: str, config_id: int, models: list[Path], seeds: list[int],
 def create_freeze(search_path: Path, protocol_path: Path, candidate_path: Path,
                   output: Path, code_commit: str, code_snapshot_path: Path, code_root: Path,
                   adamw_config: int, spectral_config: int, adamw_models: list[Path],
-                  spectral_models: list[Path], updates: int, seeds: list[int],
+                  spectral_models: list[Path], updates: int | dict[str, int],
+                  seeds: list[int],
                   authorize_validation_reveal: bool) -> dict:
     if not authorize_validation_reveal:
         raise ValueError("validation reveal requires explicit authorization")
@@ -64,6 +65,13 @@ def create_freeze(search_path: Path, protocol_path: Path, candidate_path: Path,
     if candidate.get("status") != "frozen_train_only_selection":
         raise ValueError("candidate plan is not a frozen train-only selection")
     selected_candidate = candidate.get("selected", {})
+    arm_updates = (
+        {"adamw": updates, "spectral": updates}
+        if isinstance(updates, int) else updates
+    )
+    if (set(arm_updates) != {"adamw", "spectral"}
+            or any(value not in {5000, 20000, 100000} for value in arm_updates.values())):
+        raise ValueError("freeze requires one allowed update budget per arm")
     if (selected_candidate.get("arm") not in {"adamw", "spectral"}
             or selected_candidate.get("benchmark") != "v53_lgbm_ender20"
             or not 0 < selected_candidate.get("model_weight", 0) <= 1
@@ -80,9 +88,12 @@ def create_freeze(search_path: Path, protocol_path: Path, candidate_path: Path,
         "candidate_plan_sha256": sha256(candidate_path),
         "candidate_transform": selected_candidate,
         "selected": {
-            "adamw": _verify_arm("adamw", adamw_config, adamw_models, seeds, updates, search),
+            "adamw": _verify_arm(
+                "adamw", adamw_config, adamw_models, seeds, arm_updates["adamw"], search
+            ),
             "spectral": _verify_arm(
-                "spectral", spectral_config, spectral_models, seeds, updates, search
+                "spectral", spectral_config, spectral_models, seeds,
+                arm_updates["spectral"], search
             ),
         },
     }
@@ -103,15 +114,25 @@ def main() -> None:
     parser.add_argument("--spectral-config", type=int, required=True)
     parser.add_argument("--adamw-model", type=Path, action="append", required=True)
     parser.add_argument("--spectral-model", type=Path, action="append", required=True)
-    parser.add_argument("--updates", type=int, required=True)
+    parser.add_argument("--updates", type=int)
+    parser.add_argument("--adamw-updates", type=int)
+    parser.add_argument("--spectral-updates", type=int)
     parser.add_argument("--seed", type=int, action="append", required=True)
     parser.add_argument("--authorize-validation-reveal", action="store_true")
     args = parser.parse_args()
+    if args.updates is not None:
+        if args.adamw_updates is not None or args.spectral_updates is not None:
+            raise ValueError("--updates cannot be combined with arm-specific updates")
+        updates: int | dict[str, int] = args.updates
+    elif args.adamw_updates is not None and args.spectral_updates is not None:
+        updates = {"adamw": args.adamw_updates, "spectral": args.spectral_updates}
+    else:
+        raise ValueError("provide --updates or both arm-specific update counts")
     manifest = create_freeze(
         args.search, args.protocol, args.candidate_plan, args.output, args.code_commit,
         args.code_snapshot, args.code_root,
         args.adamw_config, args.spectral_config, args.adamw_model, args.spectral_model,
-        args.updates, args.seed, args.authorize_validation_reveal,
+        updates, args.seed, args.authorize_validation_reveal,
     )
     print(json.dumps(manifest, sort_keys=True))
 

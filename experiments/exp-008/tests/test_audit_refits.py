@@ -26,8 +26,8 @@ def _draw(arm, config_id):
     return value
 
 
-def _refit(root, draw, seed):
-    config = materialize_config(draw, input_dim=3, updates=100000, seed=seed)
+def _refit(root, draw, seed, updates=100000):
+    config = materialize_config(draw, input_dim=3, updates=updates, seed=seed)
     split = {
         "name": "all_train_refit",
         "train_eras": [f"{era:04d}" for era in range(1, 575)],
@@ -38,7 +38,7 @@ def _refit(root, draw, seed):
     ).encode()).hexdigest()
     model = ResidualMLP(MLPConfig(**config["model"]))
     directory = root / (
-        f"final-refit-u100000-s{seed}-{draw['arm']}-c{draw['config_id']}"
+        f"final-refit-u{updates}-s{seed}-{draw['arm']}-c{draw['config_id']}"
     )
     directory.mkdir(parents=True)
     torch.save({
@@ -50,7 +50,7 @@ def _refit(root, draw, seed):
     result = {
         "status": "complete", "signature": signature, "split": split, "config": config,
         "parameter_count": sum(parameter.numel() for parameter in model.parameters()),
-        "updates": 100000, "validation": None, "model_file": "model.pt",
+        "updates": updates, "validation": None, "model_file": "model.pt",
     }
     (directory / "result.json").write_text(json.dumps(result))
 
@@ -92,3 +92,25 @@ def test_audit_refits_rejects_tampered_model_metadata(tmp_path):
             manifest, tmp_path / "results", selection, draws, {"medium": 3},
             tmp_path / "audit",
         )
+
+
+def test_audit_refits_accepts_arm_specific_selected_budgets(tmp_path):
+    draws = [_draw("adamw", 1), _draw("spectral", 2)]
+    budgets = {"adamw": 5000, "spectral": 20000}
+    rows = []
+    for job, draw in enumerate(draws, 10):
+        _refit(tmp_path / "results", draw, 0, budgets[draw["arm"]])
+        rows.append(
+            f"{job}\t{draw['arm']}\t{draw['config_id']}\t{budgets[draw['arm']]}\t0"
+        )
+    manifest = tmp_path / "manifest.tsv"
+    manifest.write_text("\n".join(rows) + "\n")
+    selection = {
+        "selected": {"adamw": [1], "spectral": [2]},
+        "selected_updates": {"adamw": [5000], "spectral": [20000]},
+    }
+    report = audit_refits(
+        manifest, tmp_path / "results", selection, draws, {"medium": 3},
+        tmp_path / "audit", None, (0,),
+    )
+    assert report["updates"] == budgets

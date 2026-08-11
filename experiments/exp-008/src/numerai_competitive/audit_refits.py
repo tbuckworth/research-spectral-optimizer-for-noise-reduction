@@ -34,17 +34,32 @@ def _manifest(path: Path) -> list[dict]:
 
 def audit_refits(manifest: Path, results: Path, selection: dict, search_draws: list[dict],
                  feature_dimensions: dict[str, int], output: Path,
-                 updates: int = 100000, seeds: tuple[int, ...] = (0, 1, 2)) -> dict:
+                 updates: int | None = 100000,
+                 seeds: tuple[int, ...] = (0, 1, 2)) -> dict:
     selected = selection.get("selected", {})
+    selected_updates = selection.get("selected_updates", {})
     winners = {}
+    winner_updates = {}
     for arm in ("adamw", "spectral"):
         ids = selected.get(arm, [])
         if len(ids) != 1 or not isinstance(ids[0], int):
             raise ValueError(f"{arm} final selection must contain one config ID")
         winners[arm] = ids[0]
+        if selected_updates:
+            budgets = selected_updates.get(arm, [])
+            if len(budgets) != 1:
+                raise ValueError(f"{arm} final selection must contain one update budget")
+            winner_updates[arm] = int(budgets[0])
+        elif updates is not None:
+            winner_updates[arm] = updates
+        else:
+            raise ValueError("final selection does not specify update budgets")
     rows = _manifest(manifest)
     actual = {(row["arm"], row["config_id"], row["updates"], row["seed"]) for row in rows}
-    expected = {(arm, winners[arm], updates, seed) for arm in winners for seed in seeds}
+    expected = {
+        (arm, winners[arm], winner_updates[arm], seed)
+        for arm in winners for seed in seeds
+    }
     if (len(rows) != len(actual) or len({row["job"] for row in rows}) != len(rows)
             or actual != expected):
         raise ValueError("refit manifest differs from selected arm/config/seed cells")
@@ -53,14 +68,14 @@ def audit_refits(manifest: Path, results: Path, selection: dict, search_draws: l
     expected_eras = [f"{era:04d}" for era in range(1, 575)]
     for row in sorted(rows, key=lambda value: (value["arm"], value["seed"])):
         directory = results / (
-            f"final-refit-u{updates}-s{row['seed']}-{row['arm']}-c{row['config_id']}"
+            f"final-refit-u{row['updates']}-s{row['seed']}-{row['arm']}-c{row['config_id']}"
         )
         result_path, model_path = directory / "result.json", directory / "model.pt"
         if not result_path.is_file() or not model_path.is_file():
             raise ValueError(f"{directory}: refit result or model is missing")
         result = json.loads(result_path.read_text())
         split = result.get("split", {})
-        if (result.get("status") != "complete" or result.get("updates") != updates
+        if (result.get("status") != "complete" or result.get("updates") != row["updates"]
                 or result.get("validation") is not None
                 or result.get("model_file") != "model.pt"
                 or split.get("name") != "all_train_refit"
@@ -68,7 +83,7 @@ def audit_refits(manifest: Path, results: Path, selection: dict, search_draws: l
                 or split.get("valid_eras") or split.get("purged_eras")):
             raise ValueError(f"{result_path}: invalid full-train refit provenance")
         provenance = _verify_search_identity(
-            result, arm=row["arm"], config_id=row["config_id"], updates=updates,
+            result, arm=row["arm"], config_id=row["config_id"], updates=row["updates"],
             seed=row["seed"], search_draws=search_draws,
             feature_dimensions=feature_dimensions,
         )
@@ -98,8 +113,11 @@ def audit_refits(manifest: Path, results: Path, selection: dict, search_draws: l
     output.mkdir(parents=True, exist_ok=True)
     table = output / "refits.csv"
     pd.DataFrame(audited).to_csv(table, index=False)
+    reported_updates: int | dict[str, int] = (
+        updates if not selected_updates and updates is not None else winner_updates
+    )
     report = {
-        "status": "audit_complete", "updates": updates, "seeds": list(seeds),
+        "status": "audit_complete", "updates": reported_updates, "seeds": list(seeds),
         "selected": winners, "cells": len(audited), "manifest_sha256": sha256(manifest),
         "table_sha256": sha256(table),
         "note": "full model SHA-256 hashes are computed by the immutable freeze step",
@@ -120,7 +138,7 @@ def main() -> None:
     dimensions = {name: len(_load_features(args.features, name)) for name in ("medium", "all")}
     report = audit_refits(
         args.manifest, args.results, json.loads(args.selection.read_text()),
-        json.loads(args.search.read_text())["configs"], dimensions, args.output,
+        json.loads(args.search.read_text())["configs"], dimensions, args.output, None,
     )
     print(json.dumps(report, sort_keys=True))
 

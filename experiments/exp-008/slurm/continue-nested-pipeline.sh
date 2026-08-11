@@ -68,8 +68,8 @@ if [[ ! -f "$RESULTS/nested-outer/nested-outer-report.json" \
   printf '%s built nested-outer report and frozen candidate plan\n' "$(date -Is)" >> "$LOG"
 fi
 
-FINAL_MANIFEST="$RESULTS/submission-final-selection-u100000.tsv"
-FINAL_AUDIT="$RESULTS/audit-final-refits-u100000/refit-audit.json"
+FINAL_MANIFEST="$RESULTS/submission-final-selection-budgeted.tsv"
+FINAL_AUDIT="$RESULTS/audit-final-refits-budgeted/refit-audit.json"
 if [[ ! -f $FINAL_AUDIT && ! -f $FINAL_MANIFEST ]]; then
   DEPENDENCY=$(fresh_environment_job)
   bash "$PROJECT/slurm/launch-final-selection.sh" "$DEPENDENCY"
@@ -79,7 +79,9 @@ until [[ -f $FINAL_AUDIT ]] && python3 -c '
 import json,sys
 value=json.load(open(sys.argv[1]))
 raise SystemExit(0 if value.get("status") == "audit_complete"
-                 and value.get("cells") == 6 and value.get("updates") == 100000
+                 and value.get("cells") == 6
+                 and set(value.get("updates", {})) == {"adamw", "spectral"}
+                 and set(value["updates"].values()) <= {5000, 20000, 100000}
                  and value.get("seeds") == [0, 1, 2] else 1)
 ' "$FINAL_AUDIT"; do
   printf '%s waiting for audited final refits\n' "$(date -Is)" >> "$LOG"

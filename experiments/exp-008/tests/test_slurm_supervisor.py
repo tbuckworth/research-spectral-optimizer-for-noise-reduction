@@ -8,6 +8,7 @@ OUTER_SUBMIT = Path(__file__).parents[1] / "slurm" / "submit-outer-eval.sh"
 OUTER_AUDIT = Path(__file__).parents[1] / "slurm" / "audit-outer-when-ready.sh"
 SUBMIT_STAGE = Path(__file__).parents[1] / "slurm" / "submit-stage.sh"
 SUBMIT_SELECTED = Path(__file__).parents[1] / "slurm" / "submit-selected.sh"
+SUBMIT_BUDGETED = Path(__file__).parents[1] / "slurm" / "submit-budgeted-selected.sh"
 SUBMIT_HIGH_RANK = Path(__file__).parents[1] / "slurm" / "submit-high-rank-spectral.sh"
 RESUME_STAGE = Path(__file__).parents[1] / "slurm" / "resume-checkpointed-stage.sh"
 LAUNCH_OUTER = Path(__file__).parents[1] / "slurm" / "launch-outer.sh"
@@ -232,6 +233,25 @@ def test_refit_submit_validates_both_winners_before_any_sbatch(tmp_path):
     assert len(calls.read_text().splitlines()) == 6
 
 
+def test_refit_submit_uses_arm_specific_selected_budgets(tmp_path):
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    _executable(fake_bin / "sbatch", "echo 9000\n")
+    selection = tmp_path / "selection.json"
+    selection.write_text(json.dumps({
+        "selected": {"adamw": [7], "spectral": [8]},
+        "selected_updates": {"adamw": [5000], "spectral": [20000]},
+    }))
+    completed = subprocess.run(
+        ["bash", SUBMIT_REFIT, selection, "selected", "1", "0,1,2"],
+        env=os.environ | {"PATH": f"{fake_bin}:{os.environ['PATH']}"},
+        check=True, capture_output=True, text=True,
+    )
+    rows = [line.split("\t") for line in completed.stdout.splitlines()]
+    assert {row[3] for row in rows if row[1] == "adamw"} == {"5000"}
+    assert {row[3] for row in rows if row[1] == "spectral"} == {"20000"}
+
+
 def test_supervisor_refuses_to_treat_squeue_failure_as_completion(tmp_path):
     project, manifest, env = _project(tmp_path, complete=True)
     _executable(Path(env["PATH"].split(":", 1)[0]) / "squeue", "exit 7\n")
@@ -323,6 +343,36 @@ def test_submit_selected_can_reuse_only_existing_exact_result(tmp_path):
     assert rows[0][0] == "0" and rows[0][4:] == ["adamw", "7"]
     assert rows[1][0] == "9001" and rows[1][4:] == ["spectral", "7"]
     assert len(calls.read_text().splitlines()) == 1
+
+
+def test_submit_budgeted_selected_pairs_every_candidate_across_arms(tmp_path):
+    project = tmp_path / "project"
+    (project / "slurm").mkdir(parents=True)
+    selection = project / "selection.json"
+    selection.write_text(json.dumps({
+        "budgeted_candidates": [
+            {"config_id": 7, "updates": 5000},
+            {"config_id": 8, "updates": 100000},
+        ],
+    }))
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    _executable(fake_bin / "sbatch", "echo 9001\n")
+    completed = subprocess.run(
+        ["bash", SUBMIT_BUDGETED, selection, "0", "4", "outer_3_inner_1"],
+        env=os.environ | {
+            "NUMERAI_PROJECT": str(project),
+            "PATH": f"{fake_bin}:{os.environ['PATH']}",
+        },
+        check=True, capture_output=True, text=True,
+    )
+    rows = [line.split("\t") for line in completed.stdout.splitlines()]
+    assert len(rows) == 4
+    assert {(row[4], int(row[5]), int(row[2])) for row in rows} == {
+        (arm, config_id, updates)
+        for arm in ("adamw", "spectral")
+        for config_id, updates in ((7, 5000), (8, 100000))
+    }
 
 
 def test_high_rank_submit_launches_only_spectral_rank_variants(tmp_path):

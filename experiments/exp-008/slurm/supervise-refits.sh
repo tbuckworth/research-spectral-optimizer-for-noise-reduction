@@ -64,5 +64,5 @@ done
   --manifest "$ORIGINAL_MANIFEST" --results "$PROJECT/results" --selection "$SELECTION" \
   --search "$SEARCH" \
   --features /mnt/nw/home/t.buckworth/numerai-v5.3-source/features.json \
-  --output "$PROJECT/results/audit-final-refits-u100000" >> "$LOG" 2>&1
+  --output "$PROJECT/results/audit-final-refits-budgeted" >> "$LOG" 2>&1
 printf '%s refits complete and audited (retries=%s)\n' "$(date -Is)" "$RETRY" >> "$LOG"

@@ -101,9 +101,9 @@ all four canonical train-era folds and all three seeds. Exact result cells alrea
 nested stage are reused only by path; the exact-ID summarizer re-audits their frozen config,
 signature, prediction schema, and hashes. Final summaries use a separate `summary-final-*`
 namespace, so they cannot overwrite the outer-fold selection evidence.
-Once all twelve exact final-selection summaries exist, the promotion waiter selects one config
-per arm, submits seeds 0/1/2 for full-train refit, resumes only exact checkpointed refits, and
-writes `audit-final-refits-u100000/refit-audit.json`. The audit checks selection/manifest coverage,
+Once every exact configuration/budget final-selection summary exists, the promotion waiter selects
+one configuration/update pair per arm, submits seeds 0/1/2 for full-train refit, resumes only exact
+checkpointed refits, and writes `audit-final-refits-budgeted/refit-audit.json`. The audit checks selection/manifest coverage,
 frozen-search identity, all-train era provenance, signatures, model metadata, state-dict shapes,
 and parameter counts before the later freeze computes full model-file hashes.
 
@@ -121,7 +121,8 @@ uv run python -m numerai_competitive.freeze \
   --code-commit COMMIT --code-snapshot code-snapshot.json --code-root . \
   --adamw-config ID --spectral-config ID \
   --adamw-model MODEL ... --spectral-model MODEL ... \
-  --updates 100000 --seed 0 --seed 1 --seed 2 --authorize-validation-reveal
+  --adamw-updates ADAMW_BUDGET --spectral-updates SPECTRAL_BUDGET \
+  --seed 0 --seed 1 --seed 2 --authorize-validation-reveal
 ```
 
 The snapshot hashes the committed execution surface (`src`, `configs`, `slurm`, lockfile and

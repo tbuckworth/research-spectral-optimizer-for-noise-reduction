@@ -6,17 +6,18 @@ if [[ $# -ne 4 ]]; then
   exit 2
 fi
 SELECTION=$1
-UPDATES=$2
+UPDATES_ARGUMENT=$2
 DEPENDENCY=$3
 IFS=',' read -ra SEEDS <<< "$4"
 PROJECT=${NUMERAI_PROJECT:-/mnt/nw/home/t.buckworth/numerai-competitive}
-if [[ ! $UPDATES =~ ^[0-9]+$ || $UPDATES -ne 100000 \
+if [[ ( ! $UPDATES_ARGUMENT =~ ^[0-9]+$ && $UPDATES_ARGUMENT != selected ) \
     || ! $DEPENDENCY =~ ^[0-9]+$ || ${SEEDS[*]} != "0 1 2" ]]; then
-  echo "final refit requires 100000 updates, seeds 0,1,2 and a numeric dependency" >&2
+  echo "final refit requires numeric or selected updates, seeds 0,1,2 and a dependency" >&2
   exit 1
 fi
 
 declare -A WINNERS=()
+declare -A ARM_UPDATES=()
 for TASK_ARM in adamw spectral; do
   mapfile -t IDS < <(python3 -c \
     'import json,sys; print(*json.load(open(sys.argv[1]))["selected"][sys.argv[2]], sep="\n")' \
@@ -26,9 +27,26 @@ for TASK_ARM in adamw spectral; do
     exit 1
   fi
   WINNERS[$TASK_ARM]=${IDS[0]}
+  if [[ $UPDATES_ARGUMENT == selected ]]; then
+    mapfile -t BUDGETS < <(python3 -c \
+      'import json,sys; print(*json.load(open(sys.argv[1]))["selected_updates"][sys.argv[2]], sep="\n")' \
+      "$SELECTION" "$TASK_ARM")
+    if [[ ${#BUDGETS[@]} -ne 1 ]]; then
+      echo "$TASK_ARM selection must contain one update budget" >&2
+      exit 1
+    fi
+    ARM_UPDATES[$TASK_ARM]=${BUDGETS[0]}
+  else
+    ARM_UPDATES[$TASK_ARM]=$UPDATES_ARGUMENT
+  fi
+  if [[ ! ${ARM_UPDATES[$TASK_ARM]} =~ ^(5000|20000|100000)$ ]]; then
+    echo "$TASK_ARM update budget is outside the preregistered set" >&2
+    exit 1
+  fi
 done
 for TASK_ARM in adamw spectral; do
   CONFIG_ID=${WINNERS[$TASK_ARM]}
+  UPDATES=${ARM_UPDATES[$TASK_ARM]}
   for SEED in "${SEEDS[@]}"; do
     TASK_NAME="final-refit-u${UPDATES}-s${SEED}-${TASK_ARM}-c${CONFIG_ID}"
     JOB_ID=$(sbatch --parsable --job-name="n8-ref-${TASK_ARM:0:1}-${SEED}" \
