@@ -48,15 +48,19 @@ def _complete_tree(tmp_path: Path) -> tuple[Path, Path]:
                                for config in sorted(ordinary))
             _write(f1, ("\n".join(f1_rows) + "\n").encode())
             f1_paths.append(f1)
-            for seed in range(3):
-                f2 = results / f"summary-{split}-u100000-s{seed}" / "scores.csv"
-                f2_rows = ["arm,config_id,corr_mean,split,seed,updates"]
-                f2_rows.extend(f"adamw,{config},0.1,{split},{seed},100000"
-                               for config in sorted(ordinary))
-                f2_rows.extend(f"spectral,{config},0.1,{split},{seed},100000"
-                               for config in sorted(ordinary | {1070512}))
-                _write(f2, ("\n".join(f2_rows) + "\n").encode())
-                f2_paths.append(f2)
+            for budget in (5000, 20000, 100000):
+                for seed in range(3):
+                    f2 = results / f"summary-{split}-u{budget}-s{seed}" / "scores.csv"
+                    f2_rows = ["arm,config_id,corr_mean,split,seed,updates"]
+                    f2_rows.extend(f"adamw,{config},0.1,{split},{seed},{budget}"
+                                   for config in sorted(ordinary))
+                    spectral_ids = (
+                        ordinary | {1070512} if budget == 100000 else ordinary
+                    )
+                    f2_rows.extend(f"spectral,{config},0.1,{split},{seed},{budget}"
+                                   for config in sorted(spectral_ids))
+                    _write(f2, ("\n".join(f2_rows) + "\n").encode())
+                    f2_paths.append(f2)
         f1_by_outer[number], f2_by_outer[number] = f1_paths, f2_paths
     source_path = _write(results / "selection-high-rank-source-r2048.json", {
         "status": "development_only_high_rank_source_selection", "requested_rank": 2048,
@@ -90,14 +94,16 @@ def _complete_tree(tmp_path: Path) -> tuple[Path, Path]:
             "selected": {"paired_union": sorted(ordinary),
                          "high_rank_spectral": [1070512]},
         })
-        _write(results / f"selection-outer_{number}-f2-top1.json", {
+        _write(results / f"selection-outer_{number}-f2-budget-top1.json", {
             "top": 1, "allow_asymmetric": True,
             "score_sha256": {str(path): sha256(path) for path in f2_by_outer[number]},
             "selected": {"adamw": [number], "spectral": [number + 3]},
+            "selected_updates": {"adamw": [100000], "spectral": [100000]},
         })
-        _write(results / f"audit-outer_{number}-u100000" / "outer-audit.json", {
+        _write(results / f"audit-outer_{number}-budgeted" / "outer-audit.json", {
             "status": "audit_complete", "split": {"name": f"outer_{number}"},
-            "updates": 100_000, "seeds": [0, 1, 2], "cells": 6,
+            "updates": {"adamw": 100_000, "spectral": 100_000},
+            "seeds": [0, 1, 2], "cells": 6,
             "selected": {"adamw": number, "spectral": number + 3},
         })
     _write(results / "nested-outer" / "nested-outer-report.json", {
@@ -113,14 +119,20 @@ def _complete_tree(tmp_path: Path) -> tuple[Path, Path]:
         "status": "outer_winners_audited",
         "selected": {"adamw": [1, 2, 3], "spectral": [4, 5, 6],
                      "paired_union": [1, 2, 3, 4, 5, 6]},
+        "budgeted_candidates": [
+            {"config_id": config_id, "updates": 100000}
+            for config_id in range(1, 7)
+        ],
     })
     # Final winners must come from the audited union. Use two actual outer winners.
     winners = {"adamw": 1, "spectral": 4}
     _write(results / "selection-final-top1.json", {
         "selected": {"adamw": [1], "spectral": [4]},
+        "selected_updates": {"adamw": [100000], "spectral": [100000]},
     })
-    _write(results / "audit-final-refits-u100000" / "refit-audit.json", {
-        "status": "audit_complete", "cells": 6, "updates": 100_000,
+    _write(results / "audit-final-refits-budgeted" / "refit-audit.json", {
+        "status": "audit_complete", "cells": 6,
+        "updates": {"adamw": 100_000, "spectral": 100_000},
         "seeds": [0, 1, 2], "selected": winners,
     })
     frozen = {}

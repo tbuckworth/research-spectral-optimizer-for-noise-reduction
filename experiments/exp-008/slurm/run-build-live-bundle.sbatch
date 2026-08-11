@@ -19,7 +19,7 @@ cd "$PROJECT"
 MODELS=()
 for SEED in 0 1 2; do
   MODELS+=(--model \
-    "$PROJECT/results/final-refit-u100000-s${SEED}-${CANDIDATE_ARM}-c${CANDIDATE_CONFIG}/model.pt")
+    "$PROJECT/results/final-refit-u${CANDIDATE_UPDATES}-s${SEED}-${CANDIDATE_ARM}-c${CANDIDATE_CONFIG}/model.pt")
 done
 "$PROJECT/uv" run --no-sync python -m numerai_competitive.live \
   "${MODELS[@]}" --freeze "$FREEZE" --output "$CALLABLE" --batch-size 4096

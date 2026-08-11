@@ -10,7 +10,7 @@ PROJECT=${NUMERAI_PROJECT:-/mnt/nw/home/t.buckworth/numerai-competitive}
 SEARCH=${NUMERAI_SEARCH_CONFIG:-$PROJECT/results/search-v1-high-rank.json}
 [[ -f $SEARCH ]] || { echo "audited high-rank search is missing" >&2; exit 1; }
 SELECTION="$PROJECT/results/selection-final-top1.json"
-AUDIT="$PROJECT/results/audit-final-refits-u100000/refit-audit.json"
+AUDIT="$PROJECT/results/audit-final-refits-budgeted/refit-audit.json"
 CANDIDATE="$PROJECT/results/candidate-plan.json"
 FREEZE="$PROJECT/results/freeze.json"
 CODE_SNAPSHOT="$PROJECT/code-snapshot.json"
@@ -32,45 +32,51 @@ if [[ -e "$FREEZE" || -e "$OUTPUT" || -e "$MANIFEST" || -e "${MANIFEST}.tmp" ]];
   echo "freeze, validation output or sealed submission manifest already exists" >&2
   exit 1
 fi
-read -r ADAMW_CONFIG SPECTRAL_CONFIG < <(python3 -c '
+read -r ADAMW_CONFIG ADAMW_UPDATES SPECTRAL_CONFIG SPECTRAL_UPDATES < <(python3 -c '
 import json, sys
 selection = json.load(open(sys.argv[1]))
 audit = json.load(open(sys.argv[2]))
 candidate = json.load(open(sys.argv[3]))
-ids = []
+values_out = []
 for arm in ("adamw", "spectral"):
     values = selection.get("selected", {}).get(arm, [])
+    budgets = selection.get("selected_updates", {}).get(arm, [])
     if len(values) != 1 or audit.get("selected", {}).get(arm) != values[0]:
         raise SystemExit("final selection and refit audit disagree")
-    ids.append(values[0])
+    if (len(budgets) != 1 or budgets[0] not in {5000, 20000, 100000}
+            or audit.get("updates", {}).get(arm) != budgets[0]):
+        raise SystemExit("final selected and audited update budgets disagree")
+    values_out.extend((values[0], budgets[0]))
 if (audit.get("status") != "audit_complete" or audit.get("cells") != 6
-        or audit.get("updates") != 100000 or audit.get("seeds") != [0, 1, 2]
+        or audit.get("seeds") != [0, 1, 2]
         or candidate.get("status") != "frozen_train_only_selection"):
     raise SystemExit("refit audit or train-only candidate is incomplete")
-print(*ids)
+print(*values_out)
 ' "$SELECTION" "$AUDIT" "$CANDIDATE")
-for ARM_CONFIG in "adamw:$ADAMW_CONFIG" "spectral:$SPECTRAL_CONFIG"; do
-  ARM=${ARM_CONFIG%%:*}
-  CONFIG=${ARM_CONFIG##*:}
+for ARM_CONFIG_UPDATES in "adamw:$ADAMW_CONFIG:$ADAMW_UPDATES" \
+    "spectral:$SPECTRAL_CONFIG:$SPECTRAL_UPDATES"; do
+  IFS=: read -r ARM CONFIG UPDATES <<< "$ARM_CONFIG_UPDATES"
   for SEED in 0 1 2; do
-    MODEL="$PROJECT/results/final-refit-u100000-s${SEED}-${ARM}-c${CONFIG}/model.pt"
+    MODEL="$PROJECT/results/final-refit-u${UPDATES}-s${SEED}-${ARM}-c${CONFIG}/model.pt"
     [[ -f $MODEL ]] || { echo "selected refit model missing: $MODEL" >&2; exit 1; }
   done
 done
 
 BUILD_JOB=$(sbatch --parsable --job-name=n8-freeze-validation \
-  --export="ALL,NUMERAI_SEARCH_CONFIG=${SEARCH},CODE_COMMIT=${CODE_COMMIT},ADAMW_CONFIG=${ADAMW_CONFIG},SPECTRAL_CONFIG=${SPECTRAL_CONFIG}" \
+  --export="ALL,NUMERAI_SEARCH_CONFIG=${SEARCH},CODE_COMMIT=${CODE_COMMIT},ADAMW_CONFIG=${ADAMW_CONFIG},ADAMW_UPDATES=${ADAMW_UPDATES},SPECTRAL_CONFIG=${SPECTRAL_CONFIG},SPECTRAL_UPDATES=${SPECTRAL_UPDATES}" \
   "$PROJECT/slurm/run-freeze-build-validation.sbatch")
 EVAL_JOB=$(sbatch --parsable --job-name=n8-sealed-eval \
   --dependency="afterok:${BUILD_JOB%%;*}" \
-  --export="ALL,NUMERAI_SEARCH_CONFIG=${SEARCH},CODE_COMMIT=${CODE_COMMIT},ADAMW_CONFIG=${ADAMW_CONFIG},SPECTRAL_CONFIG=${SPECTRAL_CONFIG}" \
+  --export="ALL,NUMERAI_SEARCH_CONFIG=${SEARCH},CODE_COMMIT=${CODE_COMMIT},ADAMW_CONFIG=${ADAMW_CONFIG},ADAMW_UPDATES=${ADAMW_UPDATES},SPECTRAL_CONFIG=${SPECTRAL_CONFIG},SPECTRAL_UPDATES=${SPECTRAL_UPDATES}" \
   "$PROJECT/slurm/run-sealed-evaluation.sbatch")
-printf 'stage\tjob_id\tdependency\tcode_commit\tadamw_config\tspectral_config\n' \
+printf 'stage\tjob_id\tdependency\tcode_commit\tadamw_config\tadamw_updates\tspectral_config\tspectral_updates\n' \
   > "${MANIFEST}.tmp"
-printf 'freeze_download_build\t%s\t\t%s\t%s\t%s\n' \
-  "$BUILD_JOB" "$CODE_COMMIT" "$ADAMW_CONFIG" "$SPECTRAL_CONFIG" >> "${MANIFEST}.tmp"
-printf 'official_validation\t%s\t%s\t%s\t%s\t%s\n' \
-  "$EVAL_JOB" "${BUILD_JOB%%;*}" "$CODE_COMMIT" "$ADAMW_CONFIG" "$SPECTRAL_CONFIG" \
+printf 'freeze_download_build\t%s\t\t%s\t%s\t%s\t%s\t%s\n' \
+  "$BUILD_JOB" "$CODE_COMMIT" "$ADAMW_CONFIG" "$ADAMW_UPDATES" \
+  "$SPECTRAL_CONFIG" "$SPECTRAL_UPDATES" >> "${MANIFEST}.tmp"
+printf 'official_validation\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+  "$EVAL_JOB" "${BUILD_JOB%%;*}" "$CODE_COMMIT" "$ADAMW_CONFIG" "$ADAMW_UPDATES" \
+  "$SPECTRAL_CONFIG" "$SPECTRAL_UPDATES" \
   >> "${MANIFEST}.tmp"
 mv "${MANIFEST}.tmp" "$MANIFEST"
 cat "$MANIFEST"
