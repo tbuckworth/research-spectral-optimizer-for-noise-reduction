@@ -116,6 +116,19 @@ its own named columns during inference. The evaluator emits
 raw per-era predictions, rolling/cumulative plots, BMC, era-wise benchmark correlations, and
 moving-block intervals for spectral-minus-AdamW and each candidate-minus-Ender comparison.
 
+The operational sealed handoff is:
+
+```bash
+bash slurm/submit-sealed-evaluation.sh FULL_40_CHARACTER_CODE_COMMIT
+```
+
+It refuses to submit until the three-seed refit audit and frozen train-only candidate agree with
+the final winners. The first Slurm job creates and hashes the immutable freeze, only then queries
+Numerai for the exact pinned v5.3 validation, benchmark, and feature artifacts, verifies their
+frozen hashes, and builds the all-feature validation shard. A dependent GPU job runs the one-time
+evaluation and writes `official-validation/evaluation-complete.json`. Neither job contains upload,
+submission, or staking code.
+
 Export the exact evaluated seed ensemble and frozen blend as a Model Upload callable:
 
 ```bash

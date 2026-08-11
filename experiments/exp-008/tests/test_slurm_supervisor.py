@@ -11,6 +11,7 @@ SUBMIT_SELECTED = Path(__file__).parents[1] / "slurm" / "submit-selected.sh"
 LAUNCH_OUTER = Path(__file__).parents[1] / "slurm" / "launch-outer.sh"
 SUBMIT_REFIT = Path(__file__).parents[1] / "slurm" / "submit-refit.sh"
 BUILD_OOF = Path(__file__).parents[1] / "slurm" / "build-oof-candidate.sh"
+SUBMIT_SEALED = Path(__file__).parents[1] / "slurm" / "submit-sealed-evaluation.sh"
 PROMOTERS = [
     Path(__file__).parents[1] / "slurm" / name
     for name in (
@@ -330,3 +331,72 @@ def test_build_oof_resolves_three_audited_folds_and_three_seeds(tmp_path):
     assert text.count("--adamw-result") == 9
     assert text.count("--spectral-result") == 9
     assert "numerai_competitive.candidate" in text
+
+
+def test_sealed_evaluation_submits_only_after_refit_audit_and_candidate(tmp_path):
+    project = tmp_path / "project"
+    results = project / "results"
+    (results / "audit-final-refits-u100000").mkdir(parents=True)
+    (project / "slurm").mkdir()
+    (results / "selection-final-top1.json").write_text(json.dumps({
+        "selected": {"adamw": [7], "spectral": [8]},
+    }))
+    (results / "audit-final-refits-u100000" / "refit-audit.json").write_text(json.dumps({
+        "status": "audit_complete", "cells": 6, "updates": 100000,
+        "seeds": [0, 1, 2], "selected": {"adamw": 7, "spectral": 8},
+    }))
+    (results / "candidate-plan.json").write_text(json.dumps({
+        "status": "frozen_train_only_selection",
+    }))
+    for arm, config in (("adamw", 7), ("spectral", 8)):
+        for seed in range(3):
+            directory = results / f"final-refit-u100000-s{seed}-{arm}-c{config}"
+            directory.mkdir()
+            (directory / "model.pt").write_text("model")
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    calls = tmp_path / "sbatch-calls"
+    _executable(fake_bin / "sbatch", f'printf "%s\\n" "$*" >> "{calls}"\necho 9001\n')
+    env = os.environ | {
+        "NUMERAI_PROJECT": str(project),
+        "PATH": f"{fake_bin}:{os.environ['PATH']}",
+    }
+    commit = "a" * 40
+    completed = subprocess.run(
+        ["bash", SUBMIT_SEALED, commit], env=env, check=True,
+        capture_output=True, text=True,
+    )
+    assert len(calls.read_text().splitlines()) == 2
+    assert "--dependency=afterok:9001" in calls.read_text()
+    assert "official_validation" in completed.stdout
+    assert (results / "submission-sealed-evaluation.tsv").is_file()
+
+
+def test_sealed_evaluation_refuses_disagreeing_refit_audit_before_sbatch(tmp_path):
+    project = tmp_path / "project"
+    results = project / "results"
+    (results / "audit-final-refits-u100000").mkdir(parents=True)
+    (project / "slurm").mkdir()
+    (results / "selection-final-top1.json").write_text(json.dumps({
+        "selected": {"adamw": [7], "spectral": [8]},
+    }))
+    (results / "audit-final-refits-u100000" / "refit-audit.json").write_text(json.dumps({
+        "status": "audit_complete", "cells": 6, "updates": 100000,
+        "seeds": [0, 1, 2], "selected": {"adamw": 9, "spectral": 8},
+    }))
+    (results / "candidate-plan.json").write_text(json.dumps({
+        "status": "frozen_train_only_selection",
+    }))
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    calls = tmp_path / "sbatch-calls"
+    _executable(fake_bin / "sbatch", f'printf "%s\\n" "$*" >> "{calls}"\necho 9001\n')
+    env = os.environ | {
+        "NUMERAI_PROJECT": str(project),
+        "PATH": f"{fake_bin}:{os.environ['PATH']}",
+    }
+    failed = subprocess.run(
+        ["bash", SUBMIT_SEALED, "a" * 40], env=env, check=False,
+        capture_output=True, text=True,
+    )
+    assert failed.returncode != 0 and not calls.exists()
