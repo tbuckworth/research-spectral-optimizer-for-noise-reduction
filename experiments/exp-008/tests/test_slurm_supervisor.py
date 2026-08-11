@@ -6,6 +6,7 @@ SCRIPT = Path(__file__).parents[1] / "slurm" / "supervise-resumable-stage.sh"
 OUTER_SUBMIT = Path(__file__).parents[1] / "slurm" / "submit-outer-eval.sh"
 OUTER_AUDIT = Path(__file__).parents[1] / "slurm" / "audit-outer-when-ready.sh"
 SUBMIT_STAGE = Path(__file__).parents[1] / "slurm" / "submit-stage.sh"
+SUBMIT_SELECTED = Path(__file__).parents[1] / "slurm" / "submit-selected.sh"
 LAUNCH_OUTER = Path(__file__).parents[1] / "slurm" / "launch-outer.sh"
 PROMOTERS = [
     Path(__file__).parents[1] / "slurm" / name
@@ -78,6 +79,22 @@ def test_supervisor_can_defer_nonpaired_outer_summary(tmp_path):
     assert not (project / "uv-calls").exists()
     log = manifest.with_name("submission-supervisor.log").read_text()
     assert "stage complete; downstream audit required (retries=0)" in log
+
+
+def test_supervisor_summarizes_only_exact_selection_ids(tmp_path):
+    project, manifest, env = _project(tmp_path, complete=True)
+    env["NUMERAI_SUMMARY_PREFIX"] = "final-"
+    selection = project / "selection.json"
+    selection.write_text('{"selected":{"paired_union":[7]}}')
+    subprocess.run(
+        ["bash", SCRIPT, manifest, "--selection", selection], check=True, env=env,
+    )
+    call = (project / "uv-calls").read_text()
+    assert "--expected-configs 1 --expected-config-id 7" in call
+    assert "results/summary-final-fold-u100-s0" in call
+    assert "all exact selected cells summarized" in manifest.with_name(
+        "submission-supervisor.log"
+    ).read_text()
 
 
 def test_outer_submit_validates_both_winners_before_any_sbatch(tmp_path):
@@ -166,6 +183,33 @@ def test_submit_stage_emits_exact_paired_manifest(tmp_path):
         (arm, config_id) for arm in ("adamw", "spectral") for config_id in range(40)
     }
     assert {row[1] for row in rows} == {"outer_2_inner_1"}
+
+
+def test_submit_selected_can_reuse_only_existing_exact_result(tmp_path):
+    project = tmp_path / "project"
+    (project / "slurm").mkdir(parents=True)
+    result = project / "results" / "stage-outer_2_inner_1-u100000-s0-adamw-c7"
+    result.mkdir(parents=True)
+    (result / "result.json").write_text("{}")
+    selection = project / "selection.json"
+    selection.write_text('{"selected":{"paired_union":[7]}}')
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    calls = tmp_path / "sbatch-calls"
+    _executable(fake_bin / "sbatch", f'printf "%s\\n" "$*" >> "{calls}"\necho 9001\n')
+    env = os.environ | {
+        "NUMERAI_PROJECT": str(project),
+        "NUMERAI_REUSE_COMPLETE": "1",
+        "PATH": f"{fake_bin}:{os.environ['PATH']}",
+    }
+    completed = subprocess.run(
+        ["bash", SUBMIT_SELECTED, selection, "100000", "0", "5", "outer_2_inner_1"],
+        env=env, check=True, capture_output=True, text=True,
+    )
+    rows = [line.split("\t") for line in completed.stdout.splitlines()]
+    assert rows[0][0] == "0" and rows[0][4:] == ["adamw", "7"]
+    assert rows[1][0] == "9001" and rows[1][4:] == ["spectral", "7"]
+    assert len(calls.read_text().splitlines()) == 1
 
 
 def test_launch_outer_builds_atomic_f0_manifest_and_controllers(tmp_path):

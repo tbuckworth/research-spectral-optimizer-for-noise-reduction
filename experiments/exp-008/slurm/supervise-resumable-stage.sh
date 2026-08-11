@@ -1,16 +1,31 @@
 #!/bin/bash
 set -euo pipefail
 
-if [[ $# -lt 1 || $# -gt 2 || (${2:-} != "" && ${2:-} != "--skip-summary") ]]; then
-  echo "usage: $0 SUBMISSION_TSV [--skip-summary]" >&2
+if [[ $# -lt 1 || $# -gt 3 ]]; then
+  echo "usage: $0 SUBMISSION_TSV [--skip-summary | --selection SELECTION_JSON]" >&2
   exit 2
 fi
 ORIGINAL_MANIFEST=$1
-SKIP_SUMMARY=${2:-}
+SUMMARY_MODE=${2:-}
+SELECTION=${3:-}
+if [[ $SUMMARY_MODE == --selection ]]; then
+  if [[ -z $SELECTION || ! -f $SELECTION ]]; then
+    echo "--selection requires an existing selection JSON" >&2
+    exit 2
+  fi
+elif [[ ( -n $SUMMARY_MODE && $SUMMARY_MODE != --skip-summary ) || -n $SELECTION ]]; then
+  echo "usage: $0 SUBMISSION_TSV [--skip-summary | --selection SELECTION_JSON]" >&2
+  exit 2
+fi
 PROJECT=${NUMERAI_PROJECT:-/mnt/nw/home/t.buckworth/numerai-competitive}
 QUEUE_USER=${NUMERAI_QUEUE_USER:-t.buckworth}
 FEATURES=/mnt/nw/home/t.buckworth/numerai-v5.3-source/features.json
 SEARCH="$PROJECT/configs/search-v1.json"
+SUMMARY_PREFIX=${NUMERAI_SUMMARY_PREFIX:-}
+if [[ ! $SUMMARY_PREFIX =~ ^[A-Za-z0-9_-]*$ ]]; then
+  echo "NUMERAI_SUMMARY_PREFIX contains unsafe characters" >&2
+  exit 2
+fi
 LOG="${ORIGINAL_MANIFEST%.tsv}-supervisor.log"
 CURRENT_MANIFEST=$ORIGINAL_MANIFEST
 RETRY=0
@@ -57,7 +72,12 @@ while true; do
     echo "more than ten checkpoint cycles required" >&2
     exit 1
   fi
-  dependency=$(tail -n 1 "$CURRENT_MANIFEST" | cut -f1 | cut -d';' -f1)
+  dependency=$(awk -F $'\t' '$1 != 0 {value=$1} END {sub(/;.*/, "", value); print value}' \
+    "$CURRENT_MANIFEST")
+  if [[ ! $dependency =~ ^[0-9]+$ ]]; then
+    echo "incomplete tasks exist but manifest has no submitted dependency job" >&2
+    exit 1
+  fi
   RETRY=$((RETRY + 1))
   retry_manifest="${ORIGINAL_MANIFEST%.tsv}.retry-${RETRY}.tsv"
   bash "$PROJECT/slurm/resume-checkpointed-stage.sh" \
@@ -68,16 +88,37 @@ while true; do
     "$(date -Is)" "$(wc -l < "$CURRENT_MANIFEST")" "$RETRY" >> "$LOG"
 done
 
-if [[ $SKIP_SUMMARY != "--skip-summary" ]]; then
-  EXPECTED=$(awk -F $'\t' '{print $6}' "$ORIGINAL_MANIFEST" | sort -nu | wc -l)
+if [[ $SUMMARY_MODE != "--skip-summary" ]]; then
+  EXPECTED_IDS=()
+  if [[ $SUMMARY_MODE == --selection ]]; then
+    mapfile -t EXPECTED_IDS < <(python3 -c \
+      'import json,sys; print(*json.load(open(sys.argv[1]))["selected"]["paired_union"], sep="\n")' \
+      "$SELECTION")
+  else
+    mapfile -t EXPECTED_IDS < <(awk -F $'\t' '{print $6}' "$ORIGINAL_MANIFEST" | sort -nu)
+  fi
+  if [[ ${#EXPECTED_IDS[@]} -eq 0 ]]; then
+    echo "summary has no expected config IDs" >&2
+    exit 1
+  fi
+  EXPECTED=${#EXPECTED_IDS[@]}
+  EXPECTED_ARGS=()
+  for CONFIG_ID in "${EXPECTED_IDS[@]}"; do
+    EXPECTED_ARGS+=(--expected-config-id "$CONFIG_ID")
+  done
   while IFS=$'\t' read -r split updates seed; do
-    output="$PROJECT/results/summary-${split}-u${updates}-s${seed}"
+    output="$PROJECT/results/summary-${SUMMARY_PREFIX}${split}-u${updates}-s${seed}"
     "$PROJECT/uv" run --no-sync python -m numerai_competitive.summarize \
       --results "$PROJECT/results" --output "$output" --split "$split" \
       --updates "$updates" --seed "$seed" --expected-configs "$EXPECTED" \
+      "${EXPECTED_ARGS[@]}" \
       --search "$SEARCH" --features "$FEATURES" >> "$LOG" 2>&1
   done < <(awk -F $'\t' '{print $2 "\t" $3 "\t" $4}' "$ORIGINAL_MANIFEST" | sort -u)
-  completion="stage complete and all cells summarized"
+  if [[ $SUMMARY_MODE == --selection ]]; then
+    completion="stage complete and all exact selected cells summarized"
+  else
+    completion="stage complete and all cells summarized"
+  fi
 else
   completion="stage complete; downstream audit required"
 fi

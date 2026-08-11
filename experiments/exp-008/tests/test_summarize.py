@@ -42,12 +42,32 @@ def test_collect_and_plot_complete_paired_stage(tmp_path):
     assert marker["status"] == "complete" and set(marker["artifacts"]) == {
         "scores.csv", "paired-corr.csv", "paired-corr.png",
     }
+    assert marker["config_ids"] == [0, 1]
 
 
 def test_collect_rejects_incomplete_stage(tmp_path):
     _result(tmp_path, "adamw", 0)
     with pytest.raises(ValueError, match="incomplete"):
         collect_stage(tmp_path, split="fold", updates=10, seed=0, expected_configs=1)
+
+
+def test_collect_filters_to_exact_expected_config_ids(tmp_path):
+    for config_id in range(3):
+        for arm in ("adamw", "spectral"):
+            _result(tmp_path, arm, config_id)
+    frame = collect_stage(
+        tmp_path, split="fold", updates=10, seed=0, expected_config_ids={0, 2},
+    )
+    assert set(frame["config_id"]) == {0, 2} and len(frame) == 4
+
+
+def test_collect_rejects_missing_exact_expected_config_id(tmp_path):
+    for arm in ("adamw", "spectral"):
+        _result(tmp_path, arm, 0)
+    with pytest.raises(ValueError, match="incomplete"):
+        collect_stage(
+            tmp_path, split="fold", updates=10, seed=0, expected_config_ids={0, 2},
+        )
 
 
 def _draw(arm="adamw"):

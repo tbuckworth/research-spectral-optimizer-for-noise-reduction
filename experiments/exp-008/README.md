@@ -81,6 +81,18 @@ An arm is eligible only if its standalone signal is positive in every nested out
 selected transformation is frozen before validation; it cannot alter the primary standalone
 spectral-minus-AdamW claim.
 
+The final train-only selection starts only after all three outer audits exist:
+
+```bash
+bash slurm/launch-final-selection.sh DEPENDENCY_JOB_ID
+```
+
+It verifies each audited outer winner, forms their paired union, and evaluates both optimizers on
+all four canonical train-era folds and all three seeds. Exact result cells already produced by a
+nested stage are reused only by path; the exact-ID summarizer re-audits their frozen config,
+signature, prediction schema, and hashes. Final summaries use a separate `summary-final-*`
+namespace, so they cannot overwrite the outer-fold selection evidence.
+
 ## One-time validation and live bundle
 
 After final canonical-fold selection and three full-train refits per arm, create the freeze:

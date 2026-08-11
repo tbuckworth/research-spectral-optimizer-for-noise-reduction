@@ -58,7 +58,12 @@ def _verify_search_identity(result: dict, *, arm: str, config_id: int, updates: 
 
 def collect_stage(results: Path, *, split: str, updates: int, seed: int,
                   expected_configs: int = 40, search_draws: list[dict] | None = None,
-                  feature_dimensions: dict[str, int] | None = None) -> pd.DataFrame:
+                  feature_dimensions: dict[str, int] | None = None,
+                  expected_config_ids: set[int] | None = None) -> pd.DataFrame:
+    if expected_config_ids is not None:
+        if not expected_config_ids or any(value < 0 for value in expected_config_ids):
+            raise ValueError("expected config IDs must be a non-empty set of non-negative IDs")
+        expected_configs = len(expected_config_ids)
     rows = []
     for result_path in sorted(results.glob("*/result.json")):
         match = TASK.fullmatch(result_path.parent.name)
@@ -67,6 +72,8 @@ def collect_stage(results: Path, *, split: str, updates: int, seed: int,
             continue
         result = json.loads(result_path.read_text())
         arm, config_id = match["arm"], int(match["config_id"])
+        if expected_config_ids is not None and config_id not in expected_config_ids:
+            continue
         expected = {
             "status": "complete", "split": split, "updates": updates, "seed": seed,
             "arm": arm, "config_id": config_id,
@@ -126,6 +133,14 @@ def collect_stage(results: Path, *, split: str, updates: int, seed: int,
     expected = {"adamw": expected_configs, "spectral": expected_configs}
     if counts != expected:
         raise ValueError(f"incomplete stage: got {counts}, expected {expected}")
+    if expected_config_ids is not None:
+        actual_ids = {
+            arm: set(frame.loc[frame["arm"].eq(arm), "config_id"].astype(int))
+            for arm in ("adamw", "spectral")
+        }
+        expected_ids = {arm: expected_config_ids for arm in ("adamw", "spectral")}
+        if actual_ids != expected_ids:
+            raise ValueError(f"stage config IDs differ: got {actual_ids}, expected {expected_ids}")
     return frame.sort_values(["arm", "config_id"]).reset_index(drop=True)
 
 
@@ -159,6 +174,7 @@ def write_summary(frame: pd.DataFrame, output: Path) -> None:
     os.replace(plot_tmp, plot)
     atomic_json(output / "summary-complete.json", {
         "status": "complete", "rows": len(frame),
+        "config_ids": sorted(frame["config_id"].astype(int).unique().tolist()),
         "artifacts": {path.name: sha256(path) for path in (scores, paired_path, plot)},
     })
 
@@ -171,6 +187,7 @@ def main() -> None:
     parser.add_argument("--updates", type=int, required=True)
     parser.add_argument("--seed", type=int, required=True)
     parser.add_argument("--expected-configs", type=int, default=40)
+    parser.add_argument("--expected-config-id", type=int, action="append")
     parser.add_argument("--search", type=Path)
     parser.add_argument("--features", type=Path)
     args = parser.parse_args()
@@ -186,7 +203,10 @@ def main() -> None:
     write_summary(collect_stage(args.results, split=args.split, updates=args.updates,
                                 seed=args.seed, expected_configs=args.expected_configs,
                                 search_draws=search_draws,
-                                feature_dimensions=feature_dimensions), args.output)
+                                feature_dimensions=feature_dimensions,
+                                expected_config_ids=(set(args.expected_config_id)
+                                                     if args.expected_config_id else None)),
+                  args.output)
 
 
 if __name__ == "__main__":
