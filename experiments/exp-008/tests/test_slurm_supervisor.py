@@ -5,6 +5,8 @@ from pathlib import Path
 SCRIPT = Path(__file__).parents[1] / "slurm" / "supervise-resumable-stage.sh"
 OUTER_SUBMIT = Path(__file__).parents[1] / "slurm" / "submit-outer-eval.sh"
 OUTER_AUDIT = Path(__file__).parents[1] / "slurm" / "audit-outer-when-ready.sh"
+SUBMIT_STAGE = Path(__file__).parents[1] / "slurm" / "submit-stage.sh"
+LAUNCH_OUTER = Path(__file__).parents[1] / "slurm" / "launch-outer.sh"
 PROMOTERS = [
     Path(__file__).parents[1] / "slurm" / name
     for name in (
@@ -142,3 +144,81 @@ def test_outer_promoters_accept_only_named_outer_splits(tmp_path):
         )
         assert failed.returncode != 0
         assert "outer split must be" in failed.stderr
+
+
+def test_submit_stage_emits_exact_paired_manifest(tmp_path):
+    project = tmp_path / "project"
+    (project / "slurm").mkdir(parents=True)
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    _executable(fake_bin / "sbatch", 'echo "$((9000 + RANDOM))"\n')
+    env = os.environ | {
+        "NUMERAI_PROJECT": str(project),
+        "PATH": f"{fake_bin}:{os.environ['PATH']}",
+    }
+    completed = subprocess.run(
+        ["bash", SUBMIT_STAGE, "outer_2_inner_1", "5000", "0", "7"],
+        env=env, check=True, capture_output=True, text=True,
+    )
+    rows = [line.split("\t") for line in completed.stdout.splitlines()]
+    assert len(rows) == 80 and all(len(row) == 6 for row in rows)
+    assert {(row[4], int(row[5])) for row in rows} == {
+        (arm, config_id) for arm in ("adamw", "spectral") for config_id in range(40)
+    }
+    assert {row[1] for row in rows} == {"outer_2_inner_1"}
+
+
+def test_launch_outer_builds_atomic_f0_manifest_and_controllers(tmp_path):
+    project = tmp_path / "project"
+    (project / "results").mkdir(parents=True)
+    (project / "slurm").mkdir()
+    submit = project / "slurm" / "submit-stage.sh"
+    _executable(
+        submit,
+        'job=9000\nfor config in $(seq 0 39); do for arm in adamw spectral; do '
+        'job=$((job+1)); printf "%s\\touter_3_inner_1\\t5000\\t0\\t%s\\t%s\\n" '
+        '"$job" "$arm" "$config"; done; done\n',
+    )
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    calls = tmp_path / "tmux-calls"
+    _executable(
+        fake_bin / "tmux",
+        f'if [[ $1 == has-session ]]; then exit 1; fi\nprintf "%s\\n" "$*" >> "{calls}"\n',
+    )
+    env = os.environ | {
+        "NUMERAI_PROJECT": str(project),
+        "PATH": f"{fake_bin}:{os.environ['PATH']}",
+    }
+    subprocess.run(["bash", LAUNCH_OUTER, "outer_3", "7"], check=True, env=env)
+    manifest = project / "results" / "submission-outer_3-f0-u5000-s0.tsv"
+    assert len(manifest.read_text().splitlines()) == 80
+    assert not manifest.with_suffix(".tsv.tmp").exists()
+    tmux_calls = calls.read_text()
+    assert "new-session -d -s numerai-outer3-f0-monitor" in tmux_calls
+    assert "new-session -d -s numerai-outer3-f0-promote" in tmux_calls
+
+
+def test_launch_outer_rejects_duplicate_manifest_coverage(tmp_path):
+    project = tmp_path / "project"
+    (project / "results").mkdir(parents=True)
+    (project / "slurm").mkdir()
+    _executable(
+        project / "slurm" / "submit-stage.sh",
+        'for i in $(seq 1 80); do printf "%s\\touter_2_inner_1\\t5000\\t0\\tadamw\\t0\\n" '
+        '"$((9000+i))"; done\n',
+    )
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    _executable(fake_bin / "tmux", "exit 1\n")
+    env = os.environ | {
+        "NUMERAI_PROJECT": str(project),
+        "PATH": f"{fake_bin}:{os.environ['PATH']}",
+    }
+    failed = subprocess.run(
+        ["bash", LAUNCH_OUTER, "outer_2", "7"],
+        env=env, check=False, capture_output=True, text=True,
+    )
+    assert failed.returncode != 0
+    assert "40 configs x two arms" in failed.stderr
+    assert not (project / "results" / "submission-outer_2-f0-u5000-s0.tsv").exists()

@@ -19,13 +19,26 @@ SUMMARY_MARKER="$PROJECT/results/summary-${OUTER_SPLIT}_inner_1-u5000-s0/summary
 SELECTION="$PROJECT/results/selection-${OUTER_SPLIT}-f0-top12.json"
 MANIFEST="$PROJECT/results/submission-${OUTER_SPLIT}-f1-u20000-s0.tsv"
 LOG="$PROJECT/results/promote-${OUTER_SPLIT}-f0.log"
+if [[ $OUTER_NUMBER == 1 ]]; then
+  F0_MONITOR=numerai-f0-monitor
+else
+  F0_MONITOR="numerai-outer${OUTER_NUMBER}-f0-monitor"
+fi
 
 while [[ ! -f "$SUMMARY_MARKER" ]]; do
+  if ! tmux has-session -t "$F0_MONITOR" 2>/dev/null; then
+    echo "F0 monitor exited without an audited completion marker" >&2
+    exit 1
+  fi
   printf '%s waiting for audited F0 summary\n' "$(date -Is)" >> "$LOG"
   sleep 60
 done
 
 cd "$PROJECT"
+if [[ -e "$SELECTION" || -e "$MANIFEST" || -e "${MANIFEST}.tmp" ]]; then
+  echo "F1 selection, manifest or temporary file already exists" >&2
+  exit 1
+fi
 "$PROJECT/uv" run --no-sync python -m numerai_competitive.select_configs \
   --scores "$SUMMARY" --top 12 --output "$SELECTION"
 EXPECTED=$(python3 -c \

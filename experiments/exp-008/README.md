@@ -34,9 +34,13 @@ On MATS, synchronize source only between stages, then build the shared frozen en
 
 ```bash
 sbatch slurm/sync-env.sbatch
+bash slurm/launch-outer.sh outer_2 ENV_JOB_ID
 bash slurm/submit-selected.sh SELECTION.json 20000 0 ENV_JOB_ID SPLIT...
 ```
 
+`launch-outer.sh` creates the exact 80-cell paired F0 manifest, starts its audited monitor, and
+starts the fold-specific promotion waiter. It refuses an existing manifest, summary, or controller
+session rather than duplicating a procedure.
 `promote-f0-when-ready.sh` waits for the audited F0 table before submitting F1.
 `promote-f1-when-ready.sh` likewise requires every audited F1 temporal-fold table, selects the
 top-four paired union, and submits the exact three-seed F2 manifest.
