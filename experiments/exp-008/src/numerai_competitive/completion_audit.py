@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import re
 from pathlib import Path
@@ -24,6 +25,28 @@ def _verify_named_hashes(directory: Path, hashes: dict[str, str]) -> None:
             raise ValueError(f"{path}: missing or hash mismatch")
 
 
+def _verify_score_hashes(hashes: dict[str, str], expected_paths: list[Path]) -> None:
+    expected = {path.resolve() for path in expected_paths}
+    actual = {Path(path).resolve() for path in hashes}
+    if actual != expected:
+        raise ValueError("selection references unexpected development score files")
+    for raw_path, expected_hash in hashes.items():
+        path = Path(raw_path)
+        if not path.is_file() or sha256(path) != expected_hash:
+            raise ValueError(f"{path}: selected score file is missing or changed")
+
+
+def _score_arm_ids(path: Path) -> dict[str, set[int]]:
+    values = {"adamw": set(), "spectral": set()}
+    with path.open(newline="") as handle:
+        for row in csv.DictReader(handle):
+            arm = row.get("arm")
+            if arm not in values:
+                raise ValueError(f"{path}: unexpected score arm")
+            values[arm].add(int(row["config_id"]))
+    return values
+
+
 def audit(results: Path, leaderboard_path: Path, output: Path) -> dict:
     evidence = {}
     root = results.parent
@@ -37,6 +60,11 @@ def audit(results: Path, leaderboard_path: Path, output: Path) -> dict:
     probes = _json(probe_path, ("probe_audit_complete",))
     search = _json(search_path, ("development_only_augmented_search",))
     spectral_source = source.get("selected", {}).get("spectral", [])
+    source_scores = [
+        results / f"summary-outer_1_inner_{inner}-u20000-s0" / "scores.csv"
+        for inner in (1, 2)
+    ]
+    _verify_score_hashes(source.get("score_sha256", {}), source_scores)
     eligible_ranks = probes.get("eligible_ranks", [])
     extension_ids = sorted(
         config["config_id"] for config in extension.get("configs", [])
@@ -45,6 +73,7 @@ def audit(results: Path, leaderboard_path: Path, output: Path) -> dict:
     if (source.get("requested_rank") != 2048 or len(spectral_source) != 1
             or extension.get("source_config_id") != spectral_source[0]
             or extension.get("source_search_sha256") != sha256(base_search_path)
+            or extension.get("source_selection_sha256") != sha256(source_path)
             or probes.get("extension_sha256") != sha256(extension_path)
             or not eligible_ranks or search.get("high_rank_config_ids") != extension_ids
             or search.get("base_search_sha256") != sha256(base_search_path)
@@ -57,6 +86,37 @@ def audit(results: Path, leaderboard_path: Path, output: Path) -> dict:
                      "augmented_search": sha256(search_path)})
     outer_selected = {}
     for number in range(1, 4):
+        inner_count = number + 1
+        f1_scores = [
+            results / f"summary-outer_{number}_inner_{inner}-u20000-s0" / "scores.csv"
+            for inner in range(1, inner_count + 1)
+        ]
+        f1_path = results / f"selection-outer_{number}-f1-top4.json"
+        f1 = _json(f1_path, ("f1_selection_augmented_with_gpu_audited_high_ranks",))
+        _verify_score_hashes(f1.get("score_sha256", {}), f1_scores)
+        ordinary = set(f1.get("selected", {}).get("paired_union", []))
+        if (f1.get("augmented_search_sha256") != sha256(search_path)
+                or f1.get("selected", {}).get("high_rank_spectral") != extension_ids
+                or not 4 <= len(ordinary) <= 8):
+            raise ValueError(f"outer_{number} F1 selection omits audited candidates")
+        f2_scores = [
+            results / f"summary-outer_{number}_inner_{inner}-u100000-s{seed}" / "scores.csv"
+            for inner in range(1, inner_count + 1) for seed in range(3)
+        ]
+        f2_path = results / f"selection-outer_{number}-f2-top1.json"
+        f2 = json.loads(f2_path.read_text())
+        _verify_score_hashes(f2.get("score_sha256", {}), f2_scores)
+        for score_path in f2_scores:
+            coverage = _score_arm_ids(score_path)
+            if (coverage["adamw"] != ordinary
+                    or coverage["spectral"] != ordinary | set(extension_ids)):
+                raise ValueError(f"{score_path}: F2 arm/config coverage is inconsistent")
+        if (f2.get("top") != 1 or f2.get("allow_asymmetric") is not True
+                or any(len(f2.get("selected", {}).get(arm, [])) != 1
+                       for arm in ("adamw", "spectral"))):
+            raise ValueError(f"outer_{number} F2 selection is not exact asymmetric top-1")
+        evidence[f"outer_{number}_f1_selection"] = sha256(f1_path)
+        evidence[f"outer_{number}_f2_selection"] = sha256(f2_path)
         path = results / f"audit-outer_{number}-u100000" / "outer-audit.json"
         value = _json(path, ("audit_complete",))
         if (value.get("split", {}).get("name") != f"outer_{number}"
@@ -65,6 +125,9 @@ def audit(results: Path, leaderboard_path: Path, output: Path) -> dict:
             raise ValueError(f"outer_{number} audit has wrong split, updates or seeds")
         if set(value.get("selected", {})) != {"adamw", "spectral"}:
             raise ValueError(f"outer_{number} audit lacks both selected arms")
+        if any(value["selected"][arm] != f2["selected"][arm][0]
+               for arm in ("adamw", "spectral")):
+            raise ValueError(f"outer_{number} audit differs from its F2 selection")
         outer_selected[str(number)] = value["selected"]
         evidence[f"outer_{number}_audit"] = sha256(path)
 

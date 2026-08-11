@@ -7,6 +7,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from .data import sha256
+
 
 def select_configs(scores: pd.DataFrame, top: int,
                    *, allow_asymmetric: bool = False) -> dict[str, list[int]]:
@@ -60,6 +62,7 @@ def main() -> None:
         "criterion": "descending mean exact standalone CORR; worst-fold then config-id ties",
         "top": args.top,
         "score_files": [str(path) for path in args.scores],
+        "score_sha256": {str(path): sha256(path) for path in args.scores},
         "allow_asymmetric": args.allow_asymmetric,
         "selected": select_configs(frame, args.top, allow_asymmetric=args.allow_asymmetric),
     }
