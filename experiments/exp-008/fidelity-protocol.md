@@ -28,6 +28,19 @@ seeds 0, 1 and 2, then choose one pair per arm by the same rule. Freeze configs,
 arm-specific training horizons, scoring,
 benchmark blends and analysis before constructing or scoring the official validation shard.
 
+## Base-search memory admission (2026-08-11)
+
+The paired base search is frozen before outcomes are observed. Every spectral draw is
+screened using the same conservative allocation bound as the high-rank extension: four
+fp32 `p × rank` allocations, 16 bytes per model parameter, and four float64
+`rank × rank` workspaces must occupy at most 85% of a 48 GiB L40. A draw outside that
+safety margin is not automatically called impossible: it requires a completed GPU probe
+that reaches the requested rank, passes filter warmup, matches the frozen draw and exact
+parameter count, and records peak CUDA memory below physical capacity. If that evidence
+is absent after the stage ends, both the AdamW and spectral members of the pair are
+excluded before metric-based selection. The admission audit contains no validation score,
+so feasibility cannot be selected post hoc from performance.
+
 ## High-rank amendment (2026-08-11)
 
 This amendment was made after the ordinary 20,000-update inner-fold search had begun, but before
