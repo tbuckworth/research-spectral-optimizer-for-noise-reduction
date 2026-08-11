@@ -39,6 +39,20 @@ def memory_estimate(config: dict, rank: int) -> dict:
     }
 
 
+def required_probe_updates(config: dict, rank: int) -> int:
+    """Updates needed to realize rank and exercise the active filter.
+
+    The first covariance observation initializes the running mean.  Thereafter
+    at most one basis direction is added per covariance update, and covariance
+    updates occur every ``filter_update_every`` gradient steps.
+    """
+    cadence = int(config["filter_update_every"])
+    warmup = int(config["filter_warmup"])
+    if cadence < 1 or warmup < 0 or rank < 1:
+        raise ValueError("invalid rank, filter cadence or filter warmup")
+    return max(2 * rank, 1 + rank * cadence, warmup + 1)
+
+
 def create_extension(search_path: Path, selection_path: Path, ranks: list[int],
                      output: Path) -> dict:
     search = json.loads(search_path.read_text())
@@ -60,7 +74,8 @@ def create_extension(search_path: Path, selection_path: Path, ranks: list[int],
         config = dict(source)
         config.update({"config_id": 10_000 + rank, "rank": rank,
                        "source_config_id": source_id,
-                       "memory_screen": memory_estimate(source, rank)})
+                       "memory_screen": memory_estimate(source, rank),
+                       "required_probe_updates": required_probe_updates(source, rank)})
         configs.append(config)
     report = {
         "status": "development_only_high_rank_extension",

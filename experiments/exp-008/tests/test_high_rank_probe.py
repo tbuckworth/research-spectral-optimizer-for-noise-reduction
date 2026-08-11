@@ -15,7 +15,8 @@ def _write(path, value):
 def test_probe_audit_requires_realized_rank_and_safe_measured_memory(tmp_path):
     extension = _write(tmp_path / "extension.json", {
         "status": "development_only_high_rank_extension",
-        "configs": [{"config_id": 10512, "rank": 512, "memory_screen": {
+        "configs": [{"config_id": 10512, "rank": 512,
+                     "required_probe_updates": 1024, "memory_screen": {
             "analytically_feasible_48gb": True, "parameter_count": 100,
         }}],
     })
@@ -24,7 +25,8 @@ def test_probe_audit_requires_realized_rank_and_safe_measured_memory(tmp_path):
         "peak_cuda_memory_bytes": 20_000_000_000,
         "config": {"search_config_id": 10512, "arm": "spectral",
                    "filter": {"rank": 512}},
-        "logs": [{"filter": {"basis_rank": 512, "orthogonality_error": 1e-5}}],
+        "logs": [{"filter": {"basis_rank": 512, "orthogonality_error": 1e-5,
+                               "filtering_active": True}}],
     })
     output = tmp_path / "audit.json"
     report = audit_probes(extension, [result], output)

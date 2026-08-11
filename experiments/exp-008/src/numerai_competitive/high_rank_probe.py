@@ -40,14 +40,17 @@ def audit_probes(extension_path: Path, result_paths: list[Path], output: Path,
         rank = config["rank"]
         updates = result.get("updates", 0)
         final_filter = (result.get("logs") or [{}])[-1].get("filter", {})
-        minimum_realized = min(rank, max(0, updates - 1))
+        required_updates = config.get("required_probe_updates")
+        if not isinstance(required_updates, int) or required_updates < 2 * rank:
+            raise ValueError("extension lacks a valid cadence-aware probe budget")
         if (result.get("status") != "complete"
                 or result.get("parameter_count") != config["memory_screen"]["parameter_count"]
                 or result.get("config", {}).get("arm") != "spectral"
                 or result.get("config", {}).get("filter", {}).get("rank") != rank
-                or updates < 2 * rank
+                or updates != required_updates
                 or result.get("peak_cuda_memory_bytes", max_probe_bytes) > max_probe_bytes
-                or final_filter.get("basis_rank", 0) < minimum_realized
+                or not final_filter.get("filtering_active", False)
+                or final_filter.get("basis_rank", 0) < rank
                 or final_filter.get("orthogonality_error", float("inf")) > 1e-3):
             raise ValueError(f"rank {rank} probe did not realize a safe full-rank filter")
         rows.append({
