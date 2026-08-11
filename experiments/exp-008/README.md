@@ -159,6 +159,21 @@ the final artifact must additionally pass the official `numerai-predict` Python 
 whose current interface accepts a one- or two-argument callable and whose documented default
 contract is one CPU, 4 GB RAM, and ten minutes.
 
+On the desktop, clone the official repository at a recorded commit and run its unmodified
+Python 3.12 Dockerfile against the exact live fixture:
+
+```bash
+bash slurm/validate-official-container.sh NUMERAI_PREDICT_CHECKOUT \
+  results/live-bundle/predictor.pkl results/live-bundle/live-fixture/live.parquet \
+  results/live-bundle/live-fixture/live_benchmark_models.parquet \
+  results/live-bundle/live_predictions.csv results/live-bundle/official-container
+```
+
+The wrapper builds the content-addressed official source, disables container networking, limits
+execution to one CPU, 4,000,000,000 bytes and 600 seconds, and checks the official runner's IDs
+and predictions against the independently generated conventional CSV. The audit records the full
+official Git commit, Docker image ID, hashes, runtime, and numerical agreement.
+
 After sealed evaluation, build and resource-test the target-free candidate without uploading it:
 
 ```bash
