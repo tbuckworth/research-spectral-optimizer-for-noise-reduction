@@ -51,6 +51,26 @@ def test_collect_rejects_incomplete_stage(tmp_path):
         collect_stage(tmp_path, split="fold", updates=10, seed=0, expected_configs=1)
 
 
+def test_collect_rejects_old_eight_era_purge_for_main_target(tmp_path):
+    _result(tmp_path, "adamw", 0)
+    old = tmp_path / "stage-fold-u10-s0-adamw-c0"
+    path = tmp_path / "stage-outer_1_inner_1-u10-s0-adamw-c0"
+    old.rename(path)
+    result_path = path / "result.json"
+    result = json.loads(result_path.read_text())
+    result["split"] = {
+        "name": "outer_1_inner_1",
+        "train_eras": [f"{era:04d}" for era in range(1, 149)],
+        "purged_eras": [f"{era:04d}" for era in range(149, 157)],
+        "valid_eras": [f"{era:04d}" for era in range(157, 235)],
+    }
+    result_path.write_text(json.dumps(result))
+    with pytest.raises(ValueError, match="60-day protocol"):
+        collect_stage(
+            tmp_path, split="outer_1_inner_1", updates=10, seed=0, expected_configs=1,
+        )
+
+
 def test_collect_filters_to_exact_expected_config_ids(tmp_path):
     for config_id in range(3):
         for arm in ("adamw", "spectral"):

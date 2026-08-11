@@ -39,6 +39,7 @@ def test_main_target_smoke_gates_matching_ender60_benchmark():
     script = MAIN_TARGET_SMOKE.read_text()
     assert 'result["config"]["target"] == "target"' in script
     assert 'result["config"]["benchmark"] == "v53_lgbm_ender60"' in script
+    assert 'result["split"]["train_eras"][-1] == "0140"' in script
 
 
 def _executable(path: Path, body: str) -> None:

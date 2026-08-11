@@ -1,4 +1,4 @@
-"""Audit the six selected full-train refits before procedure freeze."""
+"""Audit six selected 60-day-purged refits before validation freeze."""
 from __future__ import annotations
 
 import argparse
@@ -65,7 +65,8 @@ def audit_refits(manifest: Path, results: Path, selection: dict, search_draws: l
         raise ValueError("refit manifest differs from selected arm/config/seed cells")
 
     audited = []
-    expected_eras = [f"{era:04d}" for era in range(1, 575)]
+    expected_eras = [f"{era:04d}" for era in range(1, 559)]
+    expected_purge = [f"{era:04d}" for era in range(559, 575)]
     for row in sorted(rows, key=lambda value: (value["arm"], value["seed"])):
         directory = results / (
             f"final-refit-u{row['updates']}-s{row['seed']}-{row['arm']}-c{row['config_id']}"
@@ -78,10 +79,10 @@ def audit_refits(manifest: Path, results: Path, selection: dict, search_draws: l
         if (result.get("status") != "complete" or result.get("updates") != row["updates"]
                 or result.get("validation") is not None
                 or result.get("model_file") != "model.pt"
-                or split.get("name") != "all_train_refit"
+                or split.get("name") != "sealed_validation_refit_60d"
                 or split.get("train_eras") != expected_eras
-                or split.get("valid_eras") or split.get("purged_eras")):
-            raise ValueError(f"{result_path}: invalid full-train refit provenance")
+                or split.get("valid_eras") or split.get("purged_eras") != expected_purge):
+            raise ValueError(f"{result_path}: invalid sealed-validation refit provenance")
         provenance = _verify_search_identity(
             result, arm=row["arm"], config_id=row["config_id"], updates=row["updates"],
             seed=row["seed"], search_draws=search_draws,

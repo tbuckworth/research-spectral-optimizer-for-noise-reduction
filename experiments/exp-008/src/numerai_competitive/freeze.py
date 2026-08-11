@@ -35,10 +35,11 @@ def _verify_arm(arm: str, config_id: int, models: list[Path], seeds: list[int],
         actual = {key: config[key] for key in expected}
         if actual != expected:
             raise ValueError(f"{arm} seed {seed}: model training provenance differs from freeze")
-        if split["name"] != "all_train_refit" or split["valid_eras"] or split["purged_eras"]:
-            raise ValueError(f"{arm} seed {seed}: model is not a full-train refit")
-        if split["train_eras"] != [f"{era:04d}" for era in range(1, 575)]:
-            raise ValueError(f"{arm} seed {seed}: refit does not contain exactly eras 0001--0574")
+        if (split["name"] != "sealed_validation_refit_60d" or split["valid_eras"]
+                or split["purged_eras"] != [f"{era:04d}" for era in range(559, 575)]):
+            raise ValueError(f"{arm} seed {seed}: model is not a purged validation refit")
+        if split["train_eras"] != [f"{era:04d}" for era in range(1, 559)]:
+            raise ValueError(f"{arm} seed {seed}: refit does not contain eras 0001--0558")
         if artifact["data_version"] != "v5.3":
             raise ValueError(f"{arm} seed {seed}: wrong data version")
         signatures.append(artifact["signature"])
