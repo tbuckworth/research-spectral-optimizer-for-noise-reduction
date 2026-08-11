@@ -51,6 +51,31 @@ def audit(results: Path, leaderboard_path: Path, output: Path) -> dict:
     evidence = {}
     root = results.parent
     base_search_path = root / "configs" / "search-v1.json"
+    admission_path = results / "base-search-memory-admission.json"
+    admission = _json(admission_path, ("complete",))
+    admission_rows = admission.get("rows", [])
+    admitted_ids = set(admission.get("admitted_config_ids", []))
+    excluded_ids = set(admission.get("excluded_config_ids", []))
+    if (admission.get("search_sha256") != sha256(base_search_path)
+            or admission.get("pending_probe_config_ids") != []
+            or admitted_ids & excluded_ids
+            or admitted_ids | excluded_ids != set(range(40))
+            or {row.get("config_id") for row in admission_rows} != set(range(40))):
+        raise ValueError("base-search memory admission is incomplete or inconsistent")
+    for row in admission_rows:
+        if row["config_id"] in admitted_ids:
+            if row.get("state") not in {"static_safe", "empirical_probe_passed"}:
+                raise ValueError("admitted base-search row has invalid evidence state")
+            if row.get("state") == "empirical_probe_passed":
+                probe = row.get("probe", {})
+                probe_path = Path(probe.get("path", ""))
+                if (not probe.get("passed") or not probe.get("checks")
+                        or not all(probe["checks"].values()) or not probe_path.is_file()
+                        or probe.get("sha256") != sha256(probe_path)):
+                    raise ValueError("empirically admitted row lacks valid frozen probe evidence")
+        elif row.get("state") != "excluded_no_valid_probe":
+            raise ValueError("excluded base-search row has invalid evidence state")
+    evidence["base_search_memory_admission"] = sha256(admission_path)
     source_path = results / "selection-high-rank-source-r2048.json"
     extension_path = results / "search-v1-high-rank-extension.json"
     probe_path = results / "audit-high-rank-probes.json"
@@ -87,6 +112,23 @@ def audit(results: Path, leaderboard_path: Path, output: Path) -> dict:
     outer_selected = {}
     for number in range(1, 4):
         inner_count = number + 1
+        f0_score = results / f"summary-outer_{number}_inner_1-u5000-s0" / "scores.csv"
+        if _score_arm_ids(f0_score) != {
+            "adamw": admitted_ids, "spectral": admitted_ids,
+        }:
+            raise ValueError(f"outer_{number} F0 coverage differs from memory admission")
+        f0_path = results / f"selection-outer_{number}-f0-top12.json"
+        f0 = json.loads(f0_path.read_text())
+        _verify_score_hashes(f0.get("score_sha256", {}), [f0_score])
+        f0_selected = f0.get("selected", {})
+        if (f0.get("top") != 12
+                or any(len(f0_selected.get(arm, [])) != 12
+                       for arm in ("adamw", "spectral"))
+                or not 12 <= len(f0_selected.get("paired_union", [])) <= 24
+                or set(f0_selected.get("paired_union", []))
+                != set(f0_selected["adamw"]) | set(f0_selected["spectral"])
+                or not set(f0_selected["paired_union"]) <= admitted_ids):
+            raise ValueError(f"outer_{number} F0 selection is inconsistent")
         f1_scores = [
             results / f"summary-outer_{number}_inner_{inner}-u20000-s0" / "scores.csv"
             for inner in range(1, inner_count + 1)
@@ -95,12 +137,19 @@ def audit(results: Path, leaderboard_path: Path, output: Path) -> dict:
         f1 = _json(f1_path, ("f1_selection_augmented_with_gpu_audited_high_ranks",))
         _verify_score_hashes(f1.get("score_sha256", {}), f1_scores)
         ordinary = set(f1.get("selected", {}).get("paired_union", []))
+        for score_path in f1_scores:
+            if _score_arm_ids(score_path) != {
+                "adamw": set(f0_selected["paired_union"]),
+                "spectral": set(f0_selected["paired_union"]),
+            }:
+                raise ValueError(f"{score_path}: F1 coverage differs from F0 promotion")
         if (f1.get("augmented_search_sha256") != sha256(search_path)
                 or f1.get("selected", {}).get("high_rank_spectral") != extension_ids
                 or not 4 <= len(ordinary) <= 8):
             raise ValueError(f"outer_{number} F1 selection omits audited candidates")
         f2_scores = [
-            results / f"summary-outer_{number}_inner_{inner}-u{budget}-s{seed}" / "scores.csv"
+            results / f"summary-f2-outer_{number}_inner_{inner}-u{budget}-s{seed}"
+            / "scores.csv"
             for inner in range(1, inner_count + 1)
             for budget in (5000, 20000, 100000) for seed in range(3)
         ]
@@ -124,6 +173,7 @@ def audit(results: Path, leaderboard_path: Path, output: Path) -> dict:
         ):
             raise ValueError(f"outer_{number} F2 selection lacks exact update budgets")
         evidence[f"outer_{number}_f1_selection"] = sha256(f1_path)
+        evidence[f"outer_{number}_f0_selection"] = sha256(f0_path)
         evidence[f"outer_{number}_f2_selection"] = sha256(f2_path)
         path = results / f"audit-outer_{number}-budgeted" / "outer-audit.json"
         value = _json(path, ("audit_complete",))

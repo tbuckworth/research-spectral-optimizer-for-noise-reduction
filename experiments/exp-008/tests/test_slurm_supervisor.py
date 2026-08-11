@@ -27,6 +27,13 @@ PROMOTERS = [
 ]
 
 
+def test_f2_uses_separate_summary_namespace_from_f0_and_f1():
+    f1_promoter = PROMOTERS[1].read_text()
+    f2_promoter = PROMOTERS[2].read_text()
+    assert "NUMERAI_SUMMARY_PREFIX=f2-" in f1_promoter
+    assert "summary-f2-${SPLIT}-u${BUDGET}-s${SEED}" in f2_promoter
+
+
 def _executable(path: Path, body: str) -> None:
     path.write_text("#!/bin/bash\nset -euo pipefail\n" + body)
     path.chmod(0o755)

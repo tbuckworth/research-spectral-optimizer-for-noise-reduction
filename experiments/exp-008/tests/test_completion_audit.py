@@ -34,10 +34,32 @@ def _complete_tree(tmp_path: Path) -> tuple[Path, Path]:
         "file_map_sha256": code_digest,
     })
     base_search = tmp_path / "configs" / "search-v1.json"
+    _write(results / "base-search-memory-admission.json", {
+        "status": "complete", "search_sha256": sha256(base_search),
+        "admitted_config_ids": list(range(40)), "excluded_config_ids": [],
+        "pending_probe_config_ids": [],
+        "rows": [{"config_id": config_id, "state": "static_safe"}
+                 for config_id in range(40)],
+    })
     f1_by_outer, f2_by_outer, ordinary_by_outer = {}, {}, {}
     for number in range(1, 4):
         ordinary = {number, number + 3, number + 10, number + 20}
         ordinary_by_outer[number] = ordinary
+        promoted = sorted(ordinary | (set(range(12)) - ordinary))[:12]
+        if not ordinary <= set(promoted):
+            promoted = sorted(ordinary) + [value for value in range(40)
+                                           if value not in ordinary][:8]
+        split = f"outer_{number}_inner_1"
+        f0 = results / f"summary-{split}-u5000-s0" / "scores.csv"
+        f0_rows = ["arm,config_id,corr_mean,split,seed,updates"]
+        for arm in ("adamw", "spectral"):
+            f0_rows.extend(f"{arm},{config},0.1,{split},0,5000" for config in range(40))
+        _write(f0, ("\n".join(f0_rows) + "\n").encode())
+        _write(results / f"selection-outer_{number}-f0-top12.json", {
+            "top": 12, "score_sha256": {str(f0): sha256(f0)},
+            "selected": {"adamw": promoted, "spectral": promoted,
+                         "paired_union": promoted},
+        })
         f1_paths, f2_paths = [], []
         for inner in range(1, number + 2):
             split = f"outer_{number}_inner_{inner}"
@@ -45,12 +67,12 @@ def _complete_tree(tmp_path: Path) -> tuple[Path, Path]:
             f1_rows = ["arm,config_id,corr_mean,split,seed,updates"]
             for arm in ("adamw", "spectral"):
                 f1_rows.extend(f"{arm},{config},0.1,{split},0,20000"
-                               for config in sorted(ordinary))
+                               for config in promoted)
             _write(f1, ("\n".join(f1_rows) + "\n").encode())
             f1_paths.append(f1)
             for budget in (5000, 20000, 100000):
                 for seed in range(3):
-                    f2 = results / f"summary-{split}-u{budget}-s{seed}" / "scores.csv"
+                    f2 = results / f"summary-f2-{split}-u{budget}-s{seed}" / "scores.csv"
                     f2_rows = ["arm,config_id,corr_mean,split,seed,updates"]
                     f2_rows.extend(f"adamw,{config},0.1,{split},{seed},{budget}"
                                    for config in sorted(ordinary))
@@ -223,7 +245,7 @@ def test_completion_audit_cross_checks_full_chain(tmp_path):
     report = audit(results, leaderboard, output)
     assert report["status"] == "audit_complete"
     assert report["final_selected"] == {"adamw": 1, "spectral": 4}
-    assert len(report["evidence_sha256"]) == 27
+    assert len(report["evidence_sha256"]) == 31
 
 
 def test_completion_audit_rejects_model_changed_after_freeze(tmp_path):
