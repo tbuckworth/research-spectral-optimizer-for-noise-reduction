@@ -77,3 +77,10 @@ official-validation scores only on the common historical target/scorer, and plac
 live leaderboard snapshot in a visibly separate context section. It refuses to translate
 historical `target_cyrusd_20` CORR into a live rank; direct rank comparability still requires
 resolved prospective unstaked rounds.
+
+The current official `numerai/numerai-predict` Python 3.12 image was also built locally from full
+commit `2b6eb43612db25bcf047608b4c1fd61cc3ff3c06`. Its content-addressed Docker image ID and exact
+runtime versions are frozen in `official-runner-snapshot.json`. The image build alone is not a
+compatibility result: the final candidate must still execute on the complete live fixture under
+the one-CPU, 4,000,000,000-byte and 600-second limits, and its output must match the independently
+generated prediction path.
