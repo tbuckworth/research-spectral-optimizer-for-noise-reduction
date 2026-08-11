@@ -10,6 +10,7 @@ SELECTION=$2
 OUTER_SPLIT=$3
 OUTPUT=$4
 PROJECT=${NUMERAI_PROJECT:-/mnt/nw/home/t.buckworth/numerai-competitive}
+SEARCH=${NUMERAI_SEARCH_CONFIG:-$PROJECT/configs/search-v1.json}
 LOG="${MANIFEST%.tsv}-audit.log"
 if [[ ! $OUTER_SPLIT =~ ^outer_[123]$ ]]; then
   echo "outer split must be outer_1, outer_2 or outer_3" >&2
@@ -55,7 +56,7 @@ done
 
 "$PROJECT/uv" run --no-sync python -m numerai_competitive.audit_outer \
   --manifest "$MANIFEST" --results "$PROJECT/results" --selection "$SELECTION" \
-  --search "$PROJECT/configs/search-v1.json" \
+  --search "$SEARCH" \
   --features /mnt/nw/home/t.buckworth/numerai-v5.3-source/features.json \
   --outer-split "$OUTER_SPLIT" --updates 100000 --seed 0 --seed 1 --seed 2 \
   --output "$OUTPUT" >> "$LOG" 2>&1

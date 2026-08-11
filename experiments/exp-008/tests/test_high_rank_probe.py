@@ -1,7 +1,5 @@
 import json
 
-import pytest
-
 from numerai_competitive.data import sha256
 from numerai_competitive.high_rank_probe import audit_probes
 
@@ -15,7 +13,8 @@ def _write(path, value):
 def test_probe_audit_requires_realized_rank_and_safe_measured_memory(tmp_path):
     extension = _write(tmp_path / "extension.json", {
         "status": "development_only_high_rank_extension",
-        "configs": [{"config_id": 10512, "rank": 512, "memory_screen": {
+        "configs": [{"config_id": 10512, "rank": 512, "arm": "spectral",
+                     "required_probe_updates": 1024, "memory_screen": {
             "analytically_feasible_48gb": True, "parameter_count": 100,
         }}],
     })
@@ -24,7 +23,8 @@ def test_probe_audit_requires_realized_rank_and_safe_measured_memory(tmp_path):
         "peak_cuda_memory_bytes": 20_000_000_000,
         "config": {"search_config_id": 10512, "arm": "spectral",
                    "filter": {"rank": 512}},
-        "logs": [{"filter": {"basis_rank": 512, "orthogonality_error": 1e-5}}],
+        "logs": [{"filter": {"basis_rank": 512, "orthogonality_error": 1e-5,
+                               "filtering_active": True}}],
     })
     output = tmp_path / "audit.json"
     report = audit_probes(extension, [result], output)
@@ -34,14 +34,35 @@ def test_probe_audit_requires_realized_rank_and_safe_measured_memory(tmp_path):
     broken = json.loads(result.read_text())
     broken["logs"][-1]["filter"]["basis_rank"] = 511
     result.write_text(json.dumps(broken))
-    with pytest.raises(ValueError, match="safe full-rank"):
-        audit_probes(extension, [result], tmp_path / "bad.json")
+    rejected = audit_probes(extension, [result], tmp_path / "bad.json")
+    assert rejected["eligible_ranks"] == []
+    assert rejected["rejected"][0]["reason"] == "full_rank_filter_not_safely_realized"
+
+
+def test_probe_audit_records_cuda_oom_as_ineligible(tmp_path):
+    extension = _write(tmp_path / "extension.json", {
+        "status": "development_only_high_rank_extension",
+        "configs": [{"config_id": 12048, "rank": 2048, "arm": "spectral",
+                     "required_probe_updates": 4096, "memory_screen": {
+            "analytically_feasible_48gb": True, "parameter_count": 100,
+        }}],
+    })
+    result = _write(tmp_path / "probe" / "result.json", {
+        "status": "resource_probe_rejected", "reason": "cuda_out_of_memory",
+        "updates": 4096, "peak_cuda_memory_bytes": 47_000_000_000,
+        "config": {"search_config_id": 12048, "arm": "spectral",
+                   "filter": {"rank": 2048}},
+    })
+    report = audit_probes(extension, [result], tmp_path / "audit.json")
+    assert report["eligible_ranks"] == []
+    assert report["rejected"][0]["reason"] == "cuda_out_of_memory"
 
 
 def test_probe_audit_records_when_no_rank_is_analytically_feasible(tmp_path):
     extension = _write(tmp_path / "extension.json", {
         "status": "development_only_high_rank_extension",
-        "configs": [{"config_id": 11024, "rank": 1024, "memory_screen": {
+        "configs": [{"config_id": 11024, "rank": 1024, "arm": "spectral",
+                     "memory_screen": {
             "analytically_feasible_48gb": False, "parameter_count": 10_000_000,
         }}],
     })

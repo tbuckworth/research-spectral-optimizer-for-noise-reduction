@@ -9,6 +9,8 @@ from .data import atomic_json, sha256
 
 FEATURE_DIMENSIONS = {"medium": 780, "all": 3555}
 L40_BYTES = 48 * 1024**3
+EXTENSION_ID_BASE = 1_000_000
+EXTENSION_ID_STRIDE = 10_000
 
 
 def parameter_count(config: dict) -> int:
@@ -39,6 +41,27 @@ def memory_estimate(config: dict, rank: int) -> dict:
     }
 
 
+def required_probe_updates(config: dict, rank: int) -> int:
+    """Updates needed to realize rank and exercise the active filter.
+
+    The first covariance observation initializes the running mean.  Thereafter
+    at most one basis direction is added per covariance update, and covariance
+    updates occur every ``filter_update_every`` gradient steps.
+    """
+    cadence = int(config["filter_update_every"])
+    warmup = int(config["filter_warmup"])
+    if cadence < 1 or warmup < 0 or rank < 1:
+        raise ValueError("invalid rank, filter cadence or filter warmup")
+    return max(2 * rank, 1 + rank * cadence, warmup + 1)
+
+
+def extension_config_id(source_id: int, rank: int) -> int:
+    """Stable collision-free ID for one source draw and rank below 10,000."""
+    if not 0 <= source_id < 10_000 or not 0 < rank < EXTENSION_ID_STRIDE:
+        raise ValueError("source ID or extension rank is outside the supported range")
+    return EXTENSION_ID_BASE + source_id * EXTENSION_ID_STRIDE + rank
+
+
 def create_extension(search_path: Path, selection_path: Path, ranks: list[int],
                      output: Path) -> dict:
     search = json.loads(search_path.read_text())
@@ -48,20 +71,29 @@ def create_extension(search_path: Path, selection_path: Path, ranks: list[int],
         raise ValueError("high-rank extension requires one selected spectral config")
     source_id = selected[0]
     matches = [draw for draw in search.get("configs", [])
-               if draw.get("arm") == "spectral" and draw.get("config_id") == source_id]
-    if len(matches) != 1:
-        raise ValueError("selected spectral config is absent or duplicated")
-    source = matches[0]
+               if draw.get("config_id") == source_id]
+    spectral_matches = [draw for draw in matches if draw.get("arm") == "spectral"]
+    adamw_matches = [draw for draw in matches if draw.get("arm") == "adamw"]
+    if len(spectral_matches) != 1 or len(adamw_matches) != 1:
+        raise ValueError("selected config lacks one AdamW/spectral pair")
+    source, adamw_source = spectral_matches[0], adamw_matches[0]
+    for key, value in adamw_source.items():
+        if key not in {"arm", "config_id"} and source.get(key) != value:
+            raise ValueError("selected AdamW/spectral pair changes non-filter settings")
     if (not ranks or len(ranks) != len(set(ranks))
             or any(not isinstance(rank, int) or rank <= source["rank"] for rank in ranks)):
         raise ValueError("extension ranks must be unique integers above the selected rank")
     configs = []
     for rank in sorted(ranks):
-        config = dict(source)
-        config.update({"config_id": 10_000 + rank, "rank": rank,
-                       "source_config_id": source_id,
-                       "memory_screen": memory_estimate(source, rank)})
-        configs.append(config)
+        config_id = extension_config_id(source_id, rank)
+        adamw = dict(adamw_source)
+        adamw.update({"config_id": config_id, "source_config_id": source_id})
+        spectral = dict(source)
+        spectral.update({"config_id": config_id, "rank": rank,
+                         "source_config_id": source_id,
+                         "memory_screen": memory_estimate(source, rank),
+                         "required_probe_updates": required_probe_updates(source, rank)})
+        configs.extend([adamw, spectral])
     report = {
         "status": "development_only_high_rank_extension",
         "selection_role": "eligible before freeze; official validation remains sealed",

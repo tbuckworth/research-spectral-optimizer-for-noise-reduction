@@ -21,6 +21,9 @@ else
   F2_SUPERVISOR="numerai-outer${OUTER_NUMBER}-f2-supervisor"
 fi
 PROJECT=${NUMERAI_PROJECT:-/mnt/nw/home/t.buckworth/numerai-competitive}
+SEARCH=${NUMERAI_SEARCH_CONFIG:-$PROJECT/results/search-v1-high-rank.json}
+[[ -f $SEARCH ]] || SEARCH="$PROJECT/configs/search-v1.json"
+export NUMERAI_SEARCH_CONFIG="$SEARCH"
 SELECTION="$PROJECT/results/selection-${OUTER_SPLIT}-f2-top1.json"
 MANIFEST="$PROJECT/results/submission-${OUTER_SPLIT}-eval-u100000.tsv"
 OUTPUT="$PROJECT/results/audit-${OUTER_SPLIT}-u100000"
@@ -67,8 +70,8 @@ if [[ $(wc -l < "$MANIFEST") -ne 6 ]]; then
   exit 1
 fi
 tmux new-session -d -s "$SUPERVISOR_SESSION" \
-  "bash '$PROJECT/slurm/supervise-resumable-stage.sh' '$MANIFEST' --skip-summary"
+  "NUMERAI_SEARCH_CONFIG='$SEARCH' bash '$PROJECT/slurm/supervise-resumable-stage.sh' '$MANIFEST' --skip-summary"
 tmux new-session -d -s "$AUDIT_SESSION" \
-  "bash '$PROJECT/slurm/audit-outer-when-ready.sh' '$MANIFEST' '$SELECTION' '$OUTER_SPLIT' '$OUTPUT'"
+  "NUMERAI_SEARCH_CONFIG='$SEARCH' bash '$PROJECT/slurm/audit-outer-when-ready.sh' '$MANIFEST' '$SELECTION' '$OUTER_SPLIT' '$OUTPUT'"
 printf '%s submitted selected %s evaluation dependency=%s\n' \
   "$(date -Is)" "$OUTER_SPLIT" "$DEPENDENCY_JOB" >> "$LOG"
