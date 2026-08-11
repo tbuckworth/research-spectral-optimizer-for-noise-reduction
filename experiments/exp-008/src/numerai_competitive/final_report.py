@@ -104,14 +104,18 @@ def _config_rows(configs: dict[str, dict]) -> str:
 
 
 def build_report(outer_path: Path, validation_path: Path, leaderboard_path: Path,
-                 freeze_path: Path, search_path: Path, output: Path) -> dict:
+                 freeze_path: Path, search_path: Path, admission_path: Path,
+                 output: Path) -> dict:
     outer = _load_complete(outer_path, "nested outer")
     validation = _load_complete(validation_path, "official validation")
     leaderboard = _load_complete(leaderboard_path, "leaderboard snapshot")
     freeze = json.loads(freeze_path.read_text())
     search = json.loads(search_path.read_text())
+    admission = _load_complete(admission_path, "base-search memory admission")
     high_rank_ids = search.get("high_rank_config_ids", [])
     base_per_arm = search.get("configurations_per_arm")
+    admitted_ids = set(admission.get("admitted_config_ids", []))
+    excluded_ids = set(admission.get("excluded_config_ids", []))
     if validation.get("target") != "target":
         raise ValueError("official validation report uses an unexpected primary target")
     if validation.get("target_alias_audit") != {
@@ -125,10 +129,17 @@ def build_report(outer_path: Path, validation_path: Path, leaderboard_path: Path
             or search.get("primary_target") != validation["target"]
             or search.get("status") != "development_only_augmented_search"
             or base_per_arm != 40 or not high_rank_ids
+            or admission.get("search_sha256") != search.get("base_search_sha256")
+            or admission.get("pending_probe_config_ids") != []
+            or admitted_ids & excluded_ids
+            or admitted_ids | excluded_ids != set(range(base_per_arm))
             or len(search.get("configs", [])) != 2 * (base_per_arm + len(high_rank_ids))):
         raise ValueError("freeze, search space and validation target are inconsistent")
     selected_configs = {arm: _selected_config(search, freeze, arm)
                         for arm in ("adamw", "spectral")}
+    for arm, config in selected_configs.items():
+        if config["config_id"] not in high_rank_ids and config["config_id"] not in admitted_ids:
+            raise ValueError(f"{arm}: frozen base configuration failed memory admission")
     output.mkdir(parents=True, exist_ok=True)
     plot_path = output / "historical-comparison.png"
     _plot(outer, validation, plot_path)
@@ -155,7 +166,9 @@ Sealed validation candidate minus official Ender20 benchmark: {candidate_delta}.
 <h2>Sealed historical scores</h2><table style="border-collapse:collapse;width:100%">
 <tr><th>Model</th><th>Mean exact era-wise CORR</th><th>CORR Sharpe</th></tr>{score_rows}</table>
 <h2>AdamW optimization and paired spectral test</h2>
-<p>The base search contained <strong>40 paired configuration IDs per optimizer</strong>.
+<p>The frozen base search contained <strong>40 paired configuration IDs per optimizer</strong>;
+<strong>{len(admitted_ids)} pairs</strong> passed the outcome-independent memory-admission rule
+and entered metric-based selection. Excluded IDs: <code>{html.escape(str(sorted(excluded_ids)))}</code>.
 Before any outer or official-validation reveal, an audited amendment added
 <strong>{len(high_rank_ids)} GPU-feasible high-rank spectral variants</strong> of one
 development-selected architecture. Each ID used the same architecture, batches, examples,
@@ -193,7 +206,8 @@ comparability requires repeated unstaked live submissions to resolve.</p>
 - Sealed validation spectral minus AdamW: {validation_delta}.
 - Sealed validation candidate minus Ender20: {candidate_delta}.
 
-AdamW was selected from 40 base paired configuration IDs using the chronological
+AdamW was selected from {len(admitted_ids)} memory-admitted pairs out of 40 frozen base draws
+using the chronological
 5,000 → 20,000 → 100,000-update multi-fidelity protocol. Final AdamW config:
 `{json.dumps(selected_configs['adamw'], sort_keys=True)}`. Final spectral config:
 `{json.dumps(selected_configs['spectral'], sort_keys=True)}`.
@@ -208,7 +222,8 @@ live submissions are required for direct comparability.
     manifest = {
         "status": "complete", "comparability": "historical-direct_live-context-only",
         "inputs": {str(path): sha256(path) for path in
-                   (outer_path, validation_path, leaderboard_path, freeze_path, search_path)},
+                   (outer_path, validation_path, leaderboard_path, freeze_path, search_path,
+                    admission_path)},
         "artifacts": {name: sha256(output / name) for name in
                       ("report.html", "report.md", "historical-comparison.png")},
         "nested_outer_spectral_minus_adamw": outer["spectral_minus_adamw"],
@@ -227,10 +242,12 @@ def main() -> None:
     parser.add_argument("--leaderboard", type=Path, required=True)
     parser.add_argument("--freeze", type=Path, required=True)
     parser.add_argument("--search", type=Path, required=True)
+    parser.add_argument("--admission", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     print(json.dumps(build_report(args.outer, args.validation, args.leaderboard,
-                                  args.freeze, args.search, args.output), sort_keys=True))
+                                  args.freeze, args.search, args.admission,
+                                  args.output), sort_keys=True))
 
 
 if __name__ == "__main__":

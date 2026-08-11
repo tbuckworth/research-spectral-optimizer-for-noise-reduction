@@ -355,7 +355,7 @@ def audit(results: Path, leaderboard_path: Path, output: Path) -> dict:
         raise ValueError("final report does not preserve the live comparability boundary")
     expected_report_inputs = {sha256(nested_path), sha256(validation_path),
                               sha256(leaderboard_path), sha256(freeze_path),
-                              sha256(search_path)}
+                              sha256(search_path), sha256(admission_path)}
     if set(report_manifest.get("inputs", {}).values()) != expected_report_inputs:
         raise ValueError("final report was not built from the audited result inputs")
     if report_manifest.get("selected_configs", {}).keys() != {"adamw", "spectral"}:

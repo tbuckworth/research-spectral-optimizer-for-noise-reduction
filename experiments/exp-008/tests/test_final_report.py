@@ -42,7 +42,7 @@ def test_final_report_keeps_live_and_historical_scales_separate(tmp_path: Path):
     search = _write(tmp_path / "search.json", {
         "protocol": "paired-search", "primary_target": "target",
         "status": "development_only_augmented_search", "configurations_per_arm": 40,
-        "high_rank_config_ids": [1000512],
+        "high_rank_config_ids": [1000512], "base_search_sha256": "d" * 64,
         "configs": [
             {"arm": arm, "config_id": config_id, "width": 512,
              "learning_rate": 0.001, **({"rank": 32} if arm == "spectral" else {})}
@@ -62,8 +62,15 @@ def test_final_report_keeps_live_and_historical_scales_separate(tmp_path: Path):
             "spectral": {"config_id": 4, "updates": 100_000, "seeds": [0, 1, 2]},
         },
     })
+    admission = _write(tmp_path / "admission.json", {
+        "status": "complete", "search_sha256": "d" * 64,
+        "admitted_config_ids": list(range(40)), "excluded_config_ids": [],
+        "pending_probe_config_ids": [],
+    })
     output = tmp_path / "report"
-    manifest = build_report(outer, validation, leaderboard, freeze, search, output)
+    manifest = build_report(
+        outer, validation, leaderboard, freeze, search, admission, output,
+    )
     assert manifest["comparability"] == "historical-direct_live-context-only"
     html = (output / "report.html").read_text()
     assert "cannot be converted into a live rank" in html
@@ -71,6 +78,7 @@ def test_final_report_keeps_live_and_historical_scales_separate(tmp_path: Path):
     assert "<code>target_cyrus_20</code>" in html
     assert "<code>target_ender_60</code>" in html
     assert "40 paired configuration IDs" in html
+    assert "40 pairs" in html
     assert "GPU-feasible high-rank" in html
     assert "Selected AdamW" in html
     assert (output / "historical-comparison.png").stat().st_size > 1000

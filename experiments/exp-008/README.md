@@ -210,12 +210,13 @@ uv run python -m numerai_competitive.final_report \
   --outer results/nested-outer/nested-outer-report.json \
   --validation results/official-validation/official-validation-report.json \
   --leaderboard leaderboard/leaderboard-summary.json --freeze results/freeze.json \
-  --search results/search-v1-high-rank.json --output results/final-report
+  --search results/search-v1-high-rank.json \
+  --admission results/base-search-memory-admission.json --output results/final-report
 ```
 
 The report directly compares only models scored on the same historical target and eras. It shows
-the exact frozen AdamW and spectral configurations, the 40-pair base search, and every audited
-high-rank amendment candidate.
+the exact frozen AdamW and spectral configurations, the 40-pair frozen base search, its
+outcome-independent memory-admission count, and every audited high-rank amendment candidate.
 It also shows
 the dated public one-year live reputations in a separate context section and explicitly refuses to
 infer a live rank from historical main-`target` validation CORR.
