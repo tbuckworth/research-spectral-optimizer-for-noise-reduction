@@ -28,9 +28,14 @@ def test_target_free_live_resource_validator(tmp_path):
         np.array([[0, 2, 4], [4, 1, 2], [1, 3, 0]], dtype=np.uint8),
         index=index, columns=["a", "b", "c"],
     ).to_parquet(tmp_path / "live.parquet")
-    report = validate(callable_path, tmp_path / "live.parquet", tmp_path / "report.json")
+    timed_csv = tmp_path / "timed-live.csv"
+    report = validate(
+        callable_path, tmp_path / "live.parquet", tmp_path / "report.json",
+        prediction_output=timed_csv,
+    )
     assert report["status"] == "pass" and report["rows"] == 3
     assert report["model_count"] == 1 and report["artifact_bytes"] > 0
+    assert report["prediction_sha256"] == sha256(timed_csv)
     assert json.loads((tmp_path / "report.json").read_text())["status"] == "pass"
     csv_path = predict(callable_path, tmp_path / "live.parquet", tmp_path / "live.csv")
     csv = pd.read_csv(csv_path, index_col="id")
