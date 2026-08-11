@@ -36,11 +36,17 @@ def test_final_report_keeps_live_and_historical_scales_separate(tmp_path: Path):
     })
     search = _write(tmp_path / "search.json", {
         "protocol": "paired-search", "primary_target": "target_cyrusd_20",
-        "configurations_per_arm": 40,
+        "status": "development_only_augmented_search", "configurations_per_arm": 40,
+        "high_rank_config_ids": [1000512],
         "configs": [
             {"arm": arm, "config_id": config_id, "width": 512,
              "learning_rate": 0.001, **({"rank": 32} if arm == "spectral" else {})}
             for config_id in range(40) for arm in ("adamw", "spectral")
+        ] + [
+            {"arm": "adamw", "config_id": 1000512, "width": 512,
+             "learning_rate": 0.001},
+            {"arm": "spectral", "config_id": 1000512, "width": 512,
+             "learning_rate": 0.001, "rank": 512},
         ],
     })
     freeze = _write(tmp_path / "freeze.json", {
@@ -58,6 +64,7 @@ def test_final_report_keeps_live_and_historical_scales_separate(tmp_path: Path):
     assert "cannot honestly be translated" in html
     assert "target_cyrusd_20" in html
     assert "40 paired configuration IDs" in html
+    assert "GPU-feasible high-rank" in html
     assert "Selected AdamW" in html
     assert (output / "historical-comparison.png").stat().st_size > 1000
     saved = json.loads((output / "report-manifest.json").read_text())

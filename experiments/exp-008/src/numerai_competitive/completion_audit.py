@@ -26,6 +26,35 @@ def _verify_named_hashes(directory: Path, hashes: dict[str, str]) -> None:
 
 def audit(results: Path, leaderboard_path: Path, output: Path) -> dict:
     evidence = {}
+    root = results.parent
+    base_search_path = root / "configs" / "search-v1.json"
+    source_path = results / "selection-high-rank-source-r2048.json"
+    extension_path = results / "search-v1-high-rank-extension.json"
+    probe_path = results / "audit-high-rank-probes.json"
+    search_path = results / "search-v1-high-rank.json"
+    source = _json(source_path, ("development_only_high_rank_source_selection",))
+    extension = _json(extension_path, ("development_only_high_rank_extension",))
+    probes = _json(probe_path, ("probe_audit_complete",))
+    search = _json(search_path, ("development_only_augmented_search",))
+    spectral_source = source.get("selected", {}).get("spectral", [])
+    eligible_ranks = probes.get("eligible_ranks", [])
+    extension_ids = sorted(
+        config["config_id"] for config in extension.get("configs", [])
+        if config.get("arm") == "spectral" and config.get("rank") in eligible_ranks
+    )
+    if (source.get("requested_rank") != 2048 or len(spectral_source) != 1
+            or extension.get("source_config_id") != spectral_source[0]
+            or extension.get("source_search_sha256") != sha256(base_search_path)
+            or probes.get("extension_sha256") != sha256(extension_path)
+            or not eligible_ranks or search.get("high_rank_config_ids") != extension_ids
+            or search.get("base_search_sha256") != sha256(base_search_path)
+            or search.get("extension_sha256") != sha256(extension_path)
+            or search.get("probe_audit_sha256") != sha256(probe_path)):
+        raise ValueError("high-rank amendment provenance or eligible ranks are inconsistent")
+    evidence.update({"high_rank_source": sha256(source_path),
+                     "high_rank_extension": sha256(extension_path),
+                     "high_rank_probe_audit": sha256(probe_path),
+                     "augmented_search": sha256(search_path)})
     outer_selected = {}
     for number in range(1, 4):
         path = results / f"audit-outer_{number}-u100000" / "outer-audit.json"
@@ -80,12 +109,13 @@ def audit(results: Path, leaderboard_path: Path, output: Path) -> dict:
 
     freeze_path = results / "freeze.json"
     freeze = _json(freeze_path, ("frozen",))
-    code_snapshot_path = results.parent / "code-snapshot.json"
-    search_path = results.parent / "configs" / "search-v1.json"
+    code_snapshot_path = root / "code-snapshot.json"
+    protocol_path = root / "fidelity-protocol.md"
     if (not re.fullmatch(r"[0-9a-f]{40}", freeze.get("code_commit", ""))
             or freeze.get("primary_target") != "target_cyrusd_20"
             or freeze.get("code_snapshot_sha256") != sha256(code_snapshot_path)
             or freeze.get("search_sha256") != sha256(search_path)
+            or freeze.get("fidelity_protocol_sha256") != sha256(protocol_path)
             or freeze.get("candidate_plan_sha256") != sha256(candidate_path)
             or freeze.get("candidate_transform") != candidate.get("selected")):
         raise ValueError("freeze provenance or candidate transformation is inconsistent")

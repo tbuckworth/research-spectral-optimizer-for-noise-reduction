@@ -13,8 +13,10 @@ uv run pytest -q
 uv run ruff check src tests
 ```
 
-The immutable search is `configs/search-v1.json`; its promotion rules are frozen in
-`fidelity-protocol.md`. Development runners accept only v5.3 train shards. The official
+The base immutable search is `configs/search-v1.json`; its promotion rules and the dated,
+pre-validation high-rank amendment are recorded in `fidelity-protocol.md`. The amendment creates
+hashed source-selection, GPU-probe and augmented-search artifacts under `results/`; only the
+augmented search may reach final freeze. Development runners accept only v5.3 train shards. The official
 validation builder requires a provenance-verified procedure/model freeze manifest and is
 unavailable to HPO.
 
@@ -25,8 +27,9 @@ coverage and deterministically ranks mean CORR, worst-fold CORR, then lower conf
 
 1. Both arms, all 40 paired config IDs, earliest inner fold, seed 0, 5,000 updates.
 2. Both arms over the top-12 paired union, every eligible inner fold, seed 0, 20,000 updates.
-3. Both arms over the top-4 paired union, every eligible inner fold, seeds 0/1/2, 100,000
-   updates.
+3. Both arms over the top-4 paired union plus every GPU-audited high-rank spectral variant,
+   every eligible inner fold, seeds 0/1/2, 100,000 updates. Identical high-rank AdamW controls
+   are run once rather than duplicated by rank.
 4. One winner per arm, refit on the outer-training block and score the untouched outer block at
    seeds 0/1/2.
 
@@ -43,7 +46,9 @@ starts the fold-specific promotion waiter. It refuses an existing manifest, summ
 session rather than duplicating a procedure.
 `promote-f0-when-ready.sh` waits for the audited F0 table before submitting F1.
 `promote-f1-when-ready.sh` likewise requires every audited F1 temporal-fold table, selects the
-top-four paired union, and submits the exact three-seed F2 manifest.
+top-four paired union, selects the best development architecture feasible at rank 2,048,
+GPU-probes ranks 512/1,024/1,536/2,048/4,096, and submits the exact asymmetric three-seed F2
+manifest. Caught CUDA OOM rejects only that probed rank; any other probe error stops promotion.
 All three promotion scripts accept an optional `outer_1`, `outer_2`, or `outer_3` argument and
 derive the required two, three, or four eligible inner folds. Fold-specific monitor, supervisor,
 selection, manifest, and audit names prevent one outer procedure from satisfying another's gate.
@@ -111,7 +116,7 @@ uv run python -m numerai_competitive.code_snapshot create \
   --repo ../.. --source-prefix experiments/exp-008 --commit COMMIT \
   --output code-snapshot.json
 uv run python -m numerai_competitive.freeze \
-  --search configs/search-v1.json --protocol fidelity-protocol.md \
+  --search results/search-v1-high-rank.json --protocol fidelity-protocol.md \
   --candidate-plan out/candidate-plan.json --output out/freeze.json \
   --code-commit COMMIT --code-snapshot code-snapshot.json --code-root . \
   --adamw-config ID --spectral-config ID \
@@ -204,11 +209,12 @@ uv run python -m numerai_competitive.final_report \
   --outer results/nested-outer/nested-outer-report.json \
   --validation results/official-validation/official-validation-report.json \
   --leaderboard leaderboard/leaderboard-summary.json --freeze results/freeze.json \
-  --search configs/search-v1.json --output results/final-report
+  --search results/search-v1-high-rank.json --output results/final-report
 ```
 
 The report directly compares only models scored on the same historical target and eras. It shows
-the exact frozen AdamW and spectral configurations and the 40-pair multi-fidelity search protocol.
+the exact frozen AdamW and spectral configurations, the 40-pair base search, and every audited
+high-rank amendment candidate.
 It also shows
 the dated public one-year live reputations in a separate context section and explicitly refuses to
 infer a live rank from historical `target_cyrusd_20` validation CORR.

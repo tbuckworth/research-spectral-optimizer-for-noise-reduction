@@ -1,6 +1,6 @@
-# Frozen multi-fidelity protocol
+# Multi-fidelity protocol and pre-validation amendment
 
-Frozen before completion of the first screen. The primary selection statistic is mean exact
+The base protocol below was frozen before completion of the first screen. The primary selection statistic is mean exact
 standalone Numerai CORR. BMC, Sharpe, runtime and official validation do not select configs.
 
 For each outer fold independently:
@@ -23,6 +23,38 @@ train-only selection, take the union of the three outer-fold winners, run both
 arms for every ID over all four canonical train-era folds at 100,000 updates and seeds 0, 1 and 2,
 then choose one config per arm by the same rule. Freeze configs, seeds, training horizon, scoring,
 benchmark blends and analysis before constructing or scoring the official validation shard.
+
+## High-rank amendment (2026-08-11)
+
+This amendment was made after the ordinary 20,000-update inner-fold search had begun, but before
+any outer block or official validation target was revealed. It responds to the pre-existing request
+to test global spectral ranks through at least 1,024 and beyond; it is development hyperparameter
+search, not a post-test analysis.
+
+1. Using only the ordinary outer-1 inner-fold 20,000-update scores, select the highest-mean-CORR
+   spectral architecture that is analytically feasible at rank 2,048. Break ties by worst inner
+   cell CORR and then lower config ID. This fixes every setting except rank.
+2. Clone that architecture at ranks 512, 1,024, 1,536, 2,048 and 4,096. Give each rank a stable,
+   source-specific config ID and retain an identical AdamW search entry as its control.
+3. Before admission, analytically screen four fp32 parameter-by-rank allocations, 16 bytes per
+   parameter and four float64 rank-squared workspaces against 85% of 48 GiB. GPU-probe every
+   analytically feasible rank for enough updates to fill its basis at its actual covariance-update
+   cadence and activate filtering. Admit it only if measured peak allocation is at most 45 GiB,
+   full rank is realized, and spectral-norm orthogonality error is at most 1e-3. A caught CUDA OOM
+   is an audited rejection of that rank; other exceptions stop the workflow.
+4. Add admitted spectral ranks to the 100,000-update F2 cells on every inner fold and seeds 0, 1
+   and 2. Their AdamW configuration is identical across ranks, so train that exact control through
+   the ordinary paired union rather than duplicating it once per rank. Rank-specific AdamW copies
+   cannot gain a selection advantage from redundant stochastic replicas. F2 arm/config coverage
+   is therefore deliberately asymmetric and audited exactly.
+5. Rank AdamW and spectral candidates independently over equal fold/seed/update coverage. If a
+   high-rank spectral candidate wins an outer fold, evaluate it normally on the untouched outer
+   block. The final canonical-fold winner union again runs both arms for every winning ID, restoring
+   full cross-arm evaluation before immutable freeze.
+
+The amendment does not use BMC, runtime, any outer score, official validation, live data or
+leaderboard outcomes for source/rank selection. Its generated search, source selection, probe
+results and exact F2 coverage are immutable hashed artifacts.
 
 Failures are retained. An integrity or deterministic-restart failure is repaired and rerun. OOM is
 not silently converted into a smaller model/rank; the exact config is retried on the same free L40

@@ -33,6 +33,28 @@ def _complete_tree(tmp_path: Path) -> tuple[Path, Path]:
         "files": code_files, "file_count": len(code_files),
         "file_map_sha256": code_digest,
     })
+    base_search = tmp_path / "configs" / "search-v1.json"
+    _write(results / "selection-high-rank-source-r2048.json", {
+        "status": "development_only_high_rank_source_selection", "requested_rank": 2048,
+        "selected": {"spectral": [7]},
+    })
+    extension = _write(results / "search-v1-high-rank-extension.json", {
+        "status": "development_only_high_rank_extension", "source_config_id": 7,
+        "source_search_sha256": sha256(base_search), "configs": [
+            {"arm": "adamw", "config_id": 1070512},
+            {"arm": "spectral", "config_id": 1070512, "rank": 512},
+        ],
+    })
+    probes = _write(results / "audit-high-rank-probes.json", {
+        "status": "probe_audit_complete", "extension_sha256": sha256(extension),
+        "eligible_ranks": [512],
+    })
+    search = _write(results / "search-v1-high-rank.json", {
+        "status": "development_only_augmented_search", "primary_target": "target_cyrusd_20",
+        "configurations_per_arm": 40, "high_rank_config_ids": [1070512],
+        "base_search_sha256": sha256(base_search), "extension_sha256": sha256(extension),
+        "probe_audit_sha256": sha256(probes), "configs": [],
+    })
     for number in range(1, 4):
         _write(results / f"audit-outer_{number}-u100000" / "outer-audit.json", {
             "status": "audit_complete", "split": {"name": f"outer_{number}"},
@@ -68,11 +90,11 @@ def _complete_tree(tmp_path: Path) -> tuple[Path, Path]:
                         / "model.pt", f"{arm}-{seed}".encode()) for seed in range(3)]
         frozen[arm] = {"config_id": config, "seeds": [0, 1, 2], "updates": 100_000,
                        "model_sha256": [sha256(path) for path in paths]}
-    search = tmp_path / "configs" / "search-v1.json"
     freeze = _write(results / "freeze.json", {
         "status": "frozen", "code_commit": "a" * 40, "primary_target": "target_cyrusd_20",
         "code_snapshot_sha256": sha256(code_snapshot),
         "search_sha256": sha256(search),
+        "fidelity_protocol_sha256": sha256(tmp_path / "fidelity-protocol.md"),
         "candidate_plan_sha256": sha256(candidate), "candidate_transform": selected,
         "selected": frozen,
     })
@@ -145,7 +167,7 @@ def test_completion_audit_cross_checks_full_chain(tmp_path):
     report = audit(results, leaderboard, output)
     assert report["status"] == "audit_complete"
     assert report["final_selected"] == {"adamw": 1, "spectral": 4}
-    assert len(report["evidence_sha256"]) == 17
+    assert len(report["evidence_sha256"]) == 21
 
 
 def test_completion_audit_rejects_model_changed_after_freeze(tmp_path):
