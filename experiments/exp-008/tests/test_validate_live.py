@@ -1,4 +1,6 @@
 import json
+import subprocess
+import sys
 
 import numpy as np
 import pandas as pd
@@ -60,3 +62,38 @@ def test_final_callable_export_verifies_freeze_signatures_and_hashes(tmp_path):
     freeze.write_text(json.dumps(payload))
     with pytest.raises(ValueError, match="signatures/order"):
         export_callable([model], tmp_path / "bad.pkl", freeze_manifest=freeze)
+
+
+def test_export_is_self_contained_without_project_package_import(tmp_path):
+    config = MLPConfig(input_dim=2, width=4, depth=2)
+    model = tmp_path / "model.pt"
+    torch.save({
+        "signature": "seed-0", "model_config": config.__dict__,
+        "model": ResidualMLP(config).state_dict(), "feature_names": ["a", "b"],
+        "data_version": "v5.3",
+    }, model)
+    output = export_callable([model], tmp_path / "self-contained.pkl")
+    script = """
+import cloudpickle
+import importlib.abc
+import sys
+
+class BlockProject(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path=None, target=None):
+        if fullname == "numerai_competitive" or fullname.startswith("numerai_competitive."):
+            raise ModuleNotFoundError(fullname)
+        return None
+
+for name in list(sys.modules):
+    if name == "numerai_competitive" or name.startswith("numerai_competitive."):
+        del sys.modules[name]
+sys.meta_path.insert(0, BlockProject())
+with open(sys.argv[1], "rb") as handle:
+    predictor = cloudpickle.load(handle)
+assert len(predictor.models) == 1
+"""
+    completed = subprocess.run(
+        [sys.executable, "-I", "-c", script, output], check=False,
+        capture_output=True, text=True,
+    )
+    assert completed.returncode == 0, completed.stderr

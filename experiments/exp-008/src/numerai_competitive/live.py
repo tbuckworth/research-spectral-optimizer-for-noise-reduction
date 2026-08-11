@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -135,8 +136,18 @@ def export_callable(model_artifacts: Sequence[Path], output: Path,
         if [sha256(path) for path in model_artifacts] != expected["model_sha256"]:
             raise ValueError("export model hashes differ from final freeze")
     output.parent.mkdir(parents=True, exist_ok=True)
-    with output.open("wb") as handle:
-        cloudpickle.dump(predictor, handle)
+    # Numerai's execution image has torch/pandas/cloudpickle, but not this project package.
+    # Explicitly serialize the two small implementation modules by value so unpickling does
+    # not depend on an installed ``numerai_competitive`` module.
+    modules = [sys.modules[__name__], sys.modules[MLPConfig.__module__]]
+    for module in modules:
+        cloudpickle.register_pickle_by_value(module)
+    try:
+        with output.open("wb") as handle:
+            cloudpickle.dump(predictor, handle)
+    finally:
+        for module in modules:
+            cloudpickle.unregister_pickle_by_value(module)
     return output
 
 

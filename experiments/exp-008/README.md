@@ -146,3 +146,9 @@ uv run python -m numerai_competitive.predict_live \
 The validator uses one-thread model inference, enforces the ten-minute and 4 GB artifact/RSS
 limits, and checks the exact target-free row schema. The final CSV remains local until the user
 separately authorizes upload or submission.
+The exported pickle serializes the project-specific predictor and MLP implementation by value;
+it does not require `numerai_competitive` to be installed in Numerai's execution image. A
+subprocess test blocks every import of that package while loading the pickle. Before any upload,
+the final artifact must additionally pass the official `numerai-predict` Python 3.12 container,
+whose current interface accepts a one- or two-argument callable and whose documented default
+contract is one CPU, 4 GB RAM, and ten minutes.
