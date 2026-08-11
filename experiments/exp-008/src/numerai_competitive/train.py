@@ -20,6 +20,7 @@ import torch
 import torch.nn.functional as F
 
 from .data import TrainShard, atomic_json
+from . import PRIMARY_BENCHMARK
 from .filters import StreamingSpectralFilter
 from .metrics import per_era_corr, per_era_correlation_contribution, summarize_era_scores
 from .model import MLPConfig, ResidualMLP
@@ -33,7 +34,7 @@ class TrainConfig:
     feature_set: str | None = None
     arm: str = "adamw"
     target: str = "target"
-    benchmark: str = "v53_lgbm_ender20"
+    benchmark: str = PRIMARY_BENCHMARK
     seed: int = 0
     device: str = "auto"
     batch_mode: str = "row"

@@ -133,7 +133,7 @@ def _complete_tree(tmp_path: Path) -> tuple[Path, Path]:
         "expected_seeds": [0, 1, 2], "spectral_minus_adamw": {"estimate": 0.1},
     })
     selected = {"arm": "spectral", "model_weight": 0.75, "benchmark_weight": 0.25,
-                "benchmark": "v53_lgbm_ender20"}
+                "benchmark": "v53_lgbm_ender60"}
     candidate = _write(results / "candidate-plan.json", {
         "status": "frozen_train_only_selection", "selected": selected,
     })
@@ -165,6 +165,7 @@ def _complete_tree(tmp_path: Path) -> tuple[Path, Path]:
                        "model_sha256": [sha256(path) for path in paths]}
     freeze = _write(results / "freeze.json", {
         "status": "frozen", "code_commit": "a" * 40, "primary_target": "target",
+        "primary_benchmark": "v53_lgbm_ender60",
         "code_snapshot_sha256": sha256(code_snapshot),
         "search_sha256": sha256(search),
         "fidelity_protocol_sha256": sha256(tmp_path / "fidelity-protocol.md"),
@@ -174,14 +175,15 @@ def _complete_tree(tmp_path: Path) -> tuple[Path, Path]:
 
     validation = results / "official-validation"
     validation_report = _write(validation / "official-validation-report.json", {
-        "status": "complete", "target": "target",
+        "status": "complete", "target": "target", "benchmark": "v53_lgbm_ender60",
         "target_alias_audit": {
             "target_equals_target_ender_60": True,
             "live_corr20v2_target": "target_cyrus_20",
             "live_target_released_in_v5_3": False,
         },
         "freeze_manifest_sha256": sha256(freeze), "spectral_minus_adamw": {},
-        "candidate_minus_ender20": {},
+        "candidate_minus_ender60": {},
+        "candidate_transform": selected,
     })
     plot = _write(validation / "plot.png", b"plot")
     _write(validation / "evaluation-complete.json", {

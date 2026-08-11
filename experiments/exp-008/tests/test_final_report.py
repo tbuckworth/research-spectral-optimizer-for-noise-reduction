@@ -21,18 +21,19 @@ def test_final_report_keeps_live_and_historical_scales_separate(tmp_path: Path):
     outer = _write(tmp_path / "outer.json", {"status": "complete", "adamw": score,
                    "spectral": score, "spectral_minus_adamw": _comparison(0.001)})
     validation = _write(tmp_path / "validation.json", {
-        "status": "complete", "target": "target", "adamw": score,
+        "status": "complete", "target": "target", "benchmark": "v53_lgbm_ender60",
+        "adamw": score,
         "target_alias_audit": {
             "target_equals_target_ender_60": True,
             "live_corr20v2_target": "target_cyrus_20",
             "live_target_released_in_v5_3": False,
         },
         "spectral": score, "candidate": score,
-        "ender20": {"mean": 0.019, "sharpe": 1.0},
+        "ender60": {"mean": 0.019, "sharpe": 1.0},
         "spectral_minus_adamw": _comparison(0.002),
-        "adamw_minus_ender20": _comparison(0.001),
-        "spectral_minus_ender20": _comparison(0.003),
-        "candidate_minus_ender20": _comparison(0.003),
+        "adamw_minus_ender60": _comparison(0.001),
+        "spectral_minus_ender60": _comparison(0.003),
+        "candidate_minus_ender60": _comparison(0.003),
     })
     metric = {"label": "CORR20v2", "median": 0.01, "p90": 0.02, "maximum": 0.03}
     leaderboard = _write(tmp_path / "leaderboard.json", {
@@ -56,6 +57,7 @@ def test_final_report_keeps_live_and_historical_scales_separate(tmp_path: Path):
     })
     freeze = _write(tmp_path / "freeze.json", {
         "status": "frozen", "primary_target": "target",
+        "primary_benchmark": "v53_lgbm_ender60",
         "search_sha256": sha256(search),
         "selected": {
             "adamw": {"config_id": 1, "updates": 100_000, "seeds": [0, 1, 2]},

@@ -41,7 +41,7 @@ def _files(tmp_path):
     live = tmp_path / "source-live.parquet"
     benchmark = tmp_path / "source-benchmark.parquet"
     pd.DataFrame({"feature_a": [0, 4]}, index=index).to_parquet(live)
-    pd.DataFrame({"v53_lgbm_ender20": [0.2, 0.8]}, index=index).to_parquet(benchmark)
+    pd.DataFrame({"v53_lgbm_ender60": [0.2, 0.8]}, index=index).to_parquet(benchmark)
     return {
         "v5.3/live.parquet": live,
         "v5.3/live_benchmark_models.parquet": benchmark,

@@ -8,6 +8,7 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 
+from . import PRIMARY_BENCHMARK
 from .data import atomic_json, sha256
 
 
@@ -20,7 +21,7 @@ def _load_complete(path: Path, label: str) -> dict:
 
 def _score_rows(report: dict) -> list[tuple[str, float, float]]:
     rows = []
-    for name in ("adamw", "spectral", "candidate", "ender20"):
+    for name in ("adamw", "spectral", "candidate", "ender60"):
         if name in report:
             summary = report[name]["corr"] if "corr" in report[name] else report[name]
             rows.append((name, float(summary["mean"]), float(summary["sharpe"])))
@@ -32,7 +33,7 @@ def _plot(outer: dict, validation: dict, output: Path) -> None:
               ("Sealed official validation", _score_rows(validation))]
     fig, axes = plt.subplots(2, 2, figsize=(12, 8))
     colors = {"adamw": "#377eb8", "spectral": "#e41a1c", "candidate": "#984ea3",
-              "ender20": "#4daf4a"}
+              "ender60": "#4daf4a"}
     for axis, (title, rows) in zip(axes[0], panels):
         names, means, _ = zip(*rows)
         axis.bar(names, means, color=[colors[name] for name in names])
@@ -57,10 +58,10 @@ def _plot(outer: dict, validation: dict, output: Path) -> None:
         ("sealed validation", validation["spectral_minus_adamw"]),
     ], "Spectral − AdamW (95% block-bootstrap CI)")
     intervals(axes[1, 1], [
-        ("AdamW", validation["adamw_minus_ender20"]),
-        ("spectral", validation["spectral_minus_ender20"]),
-        ("candidate", validation["candidate_minus_ender20"]),
-    ], "Sealed validation model − Ender20")
+        ("AdamW", validation["adamw_minus_ender60"]),
+        ("spectral", validation["spectral_minus_ender60"]),
+        ("candidate", validation["candidate_minus_ender60"]),
+    ], "Sealed validation model − Ender60")
     fig.suptitle("Comparable historical evaluation (same target and scorer)")
     fig.tight_layout()
     fig.savefig(output, dpi=180, bbox_inches="tight", facecolor="white")
@@ -116,8 +117,9 @@ def build_report(outer_path: Path, validation_path: Path, leaderboard_path: Path
     base_per_arm = search.get("configurations_per_arm")
     admitted_ids = set(admission.get("admitted_config_ids", []))
     excluded_ids = set(admission.get("excluded_config_ids", []))
-    if validation.get("target") != "target":
-        raise ValueError("official validation report uses an unexpected primary target")
+    if (validation.get("target") != "target"
+            or validation.get("benchmark") != PRIMARY_BENCHMARK):
+        raise ValueError("official validation uses an unexpected primary target or benchmark")
     if validation.get("target_alias_audit") != {
         "target_equals_target_ender_60": True,
         "live_corr20v2_target": "target_cyrus_20",
@@ -125,6 +127,7 @@ def build_report(outer_path: Path, validation_path: Path, leaderboard_path: Path
     }:
         raise ValueError("official validation report lacks the target comparability audit")
     if (freeze.get("status") != "frozen" or freeze.get("primary_target") != validation["target"]
+            or freeze.get("primary_benchmark") != validation["benchmark"]
             or freeze.get("search_sha256") != sha256(search_path)
             or search.get("primary_target") != validation["target"]
             or search.get("status") != "development_only_augmented_search"
@@ -151,7 +154,7 @@ def build_report(outer_path: Path, validation_path: Path, leaderboard_path: Path
     )
     outer_delta = _comparison_text(outer["spectral_minus_adamw"])
     validation_delta = _comparison_text(validation["spectral_minus_adamw"])
-    candidate_delta = _comparison_text(validation["candidate_minus_ender20"])
+    candidate_delta = _comparison_text(validation["candidate_minus_ender60"])
     score_rows = "".join(
         f"<tr><td>{html.escape(name)}</td><td>{mean:.6f}</td><td>{sharpe:.3f}</td></tr>"
         for name, mean, sharpe in _score_rows(validation)
@@ -161,7 +164,7 @@ def build_report(outer_path: Path, validation_path: Path, leaderboard_path: Path
 margin:auto;line-height:1.5;color:#202124"><h1>Numerai optimizer comparison</h1>
 <p><strong>Decision-relevant result.</strong> Nested outer spectral minus AdamW: {outer_delta}.<br>
 Sealed validation spectral minus AdamW: {validation_delta}.<br>
-Sealed validation candidate minus official Ender20 benchmark: {candidate_delta}.</p>
+Sealed validation candidate minus official Ender60 benchmark: {candidate_delta}.</p>
 <img src="historical-comparison.png" alt="Historical comparison" style="max-width:100%">
 <h2>Sealed historical scores</h2><table style="border-collapse:collapse;width:100%">
 <tr><th>Model</th><th>Mean exact era-wise CORR</th><th>CORR Sharpe</th></tr>{score_rows}</table>
@@ -181,7 +184,7 @@ validation remained sealed until these choices and model hashes were frozen.</p>
 <p>Protocol ID: <code>{html.escape(search['protocol'])}</code>.</p>
 <table style="border-collapse:collapse;width:100%"><tr><th>Hyperparameter</th>
 <th>Selected AdamW</th><th>Selected spectral</th></tr>{config_rows}</table>
-<h2>What is directly comparable</h2><p>The AdamW, spectral, candidate and Ender20 values above
+<h2>What is directly comparable</h2><p>The AdamW, spectral, candidate and Ender60 values above
 use the same resolved historical rows, released main <code>target</code> and exact Numerai-CORR
 transformation. Hyperparameters were selected without using official-validation model scores;
 model evaluation opened validation only after the immutable freeze.</p>
@@ -204,7 +207,7 @@ comparability requires repeated unstaked live submissions to resolve.</p>
 
 - Nested outer spectral minus AdamW: {outer_delta}.
 - Sealed validation spectral minus AdamW: {validation_delta}.
-- Sealed validation candidate minus Ender20: {candidate_delta}.
+- Sealed validation candidate minus Ender60: {candidate_delta}.
 
 AdamW was selected from {len(admitted_ids)} memory-admitted pairs out of 40 frozen base draws
 using the chronological
@@ -228,7 +231,7 @@ live submissions are required for direct comparability.
                       ("report.html", "report.md", "historical-comparison.png")},
         "nested_outer_spectral_minus_adamw": outer["spectral_minus_adamw"],
         "validation_spectral_minus_adamw": validation["spectral_minus_adamw"],
-        "validation_candidate_minus_ender20": validation["candidate_minus_ender20"],
+        "validation_candidate_minus_ender60": validation["candidate_minus_ender60"],
         "selected_configs": selected_configs,
     }
     atomic_json(output / "report-manifest.json", manifest)

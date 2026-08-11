@@ -267,6 +267,7 @@ def audit(results: Path, leaderboard_path: Path, output: Path) -> dict:
     protocol_path = root / "fidelity-protocol.md"
     if (not re.fullmatch(r"[0-9a-f]{40}", freeze.get("code_commit", ""))
             or freeze.get("primary_target") != "target"
+            or freeze.get("primary_benchmark") != "v53_lgbm_ender60"
             or freeze.get("code_snapshot_sha256") != sha256(code_snapshot_path)
             or freeze.get("search_sha256") != sha256(search_path)
             or freeze.get("fidelity_protocol_sha256") != sha256(protocol_path)
@@ -294,6 +295,7 @@ def audit(results: Path, leaderboard_path: Path, output: Path) -> dict:
     validation_path = validation_dir / "official-validation-report.json"
     validation = _json(validation_path, ("complete",))
     if (validation.get("target") != "target"
+            or validation.get("benchmark") != "v53_lgbm_ender60"
             or validation.get("target_alias_audit") != {
                 "target_equals_target_ender_60": True,
                 "live_corr20v2_target": "target_cyrus_20",
@@ -301,7 +303,9 @@ def audit(results: Path, leaderboard_path: Path, output: Path) -> dict:
             }
             or validation.get("freeze_manifest_sha256") != sha256(freeze_path)
             or "spectral_minus_adamw" not in validation
-            or "candidate_minus_ender20" not in validation):
+            or "candidate_minus_ender60" not in validation
+            or validation.get("candidate_transform", {}).get("benchmark")
+            != "v53_lgbm_ender60"):
         raise ValueError("sealed validation report has inconsistent provenance or endpoints")
     evidence["official_validation"] = sha256(validation_path)
 

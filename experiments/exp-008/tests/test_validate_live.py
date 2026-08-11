@@ -56,7 +56,7 @@ def test_final_callable_export_verifies_freeze_signatures_and_hashes(tmp_path):
     freeze.write_text(json.dumps({
         "status": "frozen",
         "candidate_transform": {"arm": "adamw", "model_weight": 1.0,
-                                "benchmark": "v53_lgbm_ender20"},
+                                "benchmark": "v53_lgbm_ender60"},
         "selected": {"adamw": {"model_signatures": ["adamw-seed-0"],
                                 "model_sha256": [sha256(model)]}},
     }))

@@ -85,7 +85,8 @@ The script requires all three completed outer audits, verifies each selection ag
 resolves exactly nine seed results per arm, and then writes the nested-outer estimate and frozen
 train-only candidate plan. It refuses to overwrite either output.
 
-The candidate selector tests predeclared model weights 0.1/0.25/0.5/0.75/1.0 against Ender20.
+The candidate selector tests predeclared model weights 0.1/0.25/0.5/0.75/1.0 against the
+main-target-matched Ender60 benchmark.
 An arm is eligible only if its standalone signal is positive in every nested outer fold. The
 selected transformation is frozen before validation; it cannot alter the primary standalone
 spectral-minus-AdamW claim.

@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 import torch
 
+from . import PRIMARY_BENCHMARK
 from .data import ValidationShard, atomic_json, sha256
 from .inference import moving_block_bootstrap
 from .metrics import per_era_corr, per_era_correlation_contribution, summarize_era_scores
@@ -209,7 +210,7 @@ def evaluate(shard_root: Path, freeze_path: Path, adamw_models: list[Path],
         raise ValueError("pinned v5.3 main target no longer equals target_ender_60")
     covered = np.isfinite(shard.targets[:, target_column])
     indices = np.flatnonzero(covered)
-    benchmark_column = shard.benchmark_index("v53_lgbm_ender20")
+    benchmark_column = shard.benchmark_index(PRIMARY_BENCHMARK)
     adam_summary, adam_era = _evaluate(
         adamw[covered], shard, indices, target_column, benchmark_column
     )
@@ -227,8 +228,10 @@ def evaluate(shard_root: Path, freeze_path: Path, adamw_models: list[Path],
     eras = pd.Series(
         [f"{int(value):04d}" for value in shard.eras[indices]], index=ids, name="era"
     )
-    benchmark_era = per_era_corr(benchmark.rename("ender20"), target, eras)["ender20"]
+    benchmark_era = per_era_corr(benchmark.rename("ender60"), target, eras)["ender60"]
     transform = freeze["candidate_transform"]
+    if transform.get("benchmark") != PRIMARY_BENCHMARK:
+        raise ValueError("frozen candidate uses the wrong main-target benchmark")
     base_candidate = adamw if transform["arm"] == "adamw" else spectral
     benchmark_rank_full = _rank_within_era(
         np.asarray(shard.benchmarks[:, benchmark_column], dtype=np.float64), shard.eras
@@ -243,20 +246,20 @@ def evaluate(shard_root: Path, freeze_path: Path, adamw_models: list[Path],
         candidate, shard, indices, target_column, benchmark_column
     )
     spectral_minus_adamw = moving_block_bootstrap(spectral_era["corr"], adam_era["corr"])
-    adamw_minus_ender20 = moving_block_bootstrap(adam_era["corr"], benchmark_era)
-    spectral_minus_ender20 = moving_block_bootstrap(spectral_era["corr"], benchmark_era)
-    candidate_minus_ender20 = moving_block_bootstrap(candidate_era["corr"], benchmark_era)
+    adamw_minus_ender60 = moving_block_bootstrap(adam_era["corr"], benchmark_era)
+    spectral_minus_ender60 = moving_block_bootstrap(spectral_era["corr"], benchmark_era)
+    candidate_minus_ender60 = moving_block_bootstrap(candidate_era["corr"], benchmark_era)
     prediction_correlation = {
-        "adamw_vs_ender20": _prediction_correlation(adamw[covered], benchmark, eras),
-        "spectral_vs_ender20": _prediction_correlation(spectral[covered], benchmark, eras),
+        "adamw_vs_ender60": _prediction_correlation(adamw[covered], benchmark, eras),
+        "spectral_vs_ender60": _prediction_correlation(spectral[covered], benchmark, eras),
         "spectral_vs_adamw": _prediction_correlation(
             spectral[covered], pd.Series(adamw[covered], index=ids), eras
         ),
-        "candidate_vs_ender20": _prediction_correlation(candidate, benchmark, eras),
+        "candidate_vs_ender60": _prediction_correlation(candidate, benchmark, eras),
     }
     per_era = pd.DataFrame({
         "adamw": adam_era["corr"], "spectral": spectral_era["corr"],
-        "candidate": candidate_era["corr"], "ender20": benchmark_era,
+        "candidate": candidate_era["corr"], "ender60": benchmark_era,
     })
     output.mkdir(parents=True, exist_ok=True)
     (output / "evaluation-complete.json").unlink(missing_ok=True)
@@ -272,7 +275,7 @@ def evaluate(shard_root: Path, freeze_path: Path, adamw_models: list[Path],
                 target=shard.targets[indices, target_column],
                 benchmark=shard.benchmarks[indices, benchmark_column])
     report = {
-        "status": "complete", "target": "target",
+        "status": "complete", "target": "target", "benchmark": PRIMARY_BENCHMARK,
         "target_alias_audit": {
             "target_equals_target_ender_60": target_equals_ender60,
             "live_corr20v2_target": "target_cyrus_20",
@@ -281,11 +284,11 @@ def evaluate(shard_root: Path, freeze_path: Path, adamw_models: list[Path],
         "resolved_rows": int(covered.sum()), "resolved_eras": len(np.unique(shard.eras[covered])),
         "adamw": adam_summary, "spectral": spectral_summary,
         "candidate": candidate_summary, "candidate_transform": transform,
-        "ender20": summarize_era_scores(benchmark_era).loc["ender20"].to_dict(),
+        "ender60": summarize_era_scores(benchmark_era).loc["ender60"].to_dict(),
         "spectral_minus_adamw": spectral_minus_adamw.to_dict(),
-        "adamw_minus_ender20": adamw_minus_ender20.to_dict(),
-        "spectral_minus_ender20": spectral_minus_ender20.to_dict(),
-        "candidate_minus_ender20": candidate_minus_ender20.to_dict(),
+        "adamw_minus_ender60": adamw_minus_ender60.to_dict(),
+        "spectral_minus_ender60": spectral_minus_ender60.to_dict(),
+        "candidate_minus_ender60": candidate_minus_ender60.to_dict(),
         "prediction_correlation": prediction_correlation,
         "secondary": secondary,
         "freeze_manifest_sha256": shard.manifest["freeze_manifest_sha256"],

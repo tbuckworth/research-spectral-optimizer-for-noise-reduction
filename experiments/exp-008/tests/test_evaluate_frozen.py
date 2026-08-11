@@ -59,7 +59,7 @@ def test_frozen_evaluator_scores_candidate_and_named_benchmark_column(tmp_path: 
     targets[:, 4] = targets[:, 0]
     np.save(shard / "targets_f32.npy", targets)
     np.save(shard / "era_i16.npy", np.repeat(np.arange(100, 108), 20).astype(np.int16))
-    # Ender20 is deliberately column 1: the evaluator must resolve by name.
+    # Ender60 is deliberately column 2: the evaluator must resolve by name.
     np.save(shard / "benchmarks_f32.npy", rng.uniform(0, 1, (rows, 3)).astype(np.float32))
     adamw, spectral = tmp_path / "adamw.pt", tmp_path / "spectral.pt"
     _model_artifact(adamw, "adamw-signature", ["a", "c"], 2)
@@ -74,7 +74,7 @@ def test_frozen_evaluator_scores_candidate_and_named_benchmark_column(tmp_path: 
         },
         "candidate_transform": {
             "arm": "adamw", "model_weight": 0.5, "benchmark_weight": 0.5,
-            "benchmark": "v53_lgbm_ender20",
+            "benchmark": "v53_lgbm_ender60",
         },
     }))
     (shard / "manifest.json").write_text(json.dumps({
@@ -90,8 +90,8 @@ def test_frozen_evaluator_scores_candidate_and_named_benchmark_column(tmp_path: 
     assert report["status"] == "complete" and report["resolved_eras"] == 8
     assert report["candidate_transform"]["model_weight"] == 0.5
     assert report["target_alias_audit"]["target_equals_target_ender_60"] is True
-    assert report["candidate_minus_ender20"]["samples"] == 10_000
-    assert report["prediction_correlation"]["candidate_vs_ender20"]["eras"] == 8
+    assert report["candidate_minus_ender60"]["samples"] == 10_000
+    assert report["prediction_correlation"]["candidate_vs_ender60"]["eras"] == 8
     assert set(report["secondary"]) == {
         "target_cyrusd_20", "target_ender_20", "target_teager2b_20", "target_ender_60",
         "target_20_rank_ensemble",
@@ -100,7 +100,7 @@ def test_frozen_evaluator_scores_candidate_and_named_benchmark_column(tmp_path: 
     saved = np.load(output / "official-validation-predictions.npz")
     np.testing.assert_array_equal(saved["benchmark"], np.load(
         shard / "benchmarks_f32.npy"
-    )[:, 1])
+    )[:, 2])
     assert (output / "official-validation-corr.png").is_file()
     marker = json.loads((output / "evaluation-complete.json").read_text())
     assert marker["status"] == "complete" and len(marker["artifacts"]) == 5
