@@ -201,3 +201,17 @@ uv run python -m numerai_competitive.final_report \
 The report directly compares only models scored on the same historical target and eras. It shows
 the dated public one-year live reputations in a separate context section and explicitly refuses to
 infer a live rank from historical `target_cyrusd_20` validation CORR.
+
+After the official-container audit has been copied into `results/live-bundle/official-container`,
+cross-check the complete evidence chain:
+
+```bash
+uv run python -m numerai_competitive.completion_audit \
+  --results results --leaderboard leaderboard/leaderboard-summary.json \
+  --output results/completion-audit.json
+```
+
+This independently re-hashes the three nested outer audits, outer-winner union, final selection
+and refits, immutable model files, freeze, sealed validation artifacts, target-free live fixture,
+resource-tested callable and predictions, official Docker output, leaderboard snapshot, and final
+report inputs. A green stage marker alone is insufficient for the final completion claim.
