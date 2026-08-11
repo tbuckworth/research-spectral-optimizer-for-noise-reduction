@@ -17,7 +17,7 @@ def audit(expected_path: Path, official_path: Path, output: Path, *, runner_comm
           max_abs_difference: float = 1e-4) -> dict:
     if not re.fullmatch(r"[0-9a-f]{40}", runner_commit):
         raise ValueError("runner commit must be a full lowercase Git SHA")
-    if not image_id.startswith("sha256:"):
+    if not re.fullmatch(r"sha256:[0-9a-f]{64}", image_id):
         raise ValueError("official image ID must be content-addressed")
     expected = pd.read_csv(expected_path, index_col=0)
     official = pd.read_csv(official_path, index_col=0)

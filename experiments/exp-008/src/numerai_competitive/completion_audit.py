@@ -134,11 +134,18 @@ def audit(results: Path, leaderboard_path: Path, output: Path) -> dict:
         raise ValueError("live runtime audit differs from the candidate bundle or limits")
     official_path = bundle / "official-container" / "official-container-audit.json"
     official = _json(official_path, ("pass",))
+    official_predictions = list(official_path.parent.glob("live_predictions-*.csv"))
     if (official.get("expected_sha256") != sha256(predictions)
+            or len(official_predictions) != 1
+            or official.get("official_sha256") != sha256(official_predictions[0])
             or official.get("cpu_limit") != 1
             or official.get("memory_limit_bytes") != 4_000_000_000
             or official.get("max_seconds") != 600
-            or not re.fullmatch(r"[0-9a-f]{40}", official.get("runner_commit", ""))):
+            or official.get("elapsed_seconds", 600) >= official.get("max_seconds", 600)
+            or official.get("max_abs_difference", float("inf"))
+            > official.get("allowed_max_abs_difference", -1)
+            or not re.fullmatch(r"[0-9a-f]{40}", official.get("runner_commit", ""))
+            or not re.fullmatch(r"sha256:[0-9a-f]{64}", official.get("image_id", ""))):
         raise ValueError("official container audit differs from live predictions or limits")
     evidence.update({"live_download": sha256(download_path), "live_runtime": sha256(runtime_path),
                      "official_container": sha256(official_path)})

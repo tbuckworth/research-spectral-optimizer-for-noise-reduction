@@ -108,10 +108,16 @@ def _complete_tree(tmp_path: Path) -> tuple[Path, Path]:
         "prediction_sha256": sha256(predictions), "max_bytes": 4_000_000_000,
         "max_seconds": 600,
     })
+    official_predictions = _write(
+        bundle / "official-container" / "live_predictions-test.csv", predictions.read_bytes()
+    )
     _write(bundle / "official-container" / "official-container-audit.json", {
         "status": "pass", "expected_sha256": sha256(predictions), "cpu_limit": 1,
         "memory_limit_bytes": 4_000_000_000, "max_seconds": 600,
-        "runner_commit": "b" * 40,
+        "elapsed_seconds": 20, "max_abs_difference": 0.0,
+        "allowed_max_abs_difference": 1e-4,
+        "official_sha256": sha256(official_predictions), "runner_commit": "b" * 40,
+        "image_id": "sha256:" + "c" * 64,
     })
     leaderboard = _write(tmp_path / "leaderboard.json", {
         "status": "complete", "summary": {"rows": 1000},
