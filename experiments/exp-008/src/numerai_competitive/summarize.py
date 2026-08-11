@@ -59,7 +59,15 @@ def _verify_search_identity(result: dict, *, arm: str, config_id: int, updates: 
 def collect_stage(results: Path, *, split: str, updates: int, seed: int,
                   expected_configs: int = 40, search_draws: list[dict] | None = None,
                   feature_dimensions: dict[str, int] | None = None,
-                  expected_config_ids: set[int] | None = None) -> pd.DataFrame:
+                  expected_config_ids: set[int] | None = None,
+                  expected_arm_config_ids: dict[str, set[int]] | None = None) -> pd.DataFrame:
+    if expected_config_ids is not None and expected_arm_config_ids is not None:
+        raise ValueError("use either paired or arm-specific expected configuration IDs")
+    if (expected_arm_config_ids is not None
+            and (set(expected_arm_config_ids) != {"adamw", "spectral"}
+                 or any(not values or any(value < 0 for value in values)
+                        for values in expected_arm_config_ids.values()))):
+        raise ValueError("arm-specific expected IDs must cover both arms")
     if expected_config_ids is not None:
         if not expected_config_ids or any(value < 0 for value in expected_config_ids):
             raise ValueError("expected config IDs must be a non-empty set of non-negative IDs")
@@ -73,6 +81,9 @@ def collect_stage(results: Path, *, split: str, updates: int, seed: int,
         result = json.loads(result_path.read_text())
         arm, config_id = match["arm"], int(match["config_id"])
         if expected_config_ids is not None and config_id not in expected_config_ids:
+            continue
+        if (expected_arm_config_ids is not None
+                and config_id not in expected_arm_config_ids[arm]):
             continue
         expected = {
             "status": "complete", "split": split, "updates": updates, "seed": seed,
@@ -130,7 +141,9 @@ def collect_stage(results: Path, *, split: str, updates: int, seed: int,
     if frame.duplicated(["arm", "config_id"]).any():
         raise ValueError("duplicate arm/config results")
     counts = frame.groupby("arm")["config_id"].nunique().to_dict()
-    expected = {"adamw": expected_configs, "spectral": expected_configs}
+    expected = ({arm: len(values) for arm, values in expected_arm_config_ids.items()}
+                if expected_arm_config_ids is not None else
+                {"adamw": expected_configs, "spectral": expected_configs})
     if counts != expected:
         raise ValueError(f"incomplete stage: got {counts}, expected {expected}")
     if expected_config_ids is not None:
@@ -141,6 +154,15 @@ def collect_stage(results: Path, *, split: str, updates: int, seed: int,
         expected_ids = {arm: expected_config_ids for arm in ("adamw", "spectral")}
         if actual_ids != expected_ids:
             raise ValueError(f"stage config IDs differ: got {actual_ids}, expected {expected_ids}")
+    if expected_arm_config_ids is not None:
+        actual_ids = {
+            arm: set(frame.loc[frame["arm"].eq(arm), "config_id"].astype(int))
+            for arm in ("adamw", "spectral")
+        }
+        if actual_ids != expected_arm_config_ids:
+            raise ValueError(
+                f"stage arm/config IDs differ: got {actual_ids}, expected {expected_arm_config_ids}"
+            )
     return frame.sort_values(["arm", "config_id"]).reset_index(drop=True)
 
 
@@ -188,6 +210,7 @@ def main() -> None:
     parser.add_argument("--seed", type=int, required=True)
     parser.add_argument("--expected-configs", type=int, default=40)
     parser.add_argument("--expected-config-id", type=int, action="append")
+    parser.add_argument("--expected-arm-config-id", action="append")
     parser.add_argument("--search", type=Path)
     parser.add_argument("--features", type=Path)
     args = parser.parse_args()
@@ -200,12 +223,25 @@ def main() -> None:
         feature_dimensions = {
             name: len(_load_features(args.features, name)) for name in ("medium", "all")
         }
+    arm_ids = None
+    if args.expected_arm_config_id:
+        arm_ids = {"adamw": set(), "spectral": set()}
+        for value in args.expected_arm_config_id:
+            try:
+                arm, raw_id = value.split(":", 1)
+                config_id = int(raw_id)
+            except (ValueError, AttributeError) as exc:
+                parser.error(f"invalid --expected-arm-config-id {value!r}: {exc}")
+            if arm not in arm_ids or config_id < 0:
+                parser.error(f"invalid --expected-arm-config-id {value!r}")
+            arm_ids[arm].add(config_id)
     write_summary(collect_stage(args.results, split=args.split, updates=args.updates,
                                 seed=args.seed, expected_configs=args.expected_configs,
                                 search_draws=search_draws,
                                 feature_dimensions=feature_dimensions,
                                 expected_config_ids=(set(args.expected_config_id)
-                                                     if args.expected_config_id else None)),
+                                                     if args.expected_config_id else None),
+                                expected_arm_config_ids=arm_ids),
                   args.output)
 
 

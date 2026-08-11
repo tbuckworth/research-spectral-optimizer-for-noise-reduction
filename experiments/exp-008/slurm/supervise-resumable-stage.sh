@@ -89,28 +89,24 @@ while true; do
 done
 
 if [[ $SUMMARY_MODE != "--skip-summary" ]]; then
-  EXPECTED_IDS=()
-  if [[ $SUMMARY_MODE == --selection ]]; then
-    mapfile -t EXPECTED_IDS < <(python3 -c \
-      'import json,sys; print(*json.load(open(sys.argv[1]))["selected"]["paired_union"], sep="\n")' \
-      "$SELECTION")
-  else
-    mapfile -t EXPECTED_IDS < <(awk -F $'\t' '{print $6}' "$ORIGINAL_MANIFEST" | sort -nu)
-  fi
-  if [[ ${#EXPECTED_IDS[@]} -eq 0 ]]; then
-    echo "summary has no expected config IDs" >&2
+  mapfile -t EXPECTED_PAIRS < <(
+    awk -F $'\t' '{print $5 ":" $6}' "$ORIGINAL_MANIFEST" | sort -u
+  )
+  ADAMW_EXPECTED=$(printf '%s\n' "${EXPECTED_PAIRS[@]}" | grep -c '^adamw:' || true)
+  SPECTRAL_EXPECTED=$(printf '%s\n' "${EXPECTED_PAIRS[@]}" | grep -c '^spectral:' || true)
+  if [[ $ADAMW_EXPECTED -eq 0 || $SPECTRAL_EXPECTED -eq 0 ]]; then
+    echo "summary must contain expected configurations for both arms" >&2
     exit 1
   fi
-  EXPECTED=${#EXPECTED_IDS[@]}
   EXPECTED_ARGS=()
-  for CONFIG_ID in "${EXPECTED_IDS[@]}"; do
-    EXPECTED_ARGS+=(--expected-config-id "$CONFIG_ID")
+  for PAIR in "${EXPECTED_PAIRS[@]}"; do
+    EXPECTED_ARGS+=(--expected-arm-config-id "$PAIR")
   done
   while IFS=$'\t' read -r split updates seed; do
     output="$PROJECT/results/summary-${SUMMARY_PREFIX}${split}-u${updates}-s${seed}"
     "$PROJECT/uv" run --no-sync python -m numerai_competitive.summarize \
       --results "$PROJECT/results" --output "$output" --split "$split" \
-      --updates "$updates" --seed "$seed" --expected-configs "$EXPECTED" \
+      --updates "$updates" --seed "$seed" \
       "${EXPECTED_ARGS[@]}" \
       --search "$SEARCH" --features "$FEATURES" >> "$LOG" 2>&1
   done < <(awk -F $'\t' '{print $2 "\t" $3 "\t" $4}' "$ORIGINAL_MANIFEST" | sort -u)

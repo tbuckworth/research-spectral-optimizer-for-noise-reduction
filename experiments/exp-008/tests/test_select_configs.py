@@ -49,3 +49,17 @@ def test_rejects_mixed_fidelities_and_unpaired_config_ids():
     unpaired = pd.concat([base.iloc[[0]], base.iloc[[0]].assign(arm="spectral", config_id=1)])
     with pytest.raises(ValueError, match="config-ID coverage differs"):
         select_configs(unpaired, 1)
+
+
+def test_allows_predeclared_asymmetric_spectral_rank_candidates():
+    frame = pd.DataFrame([
+        {"arm": "adamw", "config_id": 0, "corr_mean": 0.1, "split": "a", "seed": 0,
+         "updates": 20_000},
+        {"arm": "spectral", "config_id": 0, "corr_mean": 0.1, "split": "a", "seed": 0,
+         "updates": 20_000},
+        {"arm": "spectral", "config_id": 1000512, "corr_mean": 0.2, "split": "a",
+         "seed": 0, "updates": 20_000},
+    ])
+    assert select_configs(frame, 1, allow_asymmetric=True) == {
+        "adamw": [0], "spectral": [1000512], "paired_union": [0, 1000512],
+    }

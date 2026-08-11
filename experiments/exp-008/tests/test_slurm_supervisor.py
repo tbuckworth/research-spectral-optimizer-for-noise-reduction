@@ -8,6 +8,7 @@ OUTER_SUBMIT = Path(__file__).parents[1] / "slurm" / "submit-outer-eval.sh"
 OUTER_AUDIT = Path(__file__).parents[1] / "slurm" / "audit-outer-when-ready.sh"
 SUBMIT_STAGE = Path(__file__).parents[1] / "slurm" / "submit-stage.sh"
 SUBMIT_SELECTED = Path(__file__).parents[1] / "slurm" / "submit-selected.sh"
+SUBMIT_HIGH_RANK = Path(__file__).parents[1] / "slurm" / "submit-high-rank-spectral.sh"
 RESUME_STAGE = Path(__file__).parents[1] / "slurm" / "resume-checkpointed-stage.sh"
 LAUNCH_OUTER = Path(__file__).parents[1] / "slurm" / "launch-outer.sh"
 CONTINUE_NESTED = Path(__file__).parents[1] / "slurm" / "continue-nested-pipeline.sh"
@@ -36,11 +37,14 @@ def _project(tmp_path: Path, *, complete: bool) -> tuple[Path, Path, dict[str, s
     (project / "configs").mkdir()
     (project / "slurm").mkdir()
     manifest = project / "results" / "submission.tsv"
-    manifest.write_text("1\tfold\t100\t0\tadamw\t7\n")
-    result_dir = project / "results" / "stage-fold-u100-s0-adamw-c7"
-    result_dir.mkdir()
-    if complete:
-        (result_dir / "result.json").write_text("{}")
+    manifest.write_text(
+        "1\tfold\t100\t0\tadamw\t7\n2\tfold\t100\t0\tspectral\t7\n"
+    )
+    for arm in ("adamw", "spectral"):
+        result_dir = project / "results" / f"stage-fold-u100-s0-{arm}-c7"
+        result_dir.mkdir()
+        if complete:
+            (result_dir / "result.json").write_text("{}")
     fake_bin = tmp_path / "bin"
     fake_bin.mkdir()
     _executable(fake_bin / "squeue", "exit 0\n")
@@ -76,16 +80,22 @@ def test_supervisor_resubmits_exact_checkpoint_before_summary(tmp_path):
     result_dir = project / "results" / "stage-fold-u100-s0-adamw-c7"
     (result_dir / "checkpoint.pt").write_text("checkpoint")
     (result_dir / "checkpoint-status.json").write_text("{}")
+    spectral_dir = project / "results" / "stage-fold-u100-s0-spectral-c7"
+    (spectral_dir / "checkpoint.pt").write_text("checkpoint")
+    (spectral_dir / "checkpoint-status.json").write_text("{}")
     _executable(
         project / "slurm" / "resume-checkpointed-stage.sh",
         'touch "$NUMERAI_PROJECT/results/stage-fold-u100-s0-adamw-c7/result.json"\n'
-        'printf "2\\tfold\\t100\\t0\\tadamw\\t7\\n"\n',
+        'touch "$NUMERAI_PROJECT/results/stage-fold-u100-s0-spectral-c7/result.json"\n'
+        'printf "2\\tfold\\t100\\t0\\tadamw\\t7\\n3\\tfold\\t100\\t0\\tspectral\\t7\\n"\n',
     )
     subprocess.run(["bash", SCRIPT, manifest], check=True, env=env)
     retry = manifest.with_name("submission.retry-1.tsv")
-    assert retry.read_text() == "2\tfold\t100\t0\tadamw\t7\n"
+    assert retry.read_text() == (
+        "2\tfold\t100\t0\tadamw\t7\n3\tfold\t100\t0\tspectral\t7\n"
+    )
     log = manifest.with_name("submission-supervisor.log").read_text()
-    assert "resubmitted 1 checkpointed tasks" in log
+    assert "resubmitted 2 checkpointed tasks" in log
     assert "stage complete and all cells summarized (retries=1)" in log
 
 
@@ -128,7 +138,8 @@ def test_supervisor_summarizes_only_exact_selection_ids(tmp_path):
         ["bash", SCRIPT, manifest, "--selection", selection], check=True, env=env,
     )
     call = (project / "uv-calls").read_text()
-    assert "--expected-configs 1 --expected-config-id 7" in call
+    assert "--expected-arm-config-id adamw:7" in call
+    assert "--expected-arm-config-id spectral:7" in call
     assert "results/summary-final-fold-u100-s0" in call
     assert "all exact selected cells summarized" in manifest.with_name(
         "submission-supervisor.log"
@@ -270,6 +281,31 @@ def test_submit_selected_can_reuse_only_existing_exact_result(tmp_path):
     assert rows[0][0] == "0" and rows[0][4:] == ["adamw", "7"]
     assert rows[1][0] == "9001" and rows[1][4:] == ["spectral", "7"]
     assert len(calls.read_text().splitlines()) == 1
+
+
+def test_high_rank_submit_launches_only_spectral_rank_variants(tmp_path):
+    project = tmp_path / "project"
+    (project / "slurm").mkdir(parents=True)
+    selection = project / "selection.json"
+    selection.write_text(json.dumps({
+        "selected": {"high_rank_spectral": [1000512, 1001024]},
+    }))
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    calls = tmp_path / "sbatch-calls"
+    _executable(fake_bin / "sbatch", f'printf "%s\\n" "$*" >> "{calls}"\necho 9001\n')
+    env = os.environ | {
+        "NUMERAI_PROJECT": str(project),
+        "PATH": f"{fake_bin}:{os.environ['PATH']}",
+    }
+    completed = subprocess.run(
+        ["bash", SUBMIT_HIGH_RANK, selection, "100000", "0", "7",
+         "outer_1_inner_1", "outer_1_inner_2"],
+        env=env, check=True, capture_output=True, text=True,
+    )
+    rows = [line.split("\t") for line in completed.stdout.splitlines()]
+    assert len(rows) == 4 and {row[4] for row in rows} == {"spectral"}
+    assert {int(row[5]) for row in rows} == {1000512, 1001024}
 
 
 def test_launch_outer_builds_atomic_f0_manifest_and_controllers(tmp_path):

@@ -8,7 +8,8 @@ from pathlib import Path
 import pandas as pd
 
 
-def select_configs(scores: pd.DataFrame, top: int) -> dict[str, list[int]]:
+def select_configs(scores: pd.DataFrame, top: int,
+                   *, allow_asymmetric: bool = False) -> dict[str, list[int]]:
     required = {"arm", "config_id", "corr_mean", "split", "seed", "updates"}
     if not required <= set(scores.columns):
         raise ValueError(f"missing columns: {sorted(required - set(scores.columns))}")
@@ -20,7 +21,7 @@ def select_configs(scores: pd.DataFrame, top: int) -> dict[str, list[int]]:
         arm: set(scores.loc[scores["arm"].eq(arm), "config_id"].astype(int))
         for arm in ("adamw", "spectral")
     }
-    if arm_ids["adamw"] != arm_ids["spectral"]:
+    if not allow_asymmetric and arm_ids["adamw"] != arm_ids["spectral"]:
         raise ValueError("AdamW and spectral config-ID coverage differs")
     identity = ["arm", "config_id", "split", "seed", "updates"]
     if scores.duplicated(identity).any():
@@ -52,13 +53,15 @@ def main() -> None:
     parser.add_argument("--scores", type=Path, nargs="+", required=True)
     parser.add_argument("--top", type=int, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--allow-asymmetric", action="store_true")
     args = parser.parse_args()
     frame = pd.concat([pd.read_csv(path) for path in args.scores], ignore_index=True)
     payload = {
         "criterion": "descending mean exact standalone CORR; worst-fold then config-id ties",
         "top": args.top,
         "score_files": [str(path) for path in args.scores],
-        "selected": select_configs(frame, args.top),
+        "allow_asymmetric": args.allow_asymmetric,
+        "selected": select_configs(frame, args.top, allow_asymmetric=args.allow_asymmetric),
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
