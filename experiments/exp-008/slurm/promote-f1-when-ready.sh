@@ -78,7 +78,11 @@ export NUMERAI_SEARCH_CONFIG="$HIGH_RANK_SEARCH"
 EXPECTED=$(python3 -c \
   'import json,sys; print(len(json.load(open(sys.argv[1]))["selected"]["paired_union"]))' \
   "$SELECTION")
-if [[ $EXPECTED -lt 5 || $EXPECTED -gt 13 ]]; then
+HIGH_RANK_EXPECTED=$(python3 -c \
+  'import json,sys; print(len(json.load(open(sys.argv[1]))["selected"]["high_rank_spectral"]))' \
+  "$SELECTION")
+if [[ $EXPECTED -lt 4 || $EXPECTED -gt 8 || $HIGH_RANK_EXPECTED -lt 1 \
+      || $HIGH_RANK_EXPECTED -gt 5 ]]; then
   echo "invalid paired-union size $EXPECTED" >&2
   exit 1
 fi
@@ -88,13 +92,16 @@ TEMPORARY="${MANIFEST}.tmp"
 for SEED in 0 1 2; do
   bash "$PROJECT/slurm/submit-selected.sh" "$SELECTION" 100000 "$SEED" \
     "$DEPENDENCY_JOB" "${SPLITS[@]}" >> "$TEMPORARY"
+  bash "$PROJECT/slurm/submit-high-rank-spectral.sh" "$SELECTION" 100000 "$SEED" \
+    "$DEPENDENCY_JOB" "${SPLITS[@]}" >> "$TEMPORARY"
 done
 mv "$TEMPORARY" "$MANIFEST"
 FIRST_JOB=$(head -n 1 "$MANIFEST" | cut -f1 | cut -d';' -f1)
 LAST_JOB=$(tail -n 1 "$MANIFEST" | cut -f1 | cut -d';' -f1)
-EXPECTED_ROWS=$((EXPECTED * 2 * INNER_COUNT * 3))
-if [[ $(wc -l < "$MANIFEST") -ne $EXPECTED_ROWS ]]; then
-  echo "submission manifest row count differs from paired union x arms x folds x seeds" >&2
+EXPECTED_ROWS=$(((EXPECTED * 2 + HIGH_RANK_EXPECTED) * INNER_COUNT * 3))
+if [[ $(wc -l < "$MANIFEST") -ne $EXPECTED_ROWS \
+      || $(cut -f2-6 "$MANIFEST" | sort -u | wc -l) -ne $EXPECTED_ROWS ]]; then
+  echo "F2 manifest differs from exact ordinary-pair plus high-rank-spectral coverage" >&2
   exit 1
 fi
 

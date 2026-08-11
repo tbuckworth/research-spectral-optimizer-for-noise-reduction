@@ -28,7 +28,12 @@ def augment_selection(selection_path: Path, search_path: Path, output: Path) -> 
     report["augmented_search_sha256"] = sha256(search_path)
     report["high_rank_config_ids"] = sorted(high_rank)
     report["selected"] = dict(selection["selected"])
-    report["selected"]["paired_union"] = sorted(set(base) | set(high_rank))
+    # The high-rank IDs differ only in the spectral rank. Their AdamW members
+    # are identical controls, so F2 trains the ordinary paired union plus only
+    # the spectral member of each high-rank ID. Final winners are cross-evaluated
+    # by both arms in the later canonical-fold stage.
+    report["selected"]["paired_union"] = sorted(base)
+    report["selected"]["high_rank_spectral"] = sorted(high_rank)
     atomic_json(output, report)
     return report
 

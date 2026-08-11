@@ -60,7 +60,7 @@ if [[ -e "$SELECTION" || -e "$MANIFEST" || -e "${MANIFEST}.tmp" ]] \
   exit 1
 fi
 "$PROJECT/uv" run --no-sync python -m numerai_competitive.select_configs \
-  --scores "${SUMMARIES[@]}" --top 1 --output "$SELECTION"
+  --scores "${SUMMARIES[@]}" --top 1 --allow-asymmetric --output "$SELECTION"
 TEMPORARY="${MANIFEST}.tmp"
 bash "$PROJECT/slurm/submit-outer-eval.sh" \
   "$SELECTION" "$OUTER_SPLIT" 100000 "$DEPENDENCY_JOB" 0,1,2 > "$TEMPORARY"

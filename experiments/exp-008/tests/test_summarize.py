@@ -70,6 +70,21 @@ def test_collect_rejects_missing_exact_expected_config_id(tmp_path):
         )
 
 
+def test_collect_accepts_exact_asymmetric_arm_config_coverage(tmp_path):
+    _result(tmp_path, "adamw", 0)
+    _result(tmp_path, "spectral", 0)
+    _result(tmp_path, "spectral", 2)
+    frame = collect_stage(
+        tmp_path, split="fold", updates=10, seed=0,
+        expected_arm_config_ids={"adamw": {0}, "spectral": {0, 2}},
+    )
+    assert set(zip(frame["arm"], frame["config_id"])) == {
+        ("adamw", 0), ("spectral", 0), ("spectral", 2),
+    }
+    write_summary(frame, tmp_path / "asymmetric-summary")
+    assert (tmp_path / "asymmetric-summary" / "summary-complete.json").is_file()
+
+
 def _draw(arm="adamw"):
     draw = {
         "arm": arm, "config_id": 7, "feature_set": "medium", "width": 8,

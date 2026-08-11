@@ -46,7 +46,8 @@ def test_augmented_search_includes_only_gpu_audited_paired_ranks(tmp_path):
         "selected": {"adamw": [4], "spectral": [4], "paired_union": [4]},
     })
     promoted = augment_selection(selection, output, tmp_path / "promoted.json")
-    assert promoted["selected"]["paired_union"] == [4, 1_041_024]
+    assert promoted["selected"]["paired_union"] == [4]
+    assert promoted["selected"]["high_rank_spectral"] == [1_041_024]
     assert promoted["selected"]["adamw"] == [4]
 
 
