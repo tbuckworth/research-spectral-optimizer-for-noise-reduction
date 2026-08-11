@@ -6,7 +6,8 @@ import json
 from pathlib import Path
 
 from .data import atomic_json, sha256
-from .high_rank import L40_BYTES, memory_estimate, required_probe_updates
+from .high_rank import FEATURE_DIMENSIONS, L40_BYTES, memory_estimate, required_probe_updates
+from .summarize import _verify_search_identity
 
 
 def _paired_draws(search: dict) -> dict[int, dict[str, dict]]:
@@ -28,14 +29,24 @@ def _paired_draws(search: dict) -> dict[int, dict[str, dict]]:
     return pairs
 
 
-def _probe_evidence(path: Path, draw: dict, estimate: dict) -> dict:
+def _probe_evidence(path: Path, draw: dict, estimate: dict,
+                    search_draws: list[dict]) -> dict:
     result = json.loads(path.read_text())
     config = result.get("config", {})
     expected_updates = required_probe_updates(draw, int(draw["rank"]))
+    try:
+        _verify_search_identity(
+            result, arm="spectral", config_id=draw["config_id"],
+            updates=result.get("updates"), seed=0, search_draws=search_draws,
+            feature_dimensions=FEATURE_DIMENSIONS,
+        )
+        provenance_matches = True
+    except (KeyError, TypeError, ValueError):
+        provenance_matches = False
     checks = {
         "status_complete": result.get("status") == "complete",
-        "arm_matches": config.get("arm") == "spectral",
-        "config_id_matches": config.get("search_config_id") == draw["config_id"],
+        "frozen_search_provenance_matches": provenance_matches,
+        "split_matches": result.get("split", {}).get("name") == "outer_1_inner_1",
         "rank_matches": config.get("filter", {}).get("rank") == draw["rank"],
         "parameter_count_matches": result.get("parameter_count") == estimate["parameter_count"],
         "updates_exercise_filter": result.get("updates", 0) >= expected_updates,
@@ -65,7 +76,8 @@ def create_admission(search_path: Path, results: Path, output: Path, *, final: b
         probe_path = results / (
             f"stage-outer_1_inner_1-u5000-s0-spectral-c{config_id}/result.json"
         )
-        evidence = _probe_evidence(probe_path, draw, estimate) if probe_path.is_file() else None
+        evidence = (_probe_evidence(probe_path, draw, estimate, search["configs"])
+                    if probe_path.is_file() else None)
         admitted = static_safe or bool(evidence and evidence["passed"])
         state = ("static_safe" if static_safe else "empirical_probe_passed" if admitted
                  else "excluded_no_valid_probe" if final else "pending_empirical_probe")

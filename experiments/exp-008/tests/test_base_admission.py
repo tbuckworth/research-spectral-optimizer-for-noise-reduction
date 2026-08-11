@@ -1,18 +1,26 @@
+import hashlib
 import json
 from pathlib import Path
 
 from numerai_competitive.base_admission import create_admission
 from numerai_competitive.high_rank import memory_estimate, required_probe_updates
+from numerai_competitive.materialize import materialize_config
 
 
 def _draws(width=512, rank=16):
     shared = {
         "config_id": 0, "feature_set": "medium", "width": width, "depth": 2,
-        "normalization": "none", "filter_update_every": 1, "filter_warmup": 0,
+        "activation": "relu", "normalization": "none", "residual": False,
+        "dropout": 0.0, "learning_rate": 1e-3, "weight_decay": 0.0,
+        "batch_size": 1024, "batch_mode": "rows", "loss": "mse",
+        "schedule": "constant", "warmup_fraction": 0.0, "clip_grad_norm": 0.0,
+        "target": "target",
     }
     return [
         {"arm": "adamw", **shared},
-        {"arm": "spectral", **shared, "rank": rank},
+        {"arm": "spectral", **shared, "rank": rank, "decay": 0.99,
+         "filter_strength": 1.0, "filter_warmup": 0, "filter_update_every": 1,
+         "filter_mode": "learned"},
     ]
 
 
@@ -49,13 +57,18 @@ def test_borderline_pair_can_be_admitted_by_verified_gpu_probe(tmp_path):
     search = _write_search(tmp_path, draws)
     spectral = draws[1]
     estimate = memory_estimate(spectral, spectral["rank"])
+    updates = required_probe_updates(spectral, spectral["rank"])
+    config = materialize_config(spectral, input_dim=780, updates=updates, seed=0)
+    split = {"name": "outer_1_inner_1"}
+    signature = hashlib.sha256(json.dumps(
+        {"config": config, "split": split}, sort_keys=True,
+    ).encode()).hexdigest()
     result_dir = tmp_path / "results" / "stage-outer_1_inner_1-u5000-s0-spectral-c0"
     result_dir.mkdir(parents=True)
     (result_dir / "result.json").write_text(json.dumps({
-        "status": "complete", "updates": required_probe_updates(spectral, spectral["rank"]),
+        "status": "complete", "updates": updates,
         "parameter_count": estimate["parameter_count"], "peak_cuda_memory_bytes": 1,
-        "config": {"arm": "spectral", "search_config_id": 0,
-                   "filter": {"rank": spectral["rank"]}},
+        "config": config, "split": split, "signature": signature,
     }))
     report = create_admission(search, tmp_path / "results", tmp_path / "audit.json",
                               final=True)
