@@ -44,11 +44,7 @@ if [[ $(wc -l < "$MANIFEST") -ne $EXPECTED_ROWS ]]; then
   exit 1
 fi
 
-for SPLIT in outer_1_inner_1 outer_1_inner_2; do
-  for SEED in 0 1 2; do
-    tmux new-session -d -s "numerai-f2-${SPLIT##*_}-s${SEED}" \
-      "bash '$PROJECT/slurm/monitor-stage.sh' '$FIRST_JOB' '$LAST_JOB' '$SPLIT' 100000 '$SEED' '$EXPECTED'"
-  done
-done
+tmux new-session -d -s numerai-f2-supervisor \
+  "bash '$PROJECT/slurm/supervise-resumable-stage.sh' '$MANIFEST'"
 printf '%s submitted F2 union=%s jobs=%s--%s dependency=%s\n' \
   "$(date -Is)" "$EXPECTED" "$FIRST_JOB" "$LAST_JOB" "$DEPENDENCY_JOB" >> "$LOG"

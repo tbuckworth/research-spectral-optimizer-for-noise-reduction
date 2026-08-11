@@ -45,7 +45,9 @@ Submission scripts print tab-separated job provenance. `monitor-stage.sh` refuse
 coverage and dependency failures. GPU jobs use the dependency-built environment with `--no-sync`
 so concurrent jobs never mutate it. Jobs receive `SIGUSR1` one hour before the free-partition
 walltime and atomically checkpoint; `resume-checkpointed-stage.sh` resubmits only those exact
-manifested tasks without changing their config, seed, fold, or update target.
+manifested tasks without changing their config, seed, fold, or update target. The 100,000-update
+stage runs under `supervise-resumable-stage.sh`, which repeats exact checkpoint resumptions until
+every manifested result exists and only then creates the audited fold/seed summaries.
 
 After all outer folds, aggregate only untouched nested-outer predictions:
 
