@@ -22,7 +22,7 @@ raise SystemExit(0 if value.get("status") == "audit_complete"
 
 wait_for_outer_audit() {
   local number=$1
-  local audit="$RESULTS/audit-outer_${number}-u100000/outer-audit.json"
+  local audit="$RESULTS/audit-outer_${number}-budgeted/outer-audit.json"
   until is_complete_audit "$audit" "outer_${number}"; do
     printf '%s waiting for audited outer_%s completion\n' "$(date -Is)" "$number" >> "$LOG"
     sleep "$POLL_SECONDS"
@@ -40,7 +40,7 @@ fresh_environment_job() {
 
 launch_outer_if_needed() {
   local number=$1
-  local audit="$RESULTS/audit-outer_${number}-u100000/outer-audit.json"
+  local audit="$RESULTS/audit-outer_${number}-budgeted/outer-audit.json"
   local manifest="$RESULTS/submission-outer_${number}-f0-u5000-s0.tsv"
   if is_complete_audit "$audit" "outer_${number}"; then
     return

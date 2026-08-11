@@ -85,3 +85,34 @@ def test_outer_audit_verifies_exact_selected_cells_and_reproduces_scores(tmp_pat
     assert report["status"] == "audit_complete" and report["cells"] == 2
     assert (tmp_path / "audit" / "outer-results.csv").is_file()
     assert (tmp_path / "audit" / "outer-audit.json").is_file()
+
+
+def test_outer_audit_accepts_arm_specific_selected_budgets(tmp_path):
+    split = EraSplit("outer_1", ("0001",), ("0002", "0003"), ())
+    draws = [_draw("adamw"), _draw("spectral")]
+    for draw in draws:
+        _result(tmp_path / "results", draw, split)
+    old = tmp_path / "results" / "stage-outer_1-u10-s0-spectral-c7"
+    new = tmp_path / "results" / "stage-outer_1-u20-s0-spectral-c7"
+    old.rename(new)
+    result_path = new / "result.json"
+    result = json.loads(result_path.read_text())
+    result["config"] = materialize_config(draws[1], input_dim=3, updates=20, seed=0)
+    result["updates"] = 20
+    result["signature"] = hashlib.sha256(json.dumps(
+        {"config": result["config"], "split": split.to_dict()}, sort_keys=True,
+    ).encode()).hexdigest()
+    result_path.write_text(json.dumps(result))
+    manifest = tmp_path / "outer.tsv"
+    manifest.write_text(
+        "1\touter_1\t10\t0\tadamw\t7\n2\touter_1\t20\t0\tspectral\t7\n"
+    )
+    selection = {
+        "selected": {"adamw": [7], "spectral": [7]},
+        "selected_updates": {"adamw": [10], "spectral": [20]},
+    }
+    report = audit_outer(
+        manifest, tmp_path / "results", selection, draws, {"medium": 3}, split, None,
+        (0,), tmp_path / "audit",
+    )
+    assert report["updates"] == {"adamw": 10, "spectral": 20}

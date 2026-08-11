@@ -75,6 +75,28 @@ def test_supervisor_uses_explicit_augmented_search(tmp_path):
     assert f"--search {search}" in (project / "uv-calls").read_text()
 
 
+def test_supervisor_uses_cell_specific_expected_pairs_for_mixed_budgets(tmp_path):
+    project, manifest, env = _project(tmp_path, complete=True)
+    second = project / "results" / "stage-fold-u200-s0-adamw-c8"
+    second.mkdir()
+    (second / "result.json").write_text("{}")
+    third = project / "results" / "stage-fold-u200-s0-spectral-c8"
+    third.mkdir()
+    (third / "result.json").write_text("{}")
+    manifest.write_text(
+        "1\tfold\t100\t0\tadamw\t7\n"
+        "2\tfold\t100\t0\tspectral\t7\n"
+        "3\tfold\t200\t0\tadamw\t8\n"
+        "4\tfold\t200\t0\tspectral\t8\n"
+    )
+    subprocess.run(["bash", SCRIPT, manifest], check=True, env=env)
+    calls = (project / "uv-calls").read_text().splitlines()
+    summaries = [line for line in calls if "numerai_competitive.summarize" in line]
+    assert len(summaries) == 2
+    assert "adamw:7" in summaries[0] and "adamw:8" not in summaries[0]
+    assert "adamw:8" in summaries[1] and "adamw:7" not in summaries[1]
+
+
 def test_supervisor_resubmits_exact_checkpoint_before_summary(tmp_path):
     project, manifest, env = _project(tmp_path, complete=False)
     result_dir = project / "results" / "stage-fold-u100-s0-adamw-c7"
@@ -166,6 +188,26 @@ def test_outer_submit_validates_both_winners_before_any_sbatch(tmp_path):
     )
     assert len(completed.stdout.splitlines()) == 6
     assert len(calls.read_text().splitlines()) == 6
+
+
+def test_outer_submit_uses_arm_specific_selected_budgets(tmp_path):
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    calls = tmp_path / "sbatch-calls"
+    _executable(fake_bin / "sbatch", f'printf "%s\\n" "$*" >> "{calls}"\necho 9000\n')
+    selection = tmp_path / "selection.json"
+    selection.write_text(json.dumps({
+        "selected": {"adamw": [7], "spectral": [8]},
+        "selected_updates": {"adamw": [5000], "spectral": [100000]},
+    }))
+    completed = subprocess.run(
+        ["bash", OUTER_SUBMIT, selection, "outer_1", "selected", "1", "0,1,2"],
+        env=os.environ | {"PATH": f"{fake_bin}:{os.environ['PATH']}"},
+        check=True, capture_output=True, text=True,
+    )
+    rows = [line.split("\t") for line in completed.stdout.splitlines()]
+    assert {row[2] for row in rows if row[4] == "adamw"} == {"5000"}
+    assert {row[2] for row in rows if row[4] == "spectral"} == {"100000"}
 
 
 def test_refit_submit_validates_both_winners_before_any_sbatch(tmp_path):

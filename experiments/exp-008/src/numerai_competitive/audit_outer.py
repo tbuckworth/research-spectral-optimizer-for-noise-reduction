@@ -82,19 +82,30 @@ def _prediction_arrays(path: Path, result: dict, split: EraSplit) -> dict[str, n
 
 
 def audit_outer(manifest: Path, results: Path, selection: dict, search_draws: list[dict],
-                feature_dimensions: dict[str, int], split: EraSplit, updates: int,
+                feature_dimensions: dict[str, int], split: EraSplit, updates: int | None,
                 seeds: tuple[int, ...], output: Path) -> dict:
     selected = selection.get("selected", {})
+    selected_updates = selection.get("selected_updates", {})
     winners = {}
+    winner_updates = {}
     for arm in ("adamw", "spectral"):
         ids = selected.get(arm, [])
         if len(ids) != 1:
             raise ValueError(f"{arm} outer selection must contain exactly one config")
         winners[arm] = int(ids[0])
+        if selected_updates:
+            budgets = selected_updates.get(arm, [])
+            if len(budgets) != 1:
+                raise ValueError(f"{arm} outer selection must contain exactly one update budget")
+            winner_updates[arm] = int(budgets[0])
+        elif updates is not None:
+            winner_updates[arm] = updates
+        else:
+            raise ValueError("outer selection does not specify update budgets")
     manifest_rows = _manifest(manifest)
     actual_cells = {(row["split"], row["updates"], row["seed"], row["arm"],
                      row["config_id"]) for row in manifest_rows}
-    expected_cells = {(split.name, updates, seed, arm, winners[arm])
+    expected_cells = {(split.name, winner_updates[arm], seed, arm, winners[arm])
                       for arm in winners for seed in seeds}
     if (len({row["job"] for row in manifest_rows}) != len(manifest_rows)
             or len(actual_cells) != len(manifest_rows) or actual_cells != expected_cells):
@@ -102,19 +113,19 @@ def audit_outer(manifest: Path, results: Path, selection: dict, search_draws: li
 
     rows, reference = [], None
     for row in sorted(manifest_rows, key=lambda value: (value["arm"], value["seed"])):
-        task = (f"stage-{split.name}-u{updates}-s{row['seed']}-"
+        task = (f"stage-{split.name}-u{row['updates']}-s{row['seed']}-"
                 f"{row['arm']}-c{row['config_id']}")
         result_path = results / task / "result.json"
         if not result_path.is_file():
             raise ValueError(f"{result_path}: selected outer result is missing")
         result = json.loads(result_path.read_text())
-        if (result.get("status") != "complete" or result.get("updates") != updates
+        if (result.get("status") != "complete" or result.get("updates") != row["updates"]
                 or result.get("split") != split.to_dict()
                 or result.get("config", {}).get("arm") != row["arm"]
                 or result.get("config", {}).get("seed") != row["seed"]):
             raise ValueError(f"{result_path}: result provenance differs from outer manifest")
         provenance = _verify_search_identity(
-            result, arm=row["arm"], config_id=row["config_id"], updates=updates,
+            result, arm=row["arm"], config_id=row["config_id"], updates=row["updates"],
             seed=row["seed"], search_draws=search_draws,
             feature_dimensions=feature_dimensions,
         )
@@ -137,8 +148,11 @@ def audit_outer(manifest: Path, results: Path, selection: dict, search_draws: li
     output.mkdir(parents=True, exist_ok=True)
     frame = pd.DataFrame(rows).sort_values(["arm", "seed"])
     frame.to_csv(output / "outer-results.csv", index=False)
+    reported_updates: int | dict[str, int] = (
+        updates if not selected_updates and updates is not None else winner_updates
+    )
     report = {
-        "status": "audit_complete", "split": split.to_dict(), "updates": updates,
+        "status": "audit_complete", "split": split.to_dict(), "updates": reported_updates,
         "seeds": list(seeds), "selected": winners, "cells": len(frame),
         "rows_per_cell": int(frame["rows"].iloc[0]), "manifest_sha256": sha256(manifest),
         "selection": selection,
@@ -155,15 +169,21 @@ def main() -> None:
     parser.add_argument("--search", type=Path, required=True)
     parser.add_argument("--features", type=Path, required=True)
     parser.add_argument("--outer-split", choices=["outer_1", "outer_2", "outer_3"], required=True)
-    parser.add_argument("--updates", type=int, required=True)
+    parser.add_argument("--updates", default="selected")
     parser.add_argument("--seed", type=int, action="append", required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     dimensions = {name: len(_load_features(args.features, name)) for name in ("medium", "all")}
+    if args.updates == "selected":
+        updates = None
+    elif args.updates.isdigit() and int(args.updates) > 0:
+        updates = int(args.updates)
+    else:
+        raise ValueError("--updates must be a positive integer or 'selected'")
     report = audit_outer(
         args.manifest, args.results, json.loads(args.selection.read_text()),
         json.loads(args.search.read_text())["configs"], dimensions,
-        resolve_split(args.outer_split), args.updates, tuple(args.seed), args.output,
+        resolve_split(args.outer_split), updates, tuple(args.seed), args.output,
     )
     print(json.dumps(report, sort_keys=True))
 

@@ -58,6 +58,6 @@ done
   --manifest "$MANIFEST" --results "$PROJECT/results" --selection "$SELECTION" \
   --search "$SEARCH" \
   --features /mnt/nw/home/t.buckworth/numerai-v5.3-source/features.json \
-  --outer-split "$OUTER_SPLIT" --updates 100000 --seed 0 --seed 1 --seed 2 \
+  --outer-split "$OUTER_SPLIT" --updates selected --seed 0 --seed 1 --seed 2 \
   --output "$OUTPUT" >> "$LOG" 2>&1
 printf '%s selected outer audit complete\n' "$(date -Is)" >> "$LOG"

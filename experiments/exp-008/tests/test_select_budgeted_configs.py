@@ -43,6 +43,20 @@ def test_rejects_unpaired_candidate_budget_coverage() -> None:
         select_budgeted_configs(frame, 1)
 
 
+def test_can_select_spectral_specific_candidates_when_explicitly_allowed() -> None:
+    frame = _scores()
+    extra = frame[
+        frame["arm"].eq("spectral") & frame["updates"].eq(100_000)
+    ].copy()
+    extra["config_id"] = 99
+    extra["corr_mean"] = 0.08
+    combined = pd.concat([frame, extra], ignore_index=True)
+    assert select_budgeted_configs(combined, 1, allow_asymmetric=True) == {
+        "adamw": [{"config_id": 1, "updates": 5_000}],
+        "spectral": [{"config_id": 99, "updates": 100_000}],
+    }
+
+
 def test_rejects_duplicate_cell() -> None:
     frame = pd.concat([_scores(), _scores().iloc[[0]]], ignore_index=True)
     with pytest.raises(ValueError, match="duplicate"):

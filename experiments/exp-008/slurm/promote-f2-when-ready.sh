@@ -24,17 +24,19 @@ PROJECT=${NUMERAI_PROJECT:-/mnt/nw/home/t.buckworth/numerai-competitive}
 SEARCH=${NUMERAI_SEARCH_CONFIG:-$PROJECT/results/search-v1-high-rank.json}
 [[ -f $SEARCH ]] || SEARCH="$PROJECT/configs/search-v1.json"
 export NUMERAI_SEARCH_CONFIG="$SEARCH"
-SELECTION="$PROJECT/results/selection-${OUTER_SPLIT}-f2-top1.json"
-MANIFEST="$PROJECT/results/submission-${OUTER_SPLIT}-eval-u100000.tsv"
-OUTPUT="$PROJECT/results/audit-${OUTER_SPLIT}-u100000"
+SELECTION="$PROJECT/results/selection-${OUTER_SPLIT}-f2-budget-top1.json"
+MANIFEST="$PROJECT/results/submission-${OUTER_SPLIT}-eval-budgeted.tsv"
+OUTPUT="$PROJECT/results/audit-${OUTER_SPLIT}-budgeted"
 LOG="$PROJECT/results/promote-${OUTER_SPLIT}-f2.log"
 SUMMARIES=()
 MARKERS=()
 for INDEX in $(seq 1 "$INNER_COUNT"); do
   SPLIT="${OUTER_SPLIT}_inner_${INDEX}"
-  for SEED in 0 1 2; do
-    SUMMARIES+=("$PROJECT/results/summary-${SPLIT}-u100000-s${SEED}/scores.csv")
-    MARKERS+=("$PROJECT/results/summary-${SPLIT}-u100000-s${SEED}/summary-complete.json")
+  for BUDGET in 5000 20000 100000; do
+    for SEED in 0 1 2; do
+      SUMMARIES+=("$PROJECT/results/summary-${SPLIT}-u${BUDGET}-s${SEED}/scores.csv")
+      MARKERS+=("$PROJECT/results/summary-${SPLIT}-u${BUDGET}-s${SEED}/summary-complete.json")
+    done
   done
 done
 
@@ -59,11 +61,19 @@ if [[ -e "$SELECTION" || -e "$MANIFEST" || -e "${MANIFEST}.tmp" ]] \
   echo "outer selection, manifest, temporary file or supervisor session already exists" >&2
   exit 1
 fi
-"$PROJECT/uv" run --no-sync python -m numerai_competitive.select_configs \
+"$PROJECT/uv" run --no-sync python -m numerai_competitive.select_budgeted_configs \
   --scores "${SUMMARIES[@]}" --top 1 --allow-asymmetric --output "$SELECTION"
+mapfile -t CANDIDATE_IDS < <(python3 -c '
+import json,sys
+value=json.load(open(sys.argv[1]))["selected"]
+print(*sorted(set(value["paired_union"] + value["high_rank_spectral"])), sep="\n")
+' "$PROJECT/results/selection-${OUTER_SPLIT}-f1-top4.json")
+"$PROJECT/uv" run --no-sync python -m numerai_competitive.budget_diagnostics \
+  --scores "${SUMMARIES[@]}" --config-id "${CANDIDATE_IDS[@]}" --top 1 \
+  --allow-asymmetric --output "$PROJECT/results/budget-diagnostics-${OUTER_SPLIT}"
 TEMPORARY="${MANIFEST}.tmp"
 bash "$PROJECT/slurm/submit-outer-eval.sh" \
-  "$SELECTION" "$OUTER_SPLIT" 100000 "$DEPENDENCY_JOB" 0,1,2 > "$TEMPORARY"
+  "$SELECTION" "$OUTER_SPLIT" selected "$DEPENDENCY_JOB" 0,1,2 > "$TEMPORARY"
 mv "$TEMPORARY" "$MANIFEST"
 if [[ $(wc -l < "$MANIFEST") -ne 6 ]]; then
   echo "outer submission manifest must contain two arms x three seeds" >&2

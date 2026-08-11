@@ -14,9 +14,9 @@ from .select_budgeted_configs import restrict_candidates, select_budgeted_config
 
 
 def build_budget_diagnostics(scores: pd.DataFrame, config_ids: list[int], output: Path,
-                             *, top: int = 1) -> dict:
+                             *, top: int = 1, allow_asymmetric: bool = False) -> dict:
     frame = restrict_candidates(scores, config_ids)
-    selected = select_budgeted_configs(frame, top)
+    selected = select_budgeted_configs(frame, top, allow_asymmetric=allow_asymmetric)
     grouped = (frame.groupby(["arm", "config_id", "updates"], as_index=False)
                .agg(corr_mean=("corr_mean", "mean"),
                     corr_std=("corr_mean", "std"),
@@ -54,6 +54,7 @@ def build_budget_diagnostics(scores: pd.DataFrame, config_ids: list[int], output
         "status": "development_budget_sensitivity_complete",
         "config_ids": config_ids,
         "top": top,
+        "allow_asymmetric": allow_asymmetric,
         "selected": selected,
         "cells": len(frame),
         "artifacts": {path.name: sha256(path) for path in (table, plot)},
@@ -67,10 +68,14 @@ def main() -> None:
     parser.add_argument("--scores", type=Path, nargs="+", required=True)
     parser.add_argument("--config-id", type=int, nargs="+", required=True)
     parser.add_argument("--top", type=int, default=1)
+    parser.add_argument("--allow-asymmetric", action="store_true")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     frame = pd.concat([pd.read_csv(path) for path in args.scores], ignore_index=True)
-    report = build_budget_diagnostics(frame, args.config_id, args.output, top=args.top)
+    report = build_budget_diagnostics(
+        frame, args.config_id, args.output, top=args.top,
+        allow_asymmetric=args.allow_asymmetric,
+    )
     report["score_files"] = [str(path) for path in args.scores]
     report["score_sha256"] = {str(path): sha256(path) for path in args.scores}
     atomic_json(args.output / "budget-sensitivity-report.json", report)
