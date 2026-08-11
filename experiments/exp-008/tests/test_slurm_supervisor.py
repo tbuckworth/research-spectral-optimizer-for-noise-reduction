@@ -12,6 +12,7 @@ LAUNCH_OUTER = Path(__file__).parents[1] / "slurm" / "launch-outer.sh"
 SUBMIT_REFIT = Path(__file__).parents[1] / "slurm" / "submit-refit.sh"
 BUILD_OOF = Path(__file__).parents[1] / "slurm" / "build-oof-candidate.sh"
 SUBMIT_SEALED = Path(__file__).parents[1] / "slurm" / "submit-sealed-evaluation.sh"
+SUBMIT_LIVE = Path(__file__).parents[1] / "slurm" / "submit-live-bundle.sh"
 PROMOTERS = [
     Path(__file__).parents[1] / "slurm" / name
     for name in (
@@ -400,3 +401,39 @@ def test_sealed_evaluation_refuses_disagreeing_refit_audit_before_sbatch(tmp_pat
         capture_output=True, text=True,
     )
     assert failed.returncode != 0 and not calls.exists()
+
+
+def test_live_bundle_uses_frozen_candidate_after_sealed_evaluation(tmp_path):
+    project = tmp_path / "project"
+    results = project / "results"
+    (results / "official-validation").mkdir(parents=True)
+    (project / "slurm").mkdir()
+    commit = "b" * 40
+    (results / "freeze.json").write_text(json.dumps({
+        "status": "frozen", "code_commit": commit,
+        "candidate_transform": {"arm": "spectral"},
+        "selected": {"spectral": {"config_id": 8}},
+    }))
+    (results / "official-validation" / "evaluation-complete.json").write_text(json.dumps({
+        "status": "complete",
+    }))
+    for seed in range(3):
+        directory = results / f"final-refit-u100000-s{seed}-spectral-c8"
+        directory.mkdir()
+        (directory / "model.pt").write_text("model")
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    calls = tmp_path / "sbatch-calls"
+    _executable(fake_bin / "sbatch", f'printf "%s\\n" "$*" >> "{calls}"\necho 9002\n')
+    env = os.environ | {
+        "NUMERAI_PROJECT": str(project),
+        "PATH": f"{fake_bin}:{os.environ['PATH']}",
+    }
+    completed = subprocess.run(
+        ["bash", SUBMIT_LIVE, commit], env=env, check=True,
+        capture_output=True, text=True,
+    )
+    assert len(calls.read_text().splitlines()) == 2
+    assert "CANDIDATE_ARM=spectral" in calls.read_text()
+    assert "--dependency=afterok:9002" in calls.read_text()
+    assert "validate_live_bundle" in completed.stdout
