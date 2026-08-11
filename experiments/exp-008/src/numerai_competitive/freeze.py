@@ -28,7 +28,7 @@ def _verify_arm(arm: str, config_id: int, models: list[Path], seeds: list[int],
         config, split = artifact["train_config"], artifact["train_split"]
         expected = {
             "arm": arm, "search_config_id": config_id, "seed": seed,
-            "updates": updates, "target": "target_cyrusd_20",
+            "updates": updates, "target": "target",
             "feature_set": draws[0]["feature_set"],
         }
         actual = {key: config[key] for key in expected}
@@ -75,7 +75,7 @@ def create_freeze(search_path: Path, protocol_path: Path, candidate_path: Path,
         "code_snapshot_sha256": sha256(code_snapshot_path),
         "created_at": datetime.now(UTC).isoformat(),
         "search_sha256": sha256(search_path), "fidelity_protocol_sha256": sha256(protocol_path),
-        "primary_target": "target_cyrusd_20", "primary_metric": "exact standalone CORR",
+        "primary_target": "target", "primary_metric": "exact standalone CORR",
         "validation_reveal_authorized": True,
         "candidate_plan_sha256": sha256(candidate_path),
         "candidate_transform": selected_candidate,

@@ -80,7 +80,7 @@ def audit_refits(manifest: Path, results: Path, selection: dict, search_draws: l
                 or artifact.get("train_config") != result["config"]
                 or artifact.get("train_split") != split
                 or artifact.get("data_version") != "v5.3"
-                or artifact.get("target") != "target_cyrusd_20"
+                or artifact.get("target") != "target"
                 or len(artifact.get("feature_names", []))
                 != feature_dimensions[result["config"]["feature_set"]]
                 or not isinstance(actual_state, dict)

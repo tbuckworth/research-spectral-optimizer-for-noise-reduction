@@ -55,7 +55,7 @@ def test_frozen_evaluator_scores_candidate_and_named_benchmark_column(tmp_path: 
     shard = tmp_path / "validation-shard"
     shard.mkdir()
     np.save(shard / "X_u8.npy", rng.integers(0, 5, (rows, 3), dtype=np.uint8))
-    np.save(shard / "targets_f32.npy", rng.uniform(0, 1, (rows, 4)).astype(np.float32))
+    np.save(shard / "targets_f32.npy", rng.uniform(0, 1, (rows, 5)).astype(np.float32))
     np.save(shard / "era_i16.npy", np.repeat(np.arange(100, 108), 20).astype(np.int16))
     # Ender20 is deliberately column 1: the evaluator must resolve by name.
     np.save(shard / "benchmarks_f32.npy", rng.uniform(0, 1, (rows, 3)).astype(np.float32))
@@ -78,8 +78,8 @@ def test_frozen_evaluator_scores_candidate_and_named_benchmark_column(tmp_path: 
     (shard / "manifest.json").write_text(json.dumps({
         "split": "validation", "data_version": "v5.3", "feature_set": "all", "rows": rows,
         "feature_names": feature_names,
-        "targets": ["target_cyrusd_20", "target_ender_20", "target_teager2b_20",
-                    "target_ender_60"],
+        "targets": ["target", "target_cyrusd_20", "target_ender_20",
+                    "target_teager2b_20", "target_ender_60"],
         "benchmarks": ["decoy", "v53_lgbm_ender20", "v53_lgbm_ender60"],
         "freeze_manifest_sha256": sha256(freeze),
     }))
@@ -90,7 +90,7 @@ def test_frozen_evaluator_scores_candidate_and_named_benchmark_column(tmp_path: 
     assert report["candidate_minus_ender20"]["samples"] == 10_000
     assert report["prediction_correlation"]["candidate_vs_ender20"]["eras"] == 8
     assert set(report["secondary"]) == {
-        "target_ender_20", "target_teager2b_20", "target_ender_60",
+        "target_cyrusd_20", "target_ender_20", "target_teager2b_20", "target_ender_60",
         "target_20_rank_ensemble",
     }
     assert report["secondary"]["target_ender_60"]["benchmark"] == "v53_lgbm_ender60"

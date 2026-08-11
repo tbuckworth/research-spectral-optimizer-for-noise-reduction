@@ -130,6 +130,7 @@ def _evaluate_arrays(prediction: np.ndarray, target_values: np.ndarray,
 def _secondary_analyses(shard: ValidationShard, predictions: dict[str, np.ndarray]) -> tuple[dict, pd.DataFrame]:
     definitions: dict[str, tuple[np.ndarray, str, str]] = {}
     for target_name, benchmark_name in (
+        ("target_cyrusd_20", "v53_lgbm_ender20"),
         ("target_ender_20", "v53_lgbm_ender20"),
         ("target_teager2b_20", "v53_lgbm_ender20"),
         ("target_ender_60", "v53_lgbm_ender60"),
@@ -199,7 +200,7 @@ def evaluate(shard_root: Path, freeze_path: Path, adamw_models: list[Path],
                           else ("cpu" if device_name == "auto" else device_name))
     adamw = _ensemble(adamw_models, "adamw", shard, freeze, device, batch_size)
     spectral = _ensemble(spectral_models, "spectral", shard, freeze, device, batch_size)
-    target_column = shard.target_index("target_cyrusd_20")
+    target_column = shard.target_index("target")
     covered = np.isfinite(shard.targets[:, target_column])
     indices = np.flatnonzero(covered)
     benchmark_column = shard.benchmark_index("v53_lgbm_ender20")
@@ -265,7 +266,7 @@ def evaluate(shard_root: Path, freeze_path: Path, adamw_models: list[Path],
                 target=shard.targets[indices, target_column],
                 benchmark=shard.benchmarks[indices, benchmark_column])
     report = {
-        "status": "complete", "target": "target_cyrusd_20",
+        "status": "complete", "target": "target",
         "resolved_rows": int(covered.sum()), "resolved_eras": len(np.unique(shard.eras[covered])),
         "adamw": adam_summary, "spectral": spectral_summary,
         "candidate": candidate_summary, "candidate_transform": transform,

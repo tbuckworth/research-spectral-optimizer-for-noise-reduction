@@ -21,7 +21,7 @@ def test_final_report_keeps_live_and_historical_scales_separate(tmp_path: Path):
     outer = _write(tmp_path / "outer.json", {"status": "complete", "adamw": score,
                    "spectral": score, "spectral_minus_adamw": _comparison(0.001)})
     validation = _write(tmp_path / "validation.json", {
-        "status": "complete", "target": "target_cyrusd_20", "adamw": score,
+        "status": "complete", "target": "target", "adamw": score,
         "spectral": score, "candidate": score,
         "ender20": {"mean": 0.019, "sharpe": 1.0},
         "spectral_minus_adamw": _comparison(0.002),
@@ -35,7 +35,7 @@ def test_final_report_keeps_live_and_historical_scales_separate(tmp_path: Path):
         "summary": {"rows": 1000, "metrics": {"corr20V2Rep": metric}},
     })
     search = _write(tmp_path / "search.json", {
-        "protocol": "paired-search", "primary_target": "target_cyrusd_20",
+        "protocol": "paired-search", "primary_target": "target",
         "status": "development_only_augmented_search", "configurations_per_arm": 40,
         "high_rank_config_ids": [1000512],
         "configs": [
@@ -50,7 +50,7 @@ def test_final_report_keeps_live_and_historical_scales_separate(tmp_path: Path):
         ],
     })
     freeze = _write(tmp_path / "freeze.json", {
-        "status": "frozen", "primary_target": "target_cyrusd_20",
+        "status": "frozen", "primary_target": "target",
         "search_sha256": sha256(search),
         "selected": {
             "adamw": {"config_id": 1, "updates": 100_000, "seeds": [0, 1, 2]},
@@ -61,8 +61,8 @@ def test_final_report_keeps_live_and_historical_scales_separate(tmp_path: Path):
     manifest = build_report(outer, validation, leaderboard, freeze, search, output)
     assert manifest["comparability"] == "historical-direct_live-context-only"
     html = (output / "report.html").read_text()
-    assert "cannot honestly be translated" in html
-    assert "target_cyrusd_20" in html
+    assert "not itself a resolved live reputation" in html
+    assert "<code>target</code>" in html
     assert "40 paired configuration IDs" in html
     assert "GPU-feasible high-rank" in html
     assert "Selected AdamW" in html

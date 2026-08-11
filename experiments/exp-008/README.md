@@ -1,9 +1,9 @@
 # Exp-008: Numerai-comparable AdamW versus spectral optimization
 
 This directory is the executable, no-leakage pipeline for the v5.3 Numerai Tournament study.
-The primary target is explicitly `target_cyrusd_20`; the primary endpoint is exact standalone
-Numerai CORR. The released historical target is not represented as current live leaderboard
-reputation. No command here uploads a model, submits predictions, or stakes NMR.
+The primary target is explicitly the v5.3 main `target`; the primary endpoint is exact standalone
+Numerai CORR. Historical validation is not itself a resolved current live leaderboard reputation.
+No command here uploads a model, submits predictions, or stakes NMR.
 
 ## Reproduce integrity checks
 
@@ -217,7 +217,7 @@ the exact frozen AdamW and spectral configurations, the 40-pair base search, and
 high-rank amendment candidate.
 It also shows
 the dated public one-year live reputations in a separate context section and explicitly refuses to
-infer a live rank from historical `target_cyrusd_20` validation CORR.
+infer a live rank from historical main-`target` validation CORR.
 
 After the official-container audit has been copied into `results/live-bundle/official-container`,
 cross-check the complete evidence chain:

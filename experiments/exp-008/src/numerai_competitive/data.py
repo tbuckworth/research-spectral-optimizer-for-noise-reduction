@@ -16,7 +16,9 @@ TRAIN_BENCH_SHA256 = "5a8729941c481abe95236920663e1d3cb1140407cc743e3a7f71afbf78
 VALIDATION_SHA256 = "62bb9a587ecdcb5f3095809de276da381a803b699e905a82b962d2e4d35295c0"
 VALIDATION_BENCH_SHA256 = "e771f395d689cee948435656af64bf789ea67c4421a5bc7cd568f83e85faf7d2"
 FEATURES_SHA256 = "27de6b598b0d479415dba8062d050fc190469776f9c905feea9ee3f2bdda3631"
-TARGETS = ("target_cyrusd_20", "target_ender_20", "target_teager2b_20", "target_ender_60")
+TARGETS = (
+    "target", "target_cyrusd_20", "target_ender_20", "target_teager2b_20", "target_ender_60",
+)
 BENCHMARKS = ("v53_lgbm_ender20", "v53_lgbm_ender60")
 
 
