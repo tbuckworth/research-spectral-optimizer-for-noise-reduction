@@ -58,3 +58,24 @@ def test_snapshot_rejects_untracked_execution_file(tmp_path):
     extra.write_text("exit 0")
     with pytest.raises(ValueError, match="coverage differs"):
         verify_snapshot(source, snapshot, commit)
+
+
+def test_snapshot_ignores_nfs_open_file_tombstones(tmp_path):
+    repo = tmp_path / "repo"
+    source = repo / "experiments" / "exp-008"
+    for relative in ("pyproject.toml", "uv.lock", "fidelity-protocol.md",
+                     "src/numerai_competitive/code_snapshot.py",
+                     "src/numerai_competitive/freeze.py", "slurm/run.sbatch"):
+        path = source / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(relative)
+    _git(repo, "init")
+    _git(repo, "config", "user.email", "test@example.com")
+    _git(repo, "config", "user.name", "Test")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-m", "snapshot")
+    commit = _git(repo, "rev-parse", "HEAD")
+    snapshot = tmp_path / "snapshot.json"
+    create_snapshot(repo, "experiments/exp-008", commit, snapshot)
+    (source / "slurm" / ".nfs0000000000000001").write_text("open tombstone")
+    assert verify_snapshot(source, snapshot, commit)["code_commit"] == commit

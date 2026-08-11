@@ -55,6 +55,7 @@ def verify_snapshot(root: Path, snapshot_path: Path, expected_commit: str) -> di
         for path in root.rglob("*") if path.is_file()
         and _included(path.relative_to(root).as_posix())
         and "__pycache__" not in path.parts
+        and not path.name.startswith(".nfs")
     }
     digest = hashlib.sha256(json.dumps(files, sort_keys=True, separators=(",", ":")).encode())
     if (snapshot.get("status") != "complete" or snapshot.get("code_commit") != expected_commit
