@@ -29,7 +29,7 @@ def audit_probes(extension_path: Path, result_paths: list[Path], output: Path,
         return report
     if len(result_paths) != len(expected):
         raise ValueError("probe results do not cover every analytically feasible rank")
-    rows, seen = [], set()
+    rows, rejected, seen = [], [], set()
     for path in result_paths:
         result_path = path if path.name == "result.json" else path / "result.json"
         result = json.loads(result_path.read_text())
@@ -40,20 +40,41 @@ def audit_probes(extension_path: Path, result_paths: list[Path], output: Path,
         config = expected[config_id]
         rank = config["rank"]
         updates = result.get("updates", 0)
-        final_filter = (result.get("logs") or [{}])[-1].get("filter", {})
         required_updates = config.get("required_probe_updates")
         if not isinstance(required_updates, int) or required_updates < 2 * rank:
             raise ValueError("extension lacks a valid cadence-aware probe budget")
-        if (result.get("status") != "complete"
-                or result.get("parameter_count") != config["memory_screen"]["parameter_count"]
-                or result.get("config", {}).get("arm") != "spectral"
+        if (result.get("config", {}).get("arm") != "spectral"
                 or result.get("config", {}).get("filter", {}).get("rank") != rank
-                or updates != required_updates
-                or result.get("peak_cuda_memory_bytes", max_probe_bytes) > max_probe_bytes
-                or not final_filter.get("filtering_active", False)
-                or final_filter.get("basis_rank", 0) < rank
-                or final_filter.get("orthogonality_error", float("inf")) > 1e-3):
-            raise ValueError(f"rank {rank} probe did not realize a safe full-rank filter")
+                or updates != required_updates):
+            raise ValueError(f"rank {rank} probe provenance differs from its manifest")
+        if result.get("status") == "resource_probe_rejected":
+            if result.get("reason") != "cuda_out_of_memory":
+                raise ValueError(f"rank {rank} has an unsupported probe rejection")
+            rejected.append({
+                "rank": rank, "config_id": config_id, "reason": result["reason"],
+                "peak_cuda_memory_bytes": result.get("peak_cuda_memory_bytes", 0),
+                "result_sha256": sha256(result_path),
+            })
+            continue
+        final_filter = (result.get("logs") or [{}])[-1].get("filter", {})
+        rejection_reason = None
+        if result.get("status") != "complete":
+            raise ValueError(f"rank {rank} probe has an unsupported result status")
+        if result.get("parameter_count") != config["memory_screen"]["parameter_count"]:
+            raise ValueError(f"rank {rank} probe parameter count differs from its manifest")
+        if result.get("peak_cuda_memory_bytes", max_probe_bytes) > max_probe_bytes:
+            rejection_reason = "measured_peak_above_limit"
+        elif (not final_filter.get("filtering_active", False)
+              or final_filter.get("basis_rank", 0) < rank
+              or final_filter.get("orthogonality_error", float("inf")) > 1e-3):
+            rejection_reason = "full_rank_filter_not_safely_realized"
+        if rejection_reason:
+            rejected.append({
+                "rank": rank, "config_id": config_id, "reason": rejection_reason,
+                "peak_cuda_memory_bytes": result.get("peak_cuda_memory_bytes", 0),
+                "result_sha256": sha256(result_path),
+            })
+            continue
         rows.append({
             "rank": rank, "config_id": config_id, "updates": updates,
             "basis_rank": final_filter["basis_rank"],
@@ -61,9 +82,10 @@ def audit_probes(extension_path: Path, result_paths: list[Path], output: Path,
             "result_sha256": sha256(result_path),
         })
     rows.sort(key=lambda row: row["rank"])
+    rejected.sort(key=lambda row: row["rank"])
     report = {
         "status": "probe_audit_complete", "extension_sha256": sha256(extension_path),
-        "max_probe_bytes": max_probe_bytes, "probes": rows,
+        "max_probe_bytes": max_probe_bytes, "probes": rows, "rejected": rejected,
         "eligible_ranks": [row["rank"] for row in rows],
     }
     atomic_json(output, report)

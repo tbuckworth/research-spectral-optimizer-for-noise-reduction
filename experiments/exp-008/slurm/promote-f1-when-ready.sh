@@ -22,6 +22,7 @@ else
 fi
 PROJECT=${NUMERAI_PROJECT:-/mnt/nw/home/t.buckworth/numerai-competitive}
 SELECTION="$PROJECT/results/selection-${OUTER_SPLIT}-f1-top4.json"
+BASE_SELECTION="$PROJECT/results/selection-${OUTER_SPLIT}-f1-base-top4.json"
 MANIFEST="$PROJECT/results/submission-${OUTER_SPLIT}-f2-u100000.tsv"
 LOG="$PROJECT/results/promote-${OUTER_SPLIT}-f1.log"
 SUMMARIES=()
@@ -56,18 +57,28 @@ while true; do
 done
 
 cd "$PROJECT"
-if [[ -e "$SELECTION" || -e "$MANIFEST" || -e "${MANIFEST}.tmp" ]] \
+if [[ -e "$SELECTION" || -e "$BASE_SELECTION" || -e "$MANIFEST" || -e "${MANIFEST}.tmp" ]] \
     || tmux has-session -t "$SUPERVISOR_SESSION" 2>/dev/null \
     || tmux has-session -t "$PROMOTE_SESSION" 2>/dev/null; then
   echo "F2 selection, manifest, temporary file or supervisor session already exists" >&2
   exit 1
 fi
 "$PROJECT/uv" run --no-sync python -m numerai_competitive.select_configs \
-  --scores "${SUMMARIES[@]}" --top 4 --output "$SELECTION"
+  --scores "${SUMMARIES[@]}" --top 4 --output "$BASE_SELECTION"
+HIGH_RANK_SEARCH="$PROJECT/configs/search-v1-high-rank.json"
+if [[ $OUTER_NUMBER == 1 ]]; then
+  bash "$PROJECT/slurm/prepare-high-rank-search.sh" "$DEPENDENCY_JOB" "${SUMMARIES[@]}"
+elif [[ ! -f $HIGH_RANK_SEARCH ]]; then
+  echo "audited high-rank search from outer_1 is missing" >&2
+  exit 1
+fi
+"$PROJECT/uv" run --no-sync python -m numerai_competitive.high_rank_selection \
+  --selection "$BASE_SELECTION" --search "$HIGH_RANK_SEARCH" --output "$SELECTION"
+export NUMERAI_SEARCH_CONFIG="$HIGH_RANK_SEARCH"
 EXPECTED=$(python3 -c \
   'import json,sys; print(len(json.load(open(sys.argv[1]))["selected"]["paired_union"]))' \
   "$SELECTION")
-if [[ $EXPECTED -lt 4 || $EXPECTED -gt 8 ]]; then
+if [[ $EXPECTED -lt 5 || $EXPECTED -gt 13 ]]; then
   echo "invalid paired-union size $EXPECTED" >&2
   exit 1
 fi
@@ -88,8 +99,8 @@ if [[ $(wc -l < "$MANIFEST") -ne $EXPECTED_ROWS ]]; then
 fi
 
 tmux new-session -d -s "$SUPERVISOR_SESSION" \
-  "bash '$PROJECT/slurm/supervise-resumable-stage.sh' '$MANIFEST'"
+  "NUMERAI_SEARCH_CONFIG='$HIGH_RANK_SEARCH' bash '$PROJECT/slurm/supervise-resumable-stage.sh' '$MANIFEST'"
 tmux new-session -d -s "$PROMOTE_SESSION" \
-  "bash '$PROJECT/slurm/promote-f2-when-ready.sh' '$LAST_JOB' '$OUTER_SPLIT'"
+  "NUMERAI_SEARCH_CONFIG='$HIGH_RANK_SEARCH' bash '$PROJECT/slurm/promote-f2-when-ready.sh' '$LAST_JOB' '$OUTER_SPLIT'"
 printf '%s submitted F2 union=%s jobs=%s--%s dependency=%s\n' \
   "$(date -Is)" "$EXPECTED" "$FIRST_JOB" "$LAST_JOB" "$DEPENDENCY_JOB" >> "$LOG"

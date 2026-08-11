@@ -7,6 +7,7 @@
 
 set -euo pipefail
 PROJECT=/mnt/nw/home/t.buckworth/numerai-competitive
+SEARCH_CONFIG=${NUMERAI_SEARCH_CONFIG:-configs/search-v1.json}
 SOURCE="$PROJECT/results/sealed-v5.3-source-${CODE_COMMIT:0:12}"
 SHARD="/ephemeral/t.buckworth/numerai-v5.3-validation-all-${CODE_COMMIT:0:12}"
 FREEZE="$PROJECT/results/freeze.json"
@@ -22,7 +23,7 @@ for SEED in 0 1 2; do
     "$PROJECT/results/final-refit-u100000-s${SEED}-spectral-c${SPECTRAL_CONFIG}/model.pt")
 done
 "$PROJECT/uv" run --no-sync python -m numerai_competitive.freeze \
-  --search configs/search-v1.json --protocol fidelity-protocol.md \
+  --search "$SEARCH_CONFIG" --protocol fidelity-protocol.md \
   --candidate-plan results/candidate-plan.json --output "$FREEZE" \
   --code-commit "$CODE_COMMIT" --code-snapshot "$PROJECT/code-snapshot.json" \
   --code-root "$PROJECT" --adamw-config "$ADAMW_CONFIG" \

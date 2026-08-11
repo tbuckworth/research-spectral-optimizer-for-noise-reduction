@@ -8,6 +8,7 @@ OUTER_SUBMIT = Path(__file__).parents[1] / "slurm" / "submit-outer-eval.sh"
 OUTER_AUDIT = Path(__file__).parents[1] / "slurm" / "audit-outer-when-ready.sh"
 SUBMIT_STAGE = Path(__file__).parents[1] / "slurm" / "submit-stage.sh"
 SUBMIT_SELECTED = Path(__file__).parents[1] / "slurm" / "submit-selected.sh"
+RESUME_STAGE = Path(__file__).parents[1] / "slurm" / "resume-checkpointed-stage.sh"
 LAUNCH_OUTER = Path(__file__).parents[1] / "slurm" / "launch-outer.sh"
 CONTINUE_NESTED = Path(__file__).parents[1] / "slurm" / "continue-nested-pipeline.sh"
 SUBMIT_REFIT = Path(__file__).parents[1] / "slurm" / "submit-refit.sh"
@@ -61,6 +62,15 @@ def test_supervisor_summarizes_only_after_complete_manifest(tmp_path):
     assert "numerai_competitive.summarize" in (project / "uv-calls").read_text()
 
 
+def test_supervisor_uses_explicit_augmented_search(tmp_path):
+    project, manifest, env = _project(tmp_path, complete=True)
+    search = project / "configs" / "augmented.json"
+    search.write_text("{}")
+    env["NUMERAI_SEARCH_CONFIG"] = str(search)
+    subprocess.run(["bash", SCRIPT, manifest], check=True, env=env)
+    assert f"--search {search}" in (project / "uv-calls").read_text()
+
+
 def test_supervisor_resubmits_exact_checkpoint_before_summary(tmp_path):
     project, manifest, env = _project(tmp_path, complete=False)
     result_dir = project / "results" / "stage-fold-u100-s0-adamw-c7"
@@ -77,6 +87,28 @@ def test_supervisor_resubmits_exact_checkpoint_before_summary(tmp_path):
     log = manifest.with_name("submission-supervisor.log").read_text()
     assert "resubmitted 1 checkpointed tasks" in log
     assert "stage complete and all cells summarized (retries=1)" in log
+
+
+def test_checkpoint_retry_preserves_high_rank_probe_runner(tmp_path):
+    project = tmp_path / "project"
+    result = project / "results" / "stage-outer_1_inner_1-u1024-s0-spectral-c1000512"
+    result.mkdir(parents=True)
+    (project / "slurm").mkdir()
+    (project / "slurm" / "run-high-rank-probe.sbatch").write_text("")
+    (result / "checkpoint.pt").write_text("checkpoint")
+    (result / "checkpoint-status.json").write_text("{}")
+    manifest = project / "manifest.tsv"
+    manifest.write_text("1\touter_1_inner_1\t1024\t0\tspectral\t1000512\n")
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    calls = tmp_path / "sbatch-calls"
+    _executable(fake_bin / "sbatch", f'printf "%s\\n" "$*" >> "{calls}"\necho 9001\n')
+    env = os.environ | {
+        "NUMERAI_PROJECT": str(project), "NUMERAI_PROBE_MODE": "1",
+        "PATH": f"{fake_bin}:{os.environ['PATH']}",
+    }
+    subprocess.run(["bash", RESUME_STAGE, manifest, "7"], check=True, env=env)
+    assert str(project / "slurm" / "run-high-rank-probe.sbatch") in calls.read_text()
 
 
 def test_supervisor_can_defer_nonpaired_outer_summary(tmp_path):
@@ -392,6 +424,8 @@ def test_sealed_evaluation_submits_only_after_refit_audit_and_candidate(tmp_path
     results = project / "results"
     (results / "audit-final-refits-u100000").mkdir(parents=True)
     (project / "slurm").mkdir()
+    (project / "configs").mkdir()
+    (project / "configs" / "search-v1-high-rank.json").write_text("{}")
     (results / "selection-final-top1.json").write_text(json.dumps({
         "selected": {"adamw": [7], "spectral": [8]},
     }))
@@ -434,6 +468,8 @@ def test_sealed_evaluation_refuses_disagreeing_refit_audit_before_sbatch(tmp_pat
     results = project / "results"
     (results / "audit-final-refits-u100000").mkdir(parents=True)
     (project / "slurm").mkdir()
+    (project / "configs").mkdir()
+    (project / "configs" / "search-v1-high-rank.json").write_text("{}")
     (results / "selection-final-top1.json").write_text(json.dumps({
         "selected": {"adamw": [7], "spectral": [8]},
     }))

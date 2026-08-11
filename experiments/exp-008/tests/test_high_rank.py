@@ -33,7 +33,7 @@ def test_high_rank_extension_clones_only_selected_spectral_draw(tmp_path):
     assert report["ranks"] == [512, 1024]
     assert [config["width"] for config in report["configs"]] == [512] * 4
     assert [config["config_id"] for config in report["configs"]] == [
-        10512, 10512, 11024, 11024,
+        1_040_512, 1_040_512, 1_041_024, 1_041_024,
     ]
     assert [config["arm"] for config in report["configs"]] == [
         "adamw", "spectral", "adamw", "spectral",

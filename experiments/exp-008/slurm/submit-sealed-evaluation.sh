@@ -7,6 +7,8 @@ if [[ $# -ne 1 || ! $1 =~ ^[0-9a-f]{40}$ ]]; then
 fi
 CODE_COMMIT=$1
 PROJECT=${NUMERAI_PROJECT:-/mnt/nw/home/t.buckworth/numerai-competitive}
+SEARCH=${NUMERAI_SEARCH_CONFIG:-$PROJECT/configs/search-v1-high-rank.json}
+[[ -f $SEARCH ]] || { echo "audited high-rank search is missing" >&2; exit 1; }
 SELECTION="$PROJECT/results/selection-final-top1.json"
 AUDIT="$PROJECT/results/audit-final-refits-u100000/refit-audit.json"
 CANDIDATE="$PROJECT/results/candidate-plan.json"
@@ -57,11 +59,11 @@ for ARM_CONFIG in "adamw:$ADAMW_CONFIG" "spectral:$SPECTRAL_CONFIG"; do
 done
 
 BUILD_JOB=$(sbatch --parsable --job-name=n8-freeze-validation \
-  --export="ALL,CODE_COMMIT=${CODE_COMMIT},ADAMW_CONFIG=${ADAMW_CONFIG},SPECTRAL_CONFIG=${SPECTRAL_CONFIG}" \
+  --export="ALL,NUMERAI_SEARCH_CONFIG=${SEARCH},CODE_COMMIT=${CODE_COMMIT},ADAMW_CONFIG=${ADAMW_CONFIG},SPECTRAL_CONFIG=${SPECTRAL_CONFIG}" \
   "$PROJECT/slurm/run-freeze-build-validation.sbatch")
 EVAL_JOB=$(sbatch --parsable --job-name=n8-sealed-eval \
   --dependency="afterok:${BUILD_JOB%%;*}" \
-  --export="ALL,CODE_COMMIT=${CODE_COMMIT},ADAMW_CONFIG=${ADAMW_CONFIG},SPECTRAL_CONFIG=${SPECTRAL_CONFIG}" \
+  --export="ALL,NUMERAI_SEARCH_CONFIG=${SEARCH},CODE_COMMIT=${CODE_COMMIT},ADAMW_CONFIG=${ADAMW_CONFIG},SPECTRAL_CONFIG=${SPECTRAL_CONFIG}" \
   "$PROJECT/slurm/run-sealed-evaluation.sbatch")
 printf 'stage\tjob_id\tdependency\tcode_commit\tadamw_config\tspectral_config\n' \
   > "${MANIFEST}.tmp"

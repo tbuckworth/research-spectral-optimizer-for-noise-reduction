@@ -8,6 +8,7 @@ fi
 ORIGINAL_MANIFEST=$1
 SELECTION=$2
 PROJECT=${NUMERAI_PROJECT:-/mnt/nw/home/t.buckworth/numerai-competitive}
+SEARCH=${NUMERAI_SEARCH_CONFIG:-$PROJECT/configs/search-v1.json}
 QUEUE_USER=${NUMERAI_QUEUE_USER:-t.buckworth}
 LOG="${ORIGINAL_MANIFEST%.tsv}-supervisor.log"
 CURRENT_MANIFEST=$ORIGINAL_MANIFEST
@@ -61,7 +62,7 @@ done
 
 "$PROJECT/uv" run --no-sync python -m numerai_competitive.audit_refits \
   --manifest "$ORIGINAL_MANIFEST" --results "$PROJECT/results" --selection "$SELECTION" \
-  --search "$PROJECT/configs/search-v1.json" \
+  --search "$SEARCH" \
   --features /mnt/nw/home/t.buckworth/numerai-v5.3-source/features.json \
   --output "$PROJECT/results/audit-final-refits-u100000" >> "$LOG" 2>&1
 printf '%s refits complete and audited (retries=%s)\n' "$(date -Is)" "$RETRY" >> "$LOG"

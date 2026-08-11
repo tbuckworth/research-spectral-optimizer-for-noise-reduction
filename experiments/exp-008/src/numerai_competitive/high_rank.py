@@ -9,6 +9,8 @@ from .data import atomic_json, sha256
 
 FEATURE_DIMENSIONS = {"medium": 780, "all": 3555}
 L40_BYTES = 48 * 1024**3
+EXTENSION_ID_BASE = 1_000_000
+EXTENSION_ID_STRIDE = 10_000
 
 
 def parameter_count(config: dict) -> int:
@@ -53,6 +55,13 @@ def required_probe_updates(config: dict, rank: int) -> int:
     return max(2 * rank, 1 + rank * cadence, warmup + 1)
 
 
+def extension_config_id(source_id: int, rank: int) -> int:
+    """Stable collision-free ID for one source draw and rank below 10,000."""
+    if not 0 <= source_id < 10_000 or not 0 < rank < EXTENSION_ID_STRIDE:
+        raise ValueError("source ID or extension rank is outside the supported range")
+    return EXTENSION_ID_BASE + source_id * EXTENSION_ID_STRIDE + rank
+
+
 def create_extension(search_path: Path, selection_path: Path, ranks: list[int],
                      output: Path) -> dict:
     search = json.loads(search_path.read_text())
@@ -76,7 +85,7 @@ def create_extension(search_path: Path, selection_path: Path, ranks: list[int],
         raise ValueError("extension ranks must be unique integers above the selected rank")
     configs = []
     for rank in sorted(ranks):
-        config_id = 10_000 + rank
+        config_id = extension_config_id(source_id, rank)
         adamw = dict(adamw_source)
         adamw.update({"config_id": config_id, "source_config_id": source_id})
         spectral = dict(source)

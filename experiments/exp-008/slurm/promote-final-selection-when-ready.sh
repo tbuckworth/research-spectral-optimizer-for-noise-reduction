@@ -7,6 +7,9 @@ if [[ $# -ne 1 || ! $1 =~ ^[0-9]+$ ]]; then
 fi
 DEPENDENCY_JOB=$1
 PROJECT=${NUMERAI_PROJECT:-/mnt/nw/home/t.buckworth/numerai-competitive}
+SEARCH=${NUMERAI_SEARCH_CONFIG:-$PROJECT/configs/search-v1-high-rank.json}
+[[ -f $SEARCH ]] || { echo "audited high-rank search is missing" >&2; exit 1; }
+export NUMERAI_SEARCH_CONFIG="$SEARCH"
 SELECTION="$PROJECT/results/selection-final-top1.json"
 MANIFEST="$PROJECT/results/submission-final-refit-u100000.tsv"
 LOG="$PROJECT/results/promote-final-selection.log"
@@ -49,6 +52,6 @@ if [[ $(wc -l < "${MANIFEST}.tmp") -ne 6 ]] \
 fi
 mv "${MANIFEST}.tmp" "$MANIFEST"
 tmux new-session -d -s "$REFIT_SESSION" \
-  "bash '$PROJECT/slurm/supervise-refits.sh' '$MANIFEST' '$SELECTION'"
+  "NUMERAI_SEARCH_CONFIG='$SEARCH' bash '$PROJECT/slurm/supervise-refits.sh' '$MANIFEST' '$SELECTION'"
 printf '%s submitted six final refits dependency=%s\n' \
   "$(date -Is)" "$DEPENDENCY_JOB" >> "$LOG"
