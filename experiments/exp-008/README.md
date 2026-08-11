@@ -152,3 +152,17 @@ subprocess test blocks every import of that package while loading the pickle. Be
 the final artifact must additionally pass the official `numerai-predict` Python 3.12 container,
 whose current interface accepts a one- or two-argument callable and whose documented default
 contract is one CPU, 4 GB RAM, and ten minutes.
+
+After sealed evaluation, build and resource-test the target-free candidate without uploading it:
+
+```bash
+bash slurm/submit-live-bundle.sh FULL_40_CHARACTER_CODE_COMMIT
+```
+
+The first dependent job exports the exact frozen arm/seed ensemble and downloads `live.parquet`
+and `live_benchmark_models.parquet` within one unchanged current round. It records both hashes and
+checks unique aligned IDs, absence of targets, and the frozen benchmark column. The validation job
+uses one CPU, a 4 GB allocation, the complete unprojected live DataFrame (matching the official
+runner), and a ten-minute application limit. The same timed inference writes the conventional
+`live_predictions.csv`; no upload occurs. The resulting pickle and fixture can then be copied to
+the desktop for the mandatory official `numerai-predict` Python 3.12 Docker test.
