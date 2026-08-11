@@ -114,6 +114,12 @@ def build_report(outer_path: Path, validation_path: Path, leaderboard_path: Path
     base_per_arm = search.get("configurations_per_arm")
     if validation.get("target") != "target":
         raise ValueError("official validation report uses an unexpected primary target")
+    if validation.get("target_alias_audit") != {
+        "target_equals_target_ender_60": True,
+        "live_corr20v2_target": "target_cyrus_20",
+        "live_target_released_in_v5_3": False,
+    }:
+        raise ValueError("official validation report lacks the target comparability audit")
     if (freeze.get("status") != "frozen" or freeze.get("primary_target") != validation["target"]
             or freeze.get("search_sha256") != sha256(search_path)
             or search.get("primary_target") != validation["target"]
@@ -153,26 +159,30 @@ Sealed validation candidate minus official Ender20 benchmark: {candidate_delta}.
 Before any outer or official-validation reveal, an audited amendment added
 <strong>{len(high_rank_ids)} GPU-feasible high-rank spectral variants</strong> of one
 development-selected architecture. Each ID used the same architecture, batches, examples,
-update count and base optimizer hyperparameters in both arms; the spectral arm added only its
-pre-registered filter parameters. Identical AdamW controls were not redundantly retrained for
-every rank during F2, but every final winner was cross-evaluated in both arms. Selection used the
-documented multi-fidelity schedule
-5,000 → 20,000 → 100,000 updates on chronological development folds, followed by three-seed
-100,000-update refits. Official validation remained sealed until these choices and model hashes
-were frozen.</p><p>Protocol ID: <code>{html.escape(search['protocol'])}</code>.</p>
+base optimizer hyperparameters and candidate update budget in both arms; the spectral arm added
+only its pre-registered filter parameters. Identical AdamW controls were not redundantly retrained
+for every rank during F2, but every final configuration/budget nominee was cross-evaluated in both
+arms. Selection treated 5,000, 20,000 and 100,000 updates as development hyperparameters on
+chronological folds, followed by three-seed refits at each arm's selected budget. Official
+validation remained sealed until these choices and model hashes were frozen.</p>
+<p>Protocol ID: <code>{html.escape(search['protocol'])}</code>.</p>
 <table style="border-collapse:collapse;width:100%"><tr><th>Hyperparameter</th>
 <th>Selected AdamW</th><th>Selected spectral</th></tr>{config_rows}</table>
 <h2>What is directly comparable</h2><p>The AdamW, spectral, candidate and Ender20 values above
-use the same resolved historical rows, target and exact era-wise scorer. Hyperparameters were selected
-without seeing official validation; validation was opened only after the immutable freeze.</p>
+use the same resolved historical rows, released main <code>target</code> and exact Numerai-CORR
+transformation. Hyperparameters were selected without using official-validation model scores;
+model evaluation opened validation only after the immutable freeze.</p>
 <h2>Public live leaderboard context</h2><table style="border-collapse:collapse;width:100%">
 <tr><th>One-year reputation</th><th>Median</th><th>90th percentile</th><th>Maximum</th></tr>
 {live_rows}</table><p>Snapshot round {leaderboard['round']}, {leaderboard['summary']['rows']} rows,
 retrieved {html.escape(leaderboard['retrieved_at'])}.</p>
 <p style="padding:12px;background:#fff4ce"><strong>Comparability boundary:</strong> these live
-one-year reputations use forward rounds. Historical validation uses the corresponding main
-<code>target</code> and exact CORR20v2 scorer, but it is not itself a resolved live reputation.
-Direct leaderboard comparability requires repeated unstaked live submissions to resolve.</p>
+one-year reputations use forward rounds scored against current live <code>target_cyrus_20</code>.
+The pinned historical main <code>target</code> is byte-identical to
+<code>target_ender_60</code>; it is not the released auxiliary
+<code>target_cyrusd_20</code>, and neither released column is established as the exact live payout
+endpoint. Historical scores therefore cannot be converted into a live rank. Direct leaderboard
+comparability requires repeated unstaked live submissions to resolve.</p>
 </body></html>"""
     (output / "report.html").write_text(body)
     markdown = f"""# Numerai optimizer comparison
@@ -188,9 +198,11 @@ AdamW was selected from 40 base paired configuration IDs using the chronological
 `{json.dumps(selected_configs['adamw'], sort_keys=True)}`. Final spectral config:
 `{json.dumps(selected_configs['spectral'], sort_keys=True)}`.
 
-The historical comparisons use the same rows, target and exact scorer. The public round
-{leaderboard['round']} live reputation snapshot is context only: historical main-target CORR cannot be
-converted into a live rank. Repeated unstaked live submissions are required for direct comparability.
+The historical comparisons use the same rows, released main target and exact Numerai-CORR
+transformation. The pinned main target equals `target_ender_60`, while current live CORR20v2
+uses unreleased `target_cyrus_20`. The public round {leaderboard['round']} reputation snapshot is
+therefore context only: historical CORR cannot be converted into a live rank. Repeated unstaked
+live submissions are required for direct comparability.
 """
     (output / "report.md").write_text(markdown)
     manifest = {

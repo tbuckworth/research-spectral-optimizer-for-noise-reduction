@@ -244,6 +244,11 @@ def audit(results: Path, leaderboard_path: Path, output: Path) -> dict:
     validation_path = validation_dir / "official-validation-report.json"
     validation = _json(validation_path, ("complete",))
     if (validation.get("target") != "target"
+            or validation.get("target_alias_audit") != {
+                "target_equals_target_ender_60": True,
+                "live_corr20v2_target": "target_cyrus_20",
+                "live_target_released_in_v5_3": False,
+            }
             or validation.get("freeze_manifest_sha256") != sha256(freeze_path)
             or "spectral_minus_adamw" not in validation
             or "candidate_minus_ender20" not in validation):
