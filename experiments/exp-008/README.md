@@ -48,6 +48,11 @@ walltime and atomically checkpoint; `resume-checkpointed-stage.sh` resubmits onl
 manifested tasks without changing their config, seed, fold, or update target. The 100,000-update
 stage runs under `supervise-resumable-stage.sh`, which repeats exact checkpoint resumptions until
 every manifested result exists and only then creates the audited fold/seed summaries.
+The selected nested-outer estimate is a different operation: `submit-outer-eval.sh` runs only
+the independently selected config for each arm on the named untouched outer split. Its manifest
+uses the same resumable supervisor with `--skip-summary` and must pass the dedicated outer-result
+audit before entering `oof.py`. `submit-refit.sh` is reserved for the later all-train deployment
+refit and must never be used as nested-outer evidence.
 
 After all outer folds, aggregate only untouched nested-outer predictions:
 

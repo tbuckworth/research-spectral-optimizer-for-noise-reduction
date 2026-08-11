@@ -58,3 +58,11 @@ def test_supervisor_resubmits_exact_checkpoint_before_summary(tmp_path):
     log = manifest.with_name("submission-supervisor.log").read_text()
     assert "resubmitted 1 checkpointed tasks" in log
     assert "stage complete and all cells summarized (retries=1)" in log
+
+
+def test_supervisor_can_defer_nonpaired_outer_summary(tmp_path):
+    project, manifest, env = _project(tmp_path, complete=True)
+    subprocess.run(["bash", SCRIPT, manifest, "--skip-summary"], check=True, env=env)
+    assert not (project / "uv-calls").exists()
+    log = manifest.with_name("submission-supervisor.log").read_text()
+    assert "stage complete; downstream audit required (retries=0)" in log

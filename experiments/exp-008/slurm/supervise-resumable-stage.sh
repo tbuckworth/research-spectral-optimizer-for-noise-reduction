@@ -1,11 +1,12 @@
 #!/bin/bash
 set -euo pipefail
 
-if [[ $# -ne 1 ]]; then
-  echo "usage: $0 SUBMISSION_TSV" >&2
+if [[ $# -lt 1 || $# -gt 2 || (${2:-} != "" && ${2:-} != "--skip-summary") ]]; then
+  echo "usage: $0 SUBMISSION_TSV [--skip-summary]" >&2
   exit 2
 fi
 ORIGINAL_MANIFEST=$1
+SKIP_SUMMARY=${2:-}
 PROJECT=${NUMERAI_PROJECT:-/mnt/nw/home/t.buckworth/numerai-competitive}
 QUEUE_USER=${NUMERAI_QUEUE_USER:-t.buckworth}
 FEATURES=/mnt/nw/home/t.buckworth/numerai-v5.3-source/features.json
@@ -61,13 +62,17 @@ while true; do
     "$(date -Is)" "$(wc -l < "$CURRENT_MANIFEST")" "$RETRY" >> "$LOG"
 done
 
-EXPECTED=$(awk -F $'\t' '{print $6}' "$ORIGINAL_MANIFEST" | sort -nu | wc -l)
-while IFS=$'\t' read -r split updates seed; do
-  output="$PROJECT/results/summary-${split}-u${updates}-s${seed}"
-  "$PROJECT/uv" run --no-sync python -m numerai_competitive.summarize \
-    --results "$PROJECT/results" --output "$output" --split "$split" \
-    --updates "$updates" --seed "$seed" --expected-configs "$EXPECTED" \
-    --search "$SEARCH" --features "$FEATURES" >> "$LOG" 2>&1
-done < <(awk -F $'\t' '{print $2 "\t" $3 "\t" $4}' "$ORIGINAL_MANIFEST" | sort -u)
-printf '%s stage complete and all cells summarized (retries=%s)\n' \
-  "$(date -Is)" "$RETRY" >> "$LOG"
+if [[ $SKIP_SUMMARY != "--skip-summary" ]]; then
+  EXPECTED=$(awk -F $'\t' '{print $6}' "$ORIGINAL_MANIFEST" | sort -nu | wc -l)
+  while IFS=$'\t' read -r split updates seed; do
+    output="$PROJECT/results/summary-${split}-u${updates}-s${seed}"
+    "$PROJECT/uv" run --no-sync python -m numerai_competitive.summarize \
+      --results "$PROJECT/results" --output "$output" --split "$split" \
+      --updates "$updates" --seed "$seed" --expected-configs "$EXPECTED" \
+      --search "$SEARCH" --features "$FEATURES" >> "$LOG" 2>&1
+  done < <(awk -F $'\t' '{print $2 "\t" $3 "\t" $4}' "$ORIGINAL_MANIFEST" | sort -u)
+  completion="stage complete and all cells summarized"
+else
+  completion="stage complete; downstream audit required"
+fi
+printf '%s %s (retries=%s)\n' "$(date -Is)" "$completion" "$RETRY" >> "$LOG"
