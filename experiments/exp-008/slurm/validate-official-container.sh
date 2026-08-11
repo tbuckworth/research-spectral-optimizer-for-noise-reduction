@@ -12,6 +12,12 @@ BENCHMARK=$(realpath "$4")
 EXPECTED=$(realpath "$5")
 OUTPUT=$(realpath -m "$6")
 PROJECT=${NUMERAI_PROJECT:-$(cd "$(dirname "$0")/.." && pwd)}
+if [[ -x "$PROJECT/uv" ]]; then
+  UV_RUNNER="$PROJECT/uv"
+else
+  UV_RUNNER=$(command -v uv || true)
+  [[ -n $UV_RUNNER ]] || { echo "uv executable not found" >&2; exit 1; }
+fi
 for path in "$MODEL" "$LIVE" "$BENCHMARK" "$EXPECTED"; do
   [[ -f $path ]] || { echo "required input missing: $path" >&2; exit 1; }
 done
@@ -27,7 +33,8 @@ if [[ -e "$OUTPUT/official-container-audit.json" ]]; then
 fi
 mkdir -p "$OUTPUT"
 IMAGE="numerai_predict_py_3_12:${RUNNER_COMMIT:0:12}"
-docker build --platform=linux/amd64 --build-arg "GIT_REF=${RUNNER_COMMIT:0:12}" \
+docker build --platform=linux/amd64 --provenance=false \
+  --build-arg "GIT_REF=${RUNNER_COMMIT:0:12}" \
   --tag "$IMAGE" --file "$OFFICIAL_REPO/py3.12/Dockerfile" "$OFFICIAL_REPO"
 IMAGE_ID=$(docker image inspect --format '{{.Id}}' "$IMAGE")
 STARTED=$(date +%s)
@@ -42,7 +49,10 @@ ELAPSED=$(( $(date +%s) - STARTED ))
 mapfile -t GENERATED < <(find "$OUTPUT" -maxdepth 1 -type f -name 'live_predictions-*.csv')
 [[ ${#GENERATED[@]} -eq 1 ]] \
   || { echo "official runner must emit exactly one prediction CSV" >&2; exit 1; }
-"$PROJECT/uv" run --no-sync python -m numerai_competitive.official_container \
-  --expected "$EXPECTED" --official "${GENERATED[0]}" \
-  --output "$OUTPUT/official-container-audit.json" --runner-commit "$RUNNER_COMMIT" \
-  --image-id "$IMAGE_ID" --elapsed-seconds "$ELAPSED" --max-seconds 600
+(
+  cd "$PROJECT"
+  "$UV_RUNNER" run --no-sync python -m numerai_competitive.official_container \
+    --expected "$EXPECTED" --official "${GENERATED[0]}" \
+    --output "$OUTPUT/official-container-audit.json" --runner-commit "$RUNNER_COMMIT" \
+    --image-id "$IMAGE_ID" --elapsed-seconds "$ELAPSED" --max-seconds 600
+)

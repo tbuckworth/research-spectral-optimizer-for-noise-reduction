@@ -83,4 +83,7 @@ commit `2b6eb43612db25bcf047608b4c1fd61cc3ff3c06`. Its content-addressed Docker 
 runtime versions are frozen in `official-runner-snapshot.json`. The image build alone is not a
 compatibility result: the final candidate must still execute on the complete live fixture under
 the one-CPU, 4,000,000,000-byte and 600-second limits, and its output must match the independently
-generated prediction path.
+generated prediction path. The complete wrapper has passed a three-row, two-argument callable
+smoke test through the actual network-disabled container with exactly matching predictions. That
+smoke test caught and corrected desktop `uv` discovery and nondeterministic BuildKit-attestation
+provenance before the final candidate run.
