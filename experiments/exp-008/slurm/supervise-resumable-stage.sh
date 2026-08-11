@@ -6,7 +6,8 @@ if [[ $# -ne 1 ]]; then
   exit 2
 fi
 ORIGINAL_MANIFEST=$1
-PROJECT=/mnt/nw/home/t.buckworth/numerai-competitive
+PROJECT=${NUMERAI_PROJECT:-/mnt/nw/home/t.buckworth/numerai-competitive}
+QUEUE_USER=${NUMERAI_QUEUE_USER:-t.buckworth}
 FEATURES=/mnt/nw/home/t.buckworth/numerai-v5.3-source/features.json
 SEARCH="$PROJECT/configs/search-v1.json"
 LOG="${ORIGINAL_MANIFEST%.tsv}-supervisor.log"
@@ -22,7 +23,7 @@ manifest_jobs_active() {
     if [[ -n ${wanted[$queued]+present} ]]; then
       return 0
     fi
-  done < <(squeue -u t.buckworth -h -o '%i')
+  done < <(squeue -u "$QUEUE_USER" -h -o '%i')
   return 1
 }
 
