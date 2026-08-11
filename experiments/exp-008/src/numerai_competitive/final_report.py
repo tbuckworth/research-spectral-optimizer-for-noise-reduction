@@ -73,13 +73,51 @@ def _comparison_text(comparison: dict) -> str:
             f"P(positive)={comparison['probability_positive']:.3f})")
 
 
+def _selected_config(search: dict, freeze: dict, arm: str) -> dict:
+    selected = freeze.get("selected", {}).get(arm, {})
+    config_id = selected.get("config_id")
+    matches = [config for config in search.get("configs", [])
+               if config.get("arm") == arm and config.get("config_id") == config_id]
+    if len(matches) != 1:
+        raise ValueError(f"{arm}: frozen config is absent or duplicated in search manifest")
+    if selected.get("updates") != 100_000 or selected.get("seeds") != [0, 1, 2]:
+        raise ValueError(f"{arm}: final training horizon or seeds differ from protocol")
+    return matches[0]
+
+
+def _config_rows(configs: dict[str, dict]) -> str:
+    shared = ("config_id", "feature_set", "width", "depth", "activation", "residual",
+              "normalization", "dropout", "batch_mode", "batch_size", "learning_rate",
+              "weight_decay", "schedule", "warmup_fraction", "clip_grad_norm")
+    spectral = ("rank", "decay", "filter_mode", "filter_strength", "filter_warmup",
+                "filter_update_every")
+    keys = shared + spectral
+    rows = []
+    for key in keys:
+        if any(key in config for config in configs.values()):
+            values = "".join(f"<td>{html.escape(str(config.get(key, '—')))}</td>"
+                             for config in configs.values())
+            rows.append(f"<tr><td><code>{html.escape(key)}</code></td>{values}</tr>")
+    return "".join(rows)
+
+
 def build_report(outer_path: Path, validation_path: Path, leaderboard_path: Path,
-                 output: Path) -> dict:
+                 freeze_path: Path, search_path: Path, output: Path) -> dict:
     outer = _load_complete(outer_path, "nested outer")
     validation = _load_complete(validation_path, "official validation")
     leaderboard = _load_complete(leaderboard_path, "leaderboard snapshot")
+    freeze = json.loads(freeze_path.read_text())
+    search = json.loads(search_path.read_text())
     if validation.get("target") != "target_cyrusd_20":
         raise ValueError("official validation report uses an unexpected primary target")
+    if (freeze.get("status") != "frozen" or freeze.get("primary_target") != validation["target"]
+            or freeze.get("search_sha256") != sha256(search_path)
+            or search.get("primary_target") != validation["target"]
+            or search.get("configurations_per_arm") != 40
+            or len(search.get("configs", [])) != 80):
+        raise ValueError("freeze, search space and validation target are inconsistent")
+    selected_configs = {arm: _selected_config(search, freeze, arm)
+                        for arm in ("adamw", "spectral")}
     output.mkdir(parents=True, exist_ok=True)
     plot_path = output / "historical-comparison.png"
     _plot(outer, validation, plot_path)
@@ -92,12 +130,29 @@ def build_report(outer_path: Path, validation_path: Path, leaderboard_path: Path
     outer_delta = _comparison_text(outer["spectral_minus_adamw"])
     validation_delta = _comparison_text(validation["spectral_minus_adamw"])
     candidate_delta = _comparison_text(validation["candidate_minus_ender20"])
+    score_rows = "".join(
+        f"<tr><td>{html.escape(name)}</td><td>{mean:.6f}</td><td>{sharpe:.3f}</td></tr>"
+        for name, mean, sharpe in _score_rows(validation)
+    )
+    config_rows = _config_rows(selected_configs)
     body = f"""<!doctype html><html><body style="font-family:Arial,sans-serif;max-width:920px;
 margin:auto;line-height:1.5;color:#202124"><h1>Numerai optimizer comparison</h1>
 <p><strong>Decision-relevant result.</strong> Nested outer spectral minus AdamW: {outer_delta}.<br>
 Sealed validation spectral minus AdamW: {validation_delta}.<br>
 Sealed validation candidate minus official Ender20 benchmark: {candidate_delta}.</p>
 <img src="historical-comparison.png" alt="Historical comparison" style="max-width:100%">
+<h2>Sealed historical scores</h2><table style="border-collapse:collapse;width:100%">
+<tr><th>Model</th><th>Mean exact era-wise CORR</th><th>CORR Sharpe</th></tr>{score_rows}</table>
+<h2>AdamW optimization and paired spectral test</h2>
+<p>The frozen search contained <strong>40 paired configuration IDs per optimizer</strong>
+(80 arm-specific configurations). Each ID used the same architecture, batches, examples,
+update count and base optimizer hyperparameters in both arms; the spectral arm added only its
+pre-registered filter parameters. Selection used the frozen multi-fidelity schedule
+5,000 → 20,000 → 100,000 updates on chronological development folds, followed by three-seed
+100,000-update refits. Official validation remained sealed until these choices and model hashes
+were frozen.</p><p>Protocol ID: <code>{html.escape(search['protocol'])}</code>.</p>
+<table style="border-collapse:collapse;width:100%"><tr><th>Hyperparameter</th>
+<th>Selected AdamW</th><th>Selected spectral</th></tr>{config_rows}</table>
 <h2>What is directly comparable</h2><p>The AdamW, spectral, candidate and Ender20 values above
 use the same resolved historical rows, target and exact era-wise scorer. Hyperparameters were selected
 without seeing official validation; validation was opened only after the immutable freeze.</p>
@@ -119,6 +174,11 @@ leaderboard rank. Direct leaderboard comparability requires repeated unstaked li
 - Sealed validation spectral minus AdamW: {validation_delta}.
 - Sealed validation candidate minus Ender20: {candidate_delta}.
 
+AdamW was selected from 40 paired configuration IDs using the frozen chronological
+5,000 → 20,000 → 100,000-update multi-fidelity protocol. Final AdamW config:
+`{json.dumps(selected_configs['adamw'], sort_keys=True)}`. Final spectral config:
+`{json.dumps(selected_configs['spectral'], sort_keys=True)}`.
+
 The historical comparisons use the same rows, target and exact scorer. The public round
 {leaderboard['round']} live reputation snapshot is context only: it cannot be converted into a rank for
 historical `target_cyrusd_20`. Repeated unstaked live submissions are required for direct comparability.
@@ -127,12 +187,13 @@ historical `target_cyrusd_20`. Repeated unstaked live submissions are required f
     manifest = {
         "status": "complete", "comparability": "historical-direct_live-context-only",
         "inputs": {str(path): sha256(path) for path in
-                   (outer_path, validation_path, leaderboard_path)},
+                   (outer_path, validation_path, leaderboard_path, freeze_path, search_path)},
         "artifacts": {name: sha256(output / name) for name in
                       ("report.html", "report.md", "historical-comparison.png")},
         "nested_outer_spectral_minus_adamw": outer["spectral_minus_adamw"],
         "validation_spectral_minus_adamw": validation["spectral_minus_adamw"],
         "validation_candidate_minus_ender20": validation["candidate_minus_ender20"],
+        "selected_configs": selected_configs,
     }
     atomic_json(output / "report-manifest.json", manifest)
     return manifest
@@ -143,10 +204,12 @@ def main() -> None:
     parser.add_argument("--outer", type=Path, required=True)
     parser.add_argument("--validation", type=Path, required=True)
     parser.add_argument("--leaderboard", type=Path, required=True)
+    parser.add_argument("--freeze", type=Path, required=True)
+    parser.add_argument("--search", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
-    print(json.dumps(build_report(args.outer, args.validation, args.leaderboard, args.output),
-                     sort_keys=True))
+    print(json.dumps(build_report(args.outer, args.validation, args.leaderboard,
+                                  args.freeze, args.search, args.output), sort_keys=True))
 
 
 if __name__ == "__main__":

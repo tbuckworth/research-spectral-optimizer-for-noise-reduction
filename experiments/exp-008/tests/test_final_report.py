@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 
+from numerai_competitive.data import sha256
 from numerai_competitive.final_report import build_report
 
 
@@ -33,12 +34,31 @@ def test_final_report_keeps_live_and_historical_scales_separate(tmp_path: Path):
         "status": "complete", "round": 9, "retrieved_at": "now",
         "summary": {"rows": 1000, "metrics": {"corr20V2Rep": metric}},
     })
+    search = _write(tmp_path / "search.json", {
+        "protocol": "paired-search", "primary_target": "target_cyrusd_20",
+        "configurations_per_arm": 40,
+        "configs": [
+            {"arm": arm, "config_id": config_id, "width": 512,
+             "learning_rate": 0.001, **({"rank": 32} if arm == "spectral" else {})}
+            for config_id in range(40) for arm in ("adamw", "spectral")
+        ],
+    })
+    freeze = _write(tmp_path / "freeze.json", {
+        "status": "frozen", "primary_target": "target_cyrusd_20",
+        "search_sha256": sha256(search),
+        "selected": {
+            "adamw": {"config_id": 1, "updates": 100_000, "seeds": [0, 1, 2]},
+            "spectral": {"config_id": 4, "updates": 100_000, "seeds": [0, 1, 2]},
+        },
+    })
     output = tmp_path / "report"
-    manifest = build_report(outer, validation, leaderboard, output)
+    manifest = build_report(outer, validation, leaderboard, freeze, search, output)
     assert manifest["comparability"] == "historical-direct_live-context-only"
     html = (output / "report.html").read_text()
     assert "cannot honestly be translated" in html
     assert "target_cyrusd_20" in html
+    assert "40 paired configuration IDs" in html
+    assert "Selected AdamW" in html
     assert (output / "historical-comparison.png").stat().st_size > 1000
     saved = json.loads((output / "report-manifest.json").read_text())
     assert saved["artifacts"] == manifest["artifacts"]

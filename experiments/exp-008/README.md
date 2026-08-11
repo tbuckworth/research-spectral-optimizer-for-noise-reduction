@@ -203,10 +203,13 @@ comparison report:
 uv run python -m numerai_competitive.final_report \
   --outer results/nested-outer/nested-outer-report.json \
   --validation results/official-validation/official-validation-report.json \
-  --leaderboard leaderboard/leaderboard-summary.json --output results/final-report
+  --leaderboard leaderboard/leaderboard-summary.json --freeze results/freeze.json \
+  --search configs/search-v1.json --output results/final-report
 ```
 
 The report directly compares only models scored on the same historical target and eras. It shows
+the exact frozen AdamW and spectral configurations and the 40-pair multi-fidelity search protocol.
+It also shows
 the dated public one-year live reputations in a separate context section and explicitly refuses to
 infer a live rank from historical `target_cyrusd_20` validation CORR.
 

@@ -22,7 +22,7 @@ def _complete_tree(tmp_path: Path) -> tuple[Path, Path]:
     code_files = {}
     for name in ("pyproject.toml", "uv.lock", "fidelity-protocol.md",
                  "src/numerai_competitive/code_snapshot.py",
-                 "src/numerai_competitive/freeze.py"):
+                 "src/numerai_competitive/freeze.py", "configs/search-v1.json"):
         path = _write(tmp_path / name, name.encode())
         code_files[name] = sha256(path)
     code_digest = hashlib.sha256(
@@ -68,9 +68,11 @@ def _complete_tree(tmp_path: Path) -> tuple[Path, Path]:
                         / "model.pt", f"{arm}-{seed}".encode()) for seed in range(3)]
         frozen[arm] = {"config_id": config, "seeds": [0, 1, 2], "updates": 100_000,
                        "model_sha256": [sha256(path) for path in paths]}
+    search = tmp_path / "configs" / "search-v1.json"
     freeze = _write(results / "freeze.json", {
         "status": "frozen", "code_commit": "a" * 40, "primary_target": "target_cyrusd_20",
         "code_snapshot_sha256": sha256(code_snapshot),
+        "search_sha256": sha256(search),
         "candidate_plan_sha256": sha256(candidate), "candidate_transform": selected,
         "selected": frozen,
     })
@@ -120,8 +122,11 @@ def _complete_tree(tmp_path: Path) -> tuple[Path, Path]:
         "status": "complete", "comparability": "historical-direct_live-context-only",
         "inputs": {"outer": sha256(results / "nested-outer" / "nested-outer-report.json"),
                    "validation": sha256(validation_report),
-                   "leaderboard": sha256(leaderboard)},
+                   "leaderboard": sha256(leaderboard), "freeze": sha256(freeze),
+                   "search": sha256(search)},
         "artifacts": {report_html.name: sha256(report_html)},
+        "selected_configs": {"adamw": {"config_id": 1},
+                             "spectral": {"config_id": 4}},
     })
     return results, leaderboard
 

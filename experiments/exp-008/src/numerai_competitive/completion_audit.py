@@ -81,9 +81,11 @@ def audit(results: Path, leaderboard_path: Path, output: Path) -> dict:
     freeze_path = results / "freeze.json"
     freeze = _json(freeze_path, ("frozen",))
     code_snapshot_path = results.parent / "code-snapshot.json"
+    search_path = results.parent / "configs" / "search-v1.json"
     if (not re.fullmatch(r"[0-9a-f]{40}", freeze.get("code_commit", ""))
             or freeze.get("primary_target") != "target_cyrusd_20"
             or freeze.get("code_snapshot_sha256") != sha256(code_snapshot_path)
+            or freeze.get("search_sha256") != sha256(search_path)
             or freeze.get("candidate_plan_sha256") != sha256(candidate_path)
             or freeze.get("candidate_transform") != candidate.get("selected")):
         raise ValueError("freeze provenance or candidate transformation is inconsistent")
@@ -150,9 +152,12 @@ def audit(results: Path, leaderboard_path: Path, output: Path) -> dict:
     if report_manifest.get("comparability") != "historical-direct_live-context-only":
         raise ValueError("final report does not preserve the live comparability boundary")
     expected_report_inputs = {sha256(nested_path), sha256(validation_path),
-                              sha256(leaderboard_path)}
+                              sha256(leaderboard_path), sha256(freeze_path),
+                              sha256(search_path)}
     if set(report_manifest.get("inputs", {}).values()) != expected_report_inputs:
         raise ValueError("final report was not built from the audited result inputs")
+    if report_manifest.get("selected_configs", {}).keys() != {"adamw", "spectral"}:
+        raise ValueError("final report does not expose both selected configurations")
     _verify_named_hashes(report_dir, report_manifest.get("artifacts", {}))
     evidence.update({"leaderboard": sha256(leaderboard_path),
                      "final_report": sha256(report_manifest_path)})
