@@ -10,6 +10,19 @@ import pandas as pd
 from .data import sha256
 
 
+def restrict_candidates(scores: pd.DataFrame, config_ids: list[int] | None) -> pd.DataFrame:
+    """Restrict a larger fidelity-stage table to a preregistered paired union."""
+    if config_ids is None:
+        return scores
+    if not config_ids or len(config_ids) != len(set(config_ids)) or min(config_ids) < 0:
+        raise ValueError("config IDs must be a non-empty unique non-negative list")
+    selected = scores[scores["config_id"].isin(config_ids)].copy()
+    observed = set(selected["config_id"].astype(int))
+    if observed != set(config_ids):
+        raise ValueError(f"requested config IDs missing from scores: {sorted(set(config_ids) - observed)}")
+    return selected
+
+
 def select_budgeted_configs(scores: pd.DataFrame, top: int) -> dict[str, list[dict[str, int]]]:
     """Select arm-specific ``(config_id, updates)`` candidates with equal coverage.
 
@@ -72,14 +85,17 @@ def main() -> None:
     parser.add_argument("--scores", type=Path, nargs="+", required=True)
     parser.add_argument("--top", type=int, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--config-id", type=int, nargs="+")
     args = parser.parse_args()
     frame = pd.concat([pd.read_csv(path) for path in args.scores], ignore_index=True)
+    frame = restrict_candidates(frame, args.config_id)
     payload = {
         "status": "development_budget_sensitivity_selection",
         "criterion": (
             "descending mean exact standalone CORR; worst-cell, config-id, then update-budget ties"
         ),
         "top": args.top,
+        "config_ids": args.config_id,
         "score_files": [str(path) for path in args.scores],
         "score_sha256": {str(path): sha256(path) for path in args.scores},
         "selected": select_budgeted_configs(frame, args.top),
