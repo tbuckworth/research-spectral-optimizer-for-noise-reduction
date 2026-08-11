@@ -8,6 +8,7 @@ OUTER_AUDIT = Path(__file__).parents[1] / "slurm" / "audit-outer-when-ready.sh"
 SUBMIT_STAGE = Path(__file__).parents[1] / "slurm" / "submit-stage.sh"
 SUBMIT_SELECTED = Path(__file__).parents[1] / "slurm" / "submit-selected.sh"
 LAUNCH_OUTER = Path(__file__).parents[1] / "slurm" / "launch-outer.sh"
+SUBMIT_REFIT = Path(__file__).parents[1] / "slurm" / "submit-refit.sh"
 PROMOTERS = [
     Path(__file__).parents[1] / "slurm" / name
     for name in (
@@ -113,6 +114,28 @@ def test_outer_submit_validates_both_winners_before_any_sbatch(tmp_path):
     selection.write_text('{"selected":{"adamw":[7],"spectral":[8]}}')
     completed = subprocess.run(
         ["bash", OUTER_SUBMIT, selection, "outer_1", "100000", "1", "0,1,2"],
+        env=env, check=True, capture_output=True, text=True,
+    )
+    assert len(completed.stdout.splitlines()) == 6
+    assert len(calls.read_text().splitlines()) == 6
+
+
+def test_refit_submit_validates_both_winners_before_any_sbatch(tmp_path):
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    calls = tmp_path / "sbatch-calls"
+    _executable(fake_bin / "sbatch", f'printf "%s\\n" "$*" >> "{calls}"\necho 9000\n')
+    env = os.environ | {"PATH": f"{fake_bin}:{os.environ['PATH']}"}
+    selection = tmp_path / "selection.json"
+    selection.write_text('{"selected":{"adamw":[7],"spectral":[]}}')
+    failed = subprocess.run(
+        ["bash", SUBMIT_REFIT, selection, "100000", "1", "0,1,2"],
+        env=env, check=False, capture_output=True, text=True,
+    )
+    assert failed.returncode != 0 and not calls.exists()
+    selection.write_text('{"selected":{"adamw":[7],"spectral":[8]}}')
+    completed = subprocess.run(
+        ["bash", SUBMIT_REFIT, selection, "100000", "1", "0,1,2"],
         env=env, check=True, capture_output=True, text=True,
     )
     assert len(completed.stdout.splitlines()) == 6

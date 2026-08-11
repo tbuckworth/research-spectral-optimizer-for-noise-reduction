@@ -10,6 +10,7 @@ PROJECT=${NUMERAI_PROJECT:-/mnt/nw/home/t.buckworth/numerai-competitive}
 SELECTION="$PROJECT/results/selection-final-outer-winner-union.json"
 MANIFEST="$PROJECT/results/submission-final-selection-u100000.tsv"
 SUPERVISOR_SESSION=numerai-final-selection-supervisor
+PROMOTE_SESSION=numerai-final-selection-promote
 OUTER_SELECTIONS=()
 OUTER_AUDITS=()
 for OUTER_NUMBER in 1 2 3; do
@@ -24,7 +25,8 @@ for PATH_REQUIRED in "${OUTER_SELECTIONS[@]}" "${OUTER_AUDITS[@]}"; do
   fi
 done
 if [[ -e "$SELECTION" || -e "$MANIFEST" || -e "${MANIFEST}.tmp" ]] \
-    || tmux has-session -t "$SUPERVISOR_SESSION" 2>/dev/null; then
+    || tmux has-session -t "$SUPERVISOR_SESSION" 2>/dev/null \
+    || tmux has-session -t "$PROMOTE_SESSION" 2>/dev/null; then
   echo "final selection artifact, manifest or supervisor already exists" >&2
   exit 1
 fi
@@ -62,6 +64,8 @@ LAST_SUBMITTED=$(awk -F $'\t' '$1 != 0 {value=$1} END {sub(/;.*/, "", value); pr
 [[ $LAST_SUBMITTED =~ ^[0-9]+$ ]] || LAST_SUBMITTED=$DEPENDENCY_JOB
 tmux new-session -d -s "$SUPERVISOR_SESSION" \
   "NUMERAI_SUMMARY_PREFIX=final- bash '$PROJECT/slurm/supervise-resumable-stage.sh' '$MANIFEST' --selection '$SELECTION'"
+tmux new-session -d -s "$PROMOTE_SESSION" \
+  "bash '$PROJECT/slurm/promote-final-selection-when-ready.sh' '$LAST_SUBMITTED'"
 printf '%s launched final canonical selection union=%s dependency=%s last_submitted=%s\n' \
   "$(date -Is)" "$EXPECTED" "$DEPENDENCY_JOB" "$LAST_SUBMITTED" \
   >> "$PROJECT/results/launch-final-selection.log"
