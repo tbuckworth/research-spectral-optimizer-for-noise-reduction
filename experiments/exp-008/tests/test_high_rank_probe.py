@@ -15,7 +15,7 @@ def _write(path, value):
 def test_probe_audit_requires_realized_rank_and_safe_measured_memory(tmp_path):
     extension = _write(tmp_path / "extension.json", {
         "status": "development_only_high_rank_extension",
-        "configs": [{"config_id": 10512, "rank": 512,
+        "configs": [{"config_id": 10512, "rank": 512, "arm": "spectral",
                      "required_probe_updates": 1024, "memory_screen": {
             "analytically_feasible_48gb": True, "parameter_count": 100,
         }}],
@@ -43,7 +43,8 @@ def test_probe_audit_requires_realized_rank_and_safe_measured_memory(tmp_path):
 def test_probe_audit_records_when_no_rank_is_analytically_feasible(tmp_path):
     extension = _write(tmp_path / "extension.json", {
         "status": "development_only_high_rank_extension",
-        "configs": [{"config_id": 11024, "rank": 1024, "memory_screen": {
+        "configs": [{"config_id": 11024, "rank": 1024, "arm": "spectral",
+                     "memory_screen": {
             "analytically_feasible_48gb": False, "parameter_count": 10_000_000,
         }}],
     })

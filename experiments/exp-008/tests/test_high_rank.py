@@ -16,6 +16,8 @@ def test_high_rank_extension_clones_only_selected_spectral_draw(tmp_path):
     search.write_text(json.dumps({
         "primary_target": "target_cyrusd_20", "primary_metric": "standalone_exact_corr",
         "configs": [
+            {"arm": "adamw", "config_id": 4, "width": 512, "depth": 2,
+             "feature_set": "medium", "normalization": "none"},
             {"arm": "spectral", "config_id": 4, "rank": 256, "width": 512,
              "depth": 2, "feature_set": "medium", "normalization": "none",
              "filter_update_every": 2, "filter_warmup": 100},
@@ -29,17 +31,25 @@ def test_high_rank_extension_clones_only_selected_spectral_draw(tmp_path):
     output = tmp_path / "extension.json"
     report = create_extension(search, selection, [1024, 512], output)
     assert report["ranks"] == [512, 1024]
-    assert [config["width"] for config in report["configs"]] == [512, 512]
-    assert [config["config_id"] for config in report["configs"]] == [10512, 11024]
+    assert [config["width"] for config in report["configs"]] == [512] * 4
+    assert [config["config_id"] for config in report["configs"]] == [
+        10512, 10512, 11024, 11024,
+    ]
+    assert [config["arm"] for config in report["configs"]] == [
+        "adamw", "spectral", "adamw", "spectral",
+    ]
     assert report["source_search_sha256"] == sha256(search)
-    assert all(config["memory_screen"]["probe_required"] for config in report["configs"])
-    assert [config["required_probe_updates"] for config in report["configs"]] == [1025, 2049]
+    spectral = [config for config in report["configs"] if config["arm"] == "spectral"]
+    assert all(config["memory_screen"]["probe_required"] for config in spectral)
+    assert [config["required_probe_updates"] for config in spectral] == [1025, 2049]
     assert json.loads(output.read_text()) == report
 
 
 def test_high_rank_extension_rejects_non_extension_rank(tmp_path):
     search = tmp_path / "search.json"
     search.write_text(json.dumps({"configs": [
+        {"arm": "adamw", "config_id": 1, "width": 512, "depth": 2,
+         "feature_set": "medium", "normalization": "none"},
         {"arm": "spectral", "config_id": 1, "rank": 256, "width": 512,
          "depth": 2, "feature_set": "medium", "normalization": "none",
          "filter_update_every": 1, "filter_warmup": 100},

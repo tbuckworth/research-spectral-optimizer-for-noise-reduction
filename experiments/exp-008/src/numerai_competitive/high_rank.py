@@ -62,21 +62,29 @@ def create_extension(search_path: Path, selection_path: Path, ranks: list[int],
         raise ValueError("high-rank extension requires one selected spectral config")
     source_id = selected[0]
     matches = [draw for draw in search.get("configs", [])
-               if draw.get("arm") == "spectral" and draw.get("config_id") == source_id]
-    if len(matches) != 1:
-        raise ValueError("selected spectral config is absent or duplicated")
-    source = matches[0]
+               if draw.get("config_id") == source_id]
+    spectral_matches = [draw for draw in matches if draw.get("arm") == "spectral"]
+    adamw_matches = [draw for draw in matches if draw.get("arm") == "adamw"]
+    if len(spectral_matches) != 1 or len(adamw_matches) != 1:
+        raise ValueError("selected config lacks one AdamW/spectral pair")
+    source, adamw_source = spectral_matches[0], adamw_matches[0]
+    for key, value in adamw_source.items():
+        if key not in {"arm", "config_id"} and source.get(key) != value:
+            raise ValueError("selected AdamW/spectral pair changes non-filter settings")
     if (not ranks or len(ranks) != len(set(ranks))
             or any(not isinstance(rank, int) or rank <= source["rank"] for rank in ranks)):
         raise ValueError("extension ranks must be unique integers above the selected rank")
     configs = []
     for rank in sorted(ranks):
-        config = dict(source)
-        config.update({"config_id": 10_000 + rank, "rank": rank,
-                       "source_config_id": source_id,
-                       "memory_screen": memory_estimate(source, rank),
-                       "required_probe_updates": required_probe_updates(source, rank)})
-        configs.append(config)
+        config_id = 10_000 + rank
+        adamw = dict(adamw_source)
+        adamw.update({"config_id": config_id, "source_config_id": source_id})
+        spectral = dict(source)
+        spectral.update({"config_id": config_id, "rank": rank,
+                         "source_config_id": source_id,
+                         "memory_screen": memory_estimate(source, rank),
+                         "required_probe_updates": required_probe_updates(source, rank)})
+        configs.extend([adamw, spectral])
     report = {
         "status": "development_only_high_rank_extension",
         "selection_role": "eligible before freeze; official validation remains sealed",

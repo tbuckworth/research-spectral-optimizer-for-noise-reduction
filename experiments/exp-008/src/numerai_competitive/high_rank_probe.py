@@ -17,7 +17,8 @@ def audit_probes(extension_path: Path, result_paths: list[Path], output: Path,
         raise ValueError("high-rank extension manifest is incomplete")
     expected = {
         config["config_id"]: config for config in extension.get("configs", [])
-        if config["memory_screen"]["analytically_feasible_48gb"]
+        if config.get("arm") == "spectral"
+        and config["memory_screen"]["analytically_feasible_48gb"]
     }
     if not expected:
         report = {
