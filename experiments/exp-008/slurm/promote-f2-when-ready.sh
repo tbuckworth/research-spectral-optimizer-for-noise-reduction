@@ -12,23 +12,35 @@ MANIFEST="$PROJECT/results/submission-outer_1-eval-u100000.tsv"
 OUTPUT="$PROJECT/results/audit-outer_1-u100000"
 LOG="$PROJECT/results/promote-outer_1-f2.log"
 SUMMARIES=()
+MARKERS=()
 for SPLIT in outer_1_inner_1 outer_1_inner_2; do
   for SEED in 0 1 2; do
     SUMMARIES+=("$PROJECT/results/summary-${SPLIT}-u100000-s${SEED}/scores.csv")
+    MARKERS+=("$PROJECT/results/summary-${SPLIT}-u100000-s${SEED}/summary-complete.json")
   done
 done
 
 while true; do
   missing=0
-  for summary in "${SUMMARIES[@]}"; do
-    [[ -f "$summary" ]] || missing=$((missing + 1))
+  for marker in "${MARKERS[@]}"; do
+    [[ -f "$marker" ]] || missing=$((missing + 1))
   done
   [[ $missing -eq 0 ]] && break
+  if ! tmux has-session -t numerai-f2-supervisor 2>/dev/null; then
+    echo "F2 supervisor exited without all audited completion markers" >&2
+    exit 1
+  fi
   printf '%s waiting for %s audited F2 summaries\n' "$(date -Is)" "$missing" >> "$LOG"
   sleep 60
 done
 
 cd "$PROJECT"
+if [[ -e "$SELECTION" || -e "$MANIFEST" || -e "${MANIFEST}.tmp" ]] \
+    || tmux has-session -t numerai-outer1-supervisor 2>/dev/null \
+    || tmux has-session -t numerai-outer1-audit 2>/dev/null; then
+  echo "outer selection, manifest, temporary file or supervisor session already exists" >&2
+  exit 1
+fi
 "$PROJECT/uv" run --no-sync python -m numerai_competitive.select_configs \
   --scores "${SUMMARIES[@]}" --top 1 --output "$SELECTION"
 TEMPORARY="${MANIFEST}.tmp"

@@ -8,11 +8,12 @@ fi
 ENVIRONMENT_JOB=$1
 PROJECT=/mnt/nw/home/t.buckworth/numerai-competitive
 SUMMARY="$PROJECT/results/summary-outer_1_inner_1-u5000-s0/scores.csv"
+SUMMARY_MARKER="$PROJECT/results/summary-outer_1_inner_1-u5000-s0/summary-complete.json"
 SELECTION="$PROJECT/results/selection-outer_1-f0-top12.json"
 MANIFEST="$PROJECT/results/submission-outer_1-f1-u20000-s0.tsv"
 LOG="$PROJECT/results/promote-outer_1-f0.log"
 
-while [[ ! -f "$SUMMARY" ]]; do
+while [[ ! -f "$SUMMARY_MARKER" ]]; do
   printf '%s waiting for audited F0 summary\n' "$(date -Is)" >> "$LOG"
   sleep 60
 done

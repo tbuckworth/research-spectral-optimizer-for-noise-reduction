@@ -9,16 +9,29 @@ DEPENDENCY_JOB=$1
 PROJECT=/mnt/nw/home/t.buckworth/numerai-competitive
 SUMMARY_1="$PROJECT/results/summary-outer_1_inner_1-u20000-s0/scores.csv"
 SUMMARY_2="$PROJECT/results/summary-outer_1_inner_2-u20000-s0/scores.csv"
+MARKER_1="$PROJECT/results/summary-outer_1_inner_1-u20000-s0/summary-complete.json"
+MARKER_2="$PROJECT/results/summary-outer_1_inner_2-u20000-s0/summary-complete.json"
 SELECTION="$PROJECT/results/selection-outer_1-f1-top4.json"
 MANIFEST="$PROJECT/results/submission-outer_1-f2-u100000.tsv"
 LOG="$PROJECT/results/promote-outer_1-f1.log"
 
-while [[ ! -f "$SUMMARY_1" || ! -f "$SUMMARY_2" ]]; do
+while [[ ! -f "$MARKER_1" || ! -f "$MARKER_2" ]]; do
+  if { [[ ! -f "$MARKER_1" ]] && ! tmux has-session -t numerai-f1-inner1 2>/dev/null; } \
+      || { [[ ! -f "$MARKER_2" ]] && ! tmux has-session -t numerai-f1-inner2 2>/dev/null; }; then
+    echo "an F1 monitor exited without an audited completion marker" >&2
+    exit 1
+  fi
   printf '%s waiting for both audited F1 summaries\n' "$(date -Is)" >> "$LOG"
   sleep 60
 done
 
 cd "$PROJECT"
+if [[ -e "$SELECTION" || -e "$MANIFEST" || -e "${MANIFEST}.tmp" ]] \
+    || tmux has-session -t numerai-f2-supervisor 2>/dev/null \
+    || tmux has-session -t numerai-f2-promote 2>/dev/null; then
+  echo "F2 selection, manifest, temporary file or supervisor session already exists" >&2
+  exit 1
+fi
 "$PROJECT/uv" run --no-sync python -m numerai_competitive.select_configs \
   --scores "$SUMMARY_1" "$SUMMARY_2" --top 4 --output "$SELECTION"
 EXPECTED=$(python3 -c \

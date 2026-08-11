@@ -3,6 +3,7 @@ import subprocess
 from pathlib import Path
 
 SCRIPT = Path(__file__).parents[1] / "slurm" / "supervise-resumable-stage.sh"
+OUTER_SUBMIT = Path(__file__).parents[1] / "slurm" / "submit-outer-eval.sh"
 
 
 def _executable(path: Path, body: str) -> None:
@@ -66,3 +67,36 @@ def test_supervisor_can_defer_nonpaired_outer_summary(tmp_path):
     assert not (project / "uv-calls").exists()
     log = manifest.with_name("submission-supervisor.log").read_text()
     assert "stage complete; downstream audit required (retries=0)" in log
+
+
+def test_outer_submit_validates_both_winners_before_any_sbatch(tmp_path):
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    calls = tmp_path / "sbatch-calls"
+    _executable(fake_bin / "sbatch", f'printf "%s\\n" "$*" >> "{calls}"\necho 9000\n')
+    env = os.environ | {"PATH": f"{fake_bin}:{os.environ['PATH']}"}
+    selection = tmp_path / "selection.json"
+    selection.write_text('{"selected":{"adamw":[7],"spectral":[]}}')
+    failed = subprocess.run(
+        ["bash", OUTER_SUBMIT, selection, "outer_1", "100000", "1", "0,1,2"],
+        env=env, check=False, capture_output=True, text=True,
+    )
+    assert failed.returncode != 0 and not calls.exists()
+    selection.write_text('{"selected":{"adamw":[7],"spectral":[8]}}')
+    completed = subprocess.run(
+        ["bash", OUTER_SUBMIT, selection, "outer_1", "100000", "1", "0,1,2"],
+        env=env, check=True, capture_output=True, text=True,
+    )
+    assert len(completed.stdout.splitlines()) == 6
+    assert len(calls.read_text().splitlines()) == 6
+
+
+def test_supervisor_refuses_to_treat_squeue_failure_as_completion(tmp_path):
+    project, manifest, env = _project(tmp_path, complete=True)
+    _executable(Path(env["PATH"].split(":", 1)[0]) / "squeue", "exit 7\n")
+    failed = subprocess.run(
+        ["bash", SCRIPT, manifest], env=env, check=False, capture_output=True, text=True,
+    )
+    assert failed.returncode != 0
+    assert "refusing to infer" in failed.stderr
+    assert not (project / "uv-calls").exists()

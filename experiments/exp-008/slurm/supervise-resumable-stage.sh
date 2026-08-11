@@ -17,14 +17,20 @@ RETRY=0
 
 manifest_jobs_active() {
   declare -A wanted=()
+  local queued_jobs
   while IFS=$'\t' read -r job _rest; do
     wanted["${job%%;*}"]=1
   done < "$CURRENT_MANIFEST"
+  if ! queued_jobs=$(squeue -u "$QUEUE_USER" -h -o '%i'); then
+    echo "squeue failed; refusing to infer that submitted tasks ended" >&2
+    exit 1
+  fi
   while read -r queued; do
+    [[ -n $queued ]] || continue
     if [[ -n ${wanted[$queued]+present} ]]; then
       return 0
     fi
-  done < <(squeue -u "$QUEUE_USER" -h -o '%i')
+  done <<< "$queued_jobs"
   return 1
 }
 

@@ -38,6 +38,10 @@ def test_collect_and_plot_complete_paired_stage(tmp_path):
     assert len(frame) == 4
     assert frame["result_sha256"].str.len().eq(64).all()
     assert (tmp_path / "summary" / "paired-corr.png").is_file()
+    marker = json.loads((tmp_path / "summary" / "summary-complete.json").read_text())
+    assert marker["status"] == "complete" and set(marker["artifacts"]) == {
+        "scores.csv", "paired-corr.csv", "paired-corr.png",
+    }
 
 
 def test_collect_rejects_incomplete_stage(tmp_path):

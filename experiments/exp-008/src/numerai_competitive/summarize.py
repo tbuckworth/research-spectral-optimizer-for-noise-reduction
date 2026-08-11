@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 from pathlib import Path
 
@@ -11,7 +12,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from .data import _load_features, sha256
+from .data import _load_features, atomic_json, sha256
 from .materialize import materialize_config
 
 TASK = re.compile(
@@ -130,10 +131,17 @@ def collect_stage(results: Path, *, split: str, updates: int, seed: int,
 
 def write_summary(frame: pd.DataFrame, output: Path) -> None:
     output.mkdir(parents=True, exist_ok=True)
-    frame.to_csv(output / "scores.csv", index=False)
+    (output / "summary-complete.json").unlink(missing_ok=True)
+    scores = output / "scores.csv"
+    scores_tmp = output / "scores.csv.tmp"
+    frame.to_csv(scores_tmp, index=False)
+    os.replace(scores_tmp, scores)
     paired = frame.pivot(index="config_id", columns="arm", values="corr_mean")
     paired["spectral_minus_adamw"] = paired["spectral"] - paired["adamw"]
-    paired.to_csv(output / "paired-corr.csv")
+    paired_path = output / "paired-corr.csv"
+    paired_tmp = output / "paired-corr.csv.tmp"
+    paired.to_csv(paired_tmp)
+    os.replace(paired_tmp, paired_path)
     fig, axes = plt.subplots(1, 2, figsize=(11, 4.5))
     axes[0].scatter(paired["adamw"], paired["spectral"], alpha=0.8)
     low, high = paired[["adamw", "spectral"]].min().min(), paired[["adamw", "spectral"]].max().max()
@@ -144,8 +152,15 @@ def write_summary(frame: pd.DataFrame, output: Path) -> None:
     axes[1].axhline(0, color="black", linewidth=1)
     axes[1].set(ylabel="Spectral − AdamW CORR", title="Per-configuration delta")
     fig.tight_layout()
-    fig.savefig(output / "paired-corr.png", dpi=180)
+    plot = output / "paired-corr.png"
+    plot_tmp = output / "paired-corr.png.tmp"
+    fig.savefig(plot_tmp, dpi=180, format="png")
     plt.close(fig)
+    os.replace(plot_tmp, plot)
+    atomic_json(output / "summary-complete.json", {
+        "status": "complete", "rows": len(frame),
+        "artifacts": {path.name: sha256(path) for path in (scores, paired_path, plot)},
+    })
 
 
 def main() -> None:

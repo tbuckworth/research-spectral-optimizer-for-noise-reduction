@@ -16,6 +16,12 @@ if [[ ! $SPLIT_NAME =~ ^outer_[123]$ ]]; then
   echo "outer split must be outer_1, outer_2 or outer_3" >&2
   exit 1
 fi
+if [[ ! $UPDATES =~ ^[0-9]+$ || $UPDATES -ne 100000 \
+    || ${SEEDS[*]} != "0 1 2" || ! $DEPENDENCY =~ ^[0-9]+$ ]]; then
+  echo "outer evaluation requires 100000 updates, seeds 0,1,2 and a numeric dependency" >&2
+  exit 1
+fi
+declare -A WINNERS=()
 for TASK_ARM in adamw spectral; do
   mapfile -t IDS < <(python3 -c \
     'import json,sys; print(*json.load(open(sys.argv[1]))["selected"][sys.argv[2]], sep="\n")' \
@@ -24,7 +30,14 @@ for TASK_ARM in adamw spectral; do
     echo "$TASK_ARM selection must contain exactly one config ID" >&2
     exit 1
   fi
-  CONFIG_ID=${IDS[0]}
+  if [[ ! ${IDS[0]} =~ ^[0-9]+$ ]]; then
+    echo "$TASK_ARM selection contains a non-numeric config ID" >&2
+    exit 1
+  fi
+  WINNERS[$TASK_ARM]=${IDS[0]}
+done
+for TASK_ARM in adamw spectral; do
+  CONFIG_ID=${WINNERS[$TASK_ARM]}
   for SEED in "${SEEDS[@]}"; do
     TASK_NAME="stage-${SPLIT_NAME}-u${UPDATES}-s${SEED}-${TASK_ARM}-c${CONFIG_ID}"
     JOB_ID=$(sbatch --parsable --job-name="n8-out-${TASK_ARM:0:1}-${SEED}" \
