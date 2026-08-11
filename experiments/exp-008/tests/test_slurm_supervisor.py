@@ -4,6 +4,15 @@ from pathlib import Path
 
 SCRIPT = Path(__file__).parents[1] / "slurm" / "supervise-resumable-stage.sh"
 OUTER_SUBMIT = Path(__file__).parents[1] / "slurm" / "submit-outer-eval.sh"
+OUTER_AUDIT = Path(__file__).parents[1] / "slurm" / "audit-outer-when-ready.sh"
+PROMOTERS = [
+    Path(__file__).parents[1] / "slurm" / name
+    for name in (
+        "promote-f0-when-ready.sh",
+        "promote-f1-when-ready.sh",
+        "promote-f2-when-ready.sh",
+    )
+]
 
 
 def _executable(path: Path, body: str) -> None:
@@ -100,3 +109,36 @@ def test_supervisor_refuses_to_treat_squeue_failure_as_completion(tmp_path):
     assert failed.returncode != 0
     assert "refusing to infer" in failed.stderr
     assert not (project / "uv-calls").exists()
+
+
+def test_outer_2_audit_watches_its_own_supervisor(tmp_path):
+    project = tmp_path / "project"
+    (project / "results").mkdir(parents=True)
+    manifest = project / "results" / "outer.tsv"
+    manifest.write_text("1\touter_2\t100000\t0\tadamw\t7\n")
+    selection = project / "selection.json"
+    selection.write_text('{}')
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    calls = tmp_path / "tmux-calls"
+    _executable(fake_bin / "tmux", f'printf "%s\\n" "$*" >> "{calls}"\nexit 1\n')
+    env = os.environ | {
+        "NUMERAI_PROJECT": str(project),
+        "PATH": f"{fake_bin}:{os.environ['PATH']}",
+    }
+    failed = subprocess.run(
+        ["bash", OUTER_AUDIT, manifest, selection, "outer_2", project / "audit"],
+        env=env, check=False, capture_output=True, text=True,
+    )
+    assert failed.returncode != 0
+    assert "outer supervisor exited" in failed.stderr
+    assert "has-session -t numerai-outer2-supervisor" in calls.read_text()
+
+
+def test_outer_promoters_accept_only_named_outer_splits(tmp_path):
+    for script in PROMOTERS:
+        failed = subprocess.run(
+            ["bash", script, "1", "outer_4"], check=False, capture_output=True, text=True,
+        )
+        assert failed.returncode != 0
+        assert "outer split must be" in failed.stderr

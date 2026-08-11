@@ -9,8 +9,18 @@ MANIFEST=$1
 SELECTION=$2
 OUTER_SPLIT=$3
 OUTPUT=$4
-PROJECT=/mnt/nw/home/t.buckworth/numerai-competitive
+PROJECT=${NUMERAI_PROJECT:-/mnt/nw/home/t.buckworth/numerai-competitive}
 LOG="${MANIFEST%.tsv}-audit.log"
+if [[ ! $OUTER_SPLIT =~ ^outer_[123]$ ]]; then
+  echo "outer split must be outer_1, outer_2 or outer_3" >&2
+  exit 1
+fi
+OUTER_NUMBER=${OUTER_SPLIT#outer_}
+if [[ $OUTER_NUMBER == 1 ]]; then
+  SUPERVISOR_SESSION=numerai-outer1-supervisor
+else
+  SUPERVISOR_SESSION="numerai-outer${OUTER_NUMBER}-supervisor"
+fi
 
 while IFS=$'\t' read -r _job split updates seed arm config_id extra; do
   if [[ -n ${extra:-} || -z ${config_id:-} ]]; then
@@ -26,7 +36,7 @@ while true; do
     [[ -f "$result" ]] || missing=$((missing + 1))
   done < "$MANIFEST"
   [[ $missing -eq 0 ]] && break
-  if ! tmux has-session -t numerai-outer1-supervisor 2>/dev/null; then
+  if ! tmux has-session -t "$SUPERVISOR_SESSION" 2>/dev/null; then
     sleep 2
     missing_after_exit=0
     while IFS=$'\t' read -r _job split updates seed arm config_id _extra; do

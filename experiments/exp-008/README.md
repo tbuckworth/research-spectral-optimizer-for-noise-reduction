@@ -38,8 +38,11 @@ bash slurm/submit-selected.sh SELECTION.json 20000 0 ENV_JOB_ID SPLIT...
 ```
 
 `promote-f0-when-ready.sh` waits for the audited F0 table before submitting F1.
-`promote-f1-when-ready.sh` likewise requires both audited F1 temporal-fold tables, selects the
+`promote-f1-when-ready.sh` likewise requires every audited F1 temporal-fold table, selects the
 top-four paired union, and submits the exact three-seed F2 manifest.
+All three promotion scripts accept an optional `outer_1`, `outer_2`, or `outer_3` argument and
+derive the required two, three, or four eligible inner folds. Fold-specific monitor, supervisor,
+selection, manifest, and audit names prevent one outer procedure from satisfying another's gate.
 
 Submission scripts print tab-separated job provenance. `monitor-stage.sh` refuses incomplete
 coverage and dependency failures. GPU jobs use the dependency-built environment with `--no-sync`
