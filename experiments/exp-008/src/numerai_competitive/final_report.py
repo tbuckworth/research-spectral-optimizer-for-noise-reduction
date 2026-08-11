@@ -108,13 +108,16 @@ def build_report(outer_path: Path, validation_path: Path, leaderboard_path: Path
     leaderboard = _load_complete(leaderboard_path, "leaderboard snapshot")
     freeze = json.loads(freeze_path.read_text())
     search = json.loads(search_path.read_text())
+    high_rank_ids = search.get("high_rank_config_ids", [])
+    base_per_arm = search.get("configurations_per_arm")
     if validation.get("target") != "target_cyrusd_20":
         raise ValueError("official validation report uses an unexpected primary target")
     if (freeze.get("status") != "frozen" or freeze.get("primary_target") != validation["target"]
             or freeze.get("search_sha256") != sha256(search_path)
             or search.get("primary_target") != validation["target"]
-            or search.get("configurations_per_arm") != 40
-            or len(search.get("configs", [])) != 80):
+            or search.get("status") != "development_only_augmented_search"
+            or base_per_arm != 40 or not high_rank_ids
+            or len(search.get("configs", [])) != 2 * (base_per_arm + len(high_rank_ids))):
         raise ValueError("freeze, search space and validation target are inconsistent")
     selected_configs = {arm: _selected_config(search, freeze, arm)
                         for arm in ("adamw", "spectral")}
@@ -144,10 +147,14 @@ Sealed validation candidate minus official Ender20 benchmark: {candidate_delta}.
 <h2>Sealed historical scores</h2><table style="border-collapse:collapse;width:100%">
 <tr><th>Model</th><th>Mean exact era-wise CORR</th><th>CORR Sharpe</th></tr>{score_rows}</table>
 <h2>AdamW optimization and paired spectral test</h2>
-<p>The frozen search contained <strong>40 paired configuration IDs per optimizer</strong>
-(80 arm-specific configurations). Each ID used the same architecture, batches, examples,
+<p>The base search contained <strong>40 paired configuration IDs per optimizer</strong>.
+Before any outer or official-validation reveal, an audited amendment added
+<strong>{len(high_rank_ids)} GPU-feasible high-rank spectral variants</strong> of one
+development-selected architecture. Each ID used the same architecture, batches, examples,
 update count and base optimizer hyperparameters in both arms; the spectral arm added only its
-pre-registered filter parameters. Selection used the frozen multi-fidelity schedule
+pre-registered filter parameters. Identical AdamW controls were not redundantly retrained for
+every rank during F2, but every final winner was cross-evaluated in both arms. Selection used the
+documented multi-fidelity schedule
 5,000 → 20,000 → 100,000 updates on chronological development folds, followed by three-seed
 100,000-update refits. Official validation remained sealed until these choices and model hashes
 were frozen.</p><p>Protocol ID: <code>{html.escape(search['protocol'])}</code>.</p>
@@ -174,7 +181,7 @@ leaderboard rank. Direct leaderboard comparability requires repeated unstaked li
 - Sealed validation spectral minus AdamW: {validation_delta}.
 - Sealed validation candidate minus Ender20: {candidate_delta}.
 
-AdamW was selected from 40 paired configuration IDs using the frozen chronological
+AdamW was selected from 40 base paired configuration IDs using the chronological
 5,000 → 20,000 → 100,000-update multi-fidelity protocol. Final AdamW config:
 `{json.dumps(selected_configs['adamw'], sort_keys=True)}`. Final spectral config:
 `{json.dumps(selected_configs['spectral'], sort_keys=True)}`.
