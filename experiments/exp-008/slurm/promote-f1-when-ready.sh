@@ -65,7 +65,7 @@ if [[ -e "$SELECTION" || -e "$BASE_SELECTION" || -e "$MANIFEST" || -e "${MANIFES
 fi
 "$PROJECT/uv" run --no-sync python -m numerai_competitive.select_configs \
   --scores "${SUMMARIES[@]}" --top 4 --output "$BASE_SELECTION"
-HIGH_RANK_SEARCH="$PROJECT/configs/search-v1-high-rank.json"
+HIGH_RANK_SEARCH="$PROJECT/results/search-v1-high-rank.json"
 if [[ $OUTER_NUMBER == 1 ]]; then
   bash "$PROJECT/slurm/prepare-high-rank-search.sh" "$DEPENDENCY_JOB" "${SUMMARIES[@]}"
 elif [[ ! -f $HIGH_RANK_SEARCH ]]; then

@@ -424,8 +424,7 @@ def test_sealed_evaluation_submits_only_after_refit_audit_and_candidate(tmp_path
     results = project / "results"
     (results / "audit-final-refits-u100000").mkdir(parents=True)
     (project / "slurm").mkdir()
-    (project / "configs").mkdir()
-    (project / "configs" / "search-v1-high-rank.json").write_text("{}")
+    (results / "search-v1-high-rank.json").write_text("{}")
     (results / "selection-final-top1.json").write_text(json.dumps({
         "selected": {"adamw": [7], "spectral": [8]},
     }))
@@ -468,8 +467,7 @@ def test_sealed_evaluation_refuses_disagreeing_refit_audit_before_sbatch(tmp_pat
     results = project / "results"
     (results / "audit-final-refits-u100000").mkdir(parents=True)
     (project / "slurm").mkdir()
-    (project / "configs").mkdir()
-    (project / "configs" / "search-v1-high-rank.json").write_text("{}")
+    (results / "search-v1-high-rank.json").write_text("{}")
     (results / "selection-final-top1.json").write_text(json.dumps({
         "selected": {"adamw": [7], "spectral": [8]},
     }))

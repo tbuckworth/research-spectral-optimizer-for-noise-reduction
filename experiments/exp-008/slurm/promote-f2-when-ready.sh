@@ -21,7 +21,7 @@ else
   F2_SUPERVISOR="numerai-outer${OUTER_NUMBER}-f2-supervisor"
 fi
 PROJECT=${NUMERAI_PROJECT:-/mnt/nw/home/t.buckworth/numerai-competitive}
-SEARCH=${NUMERAI_SEARCH_CONFIG:-$PROJECT/configs/search-v1-high-rank.json}
+SEARCH=${NUMERAI_SEARCH_CONFIG:-$PROJECT/results/search-v1-high-rank.json}
 [[ -f $SEARCH ]] || SEARCH="$PROJECT/configs/search-v1.json"
 export NUMERAI_SEARCH_CONFIG="$SEARCH"
 SELECTION="$PROJECT/results/selection-${OUTER_SPLIT}-f2-top1.json"

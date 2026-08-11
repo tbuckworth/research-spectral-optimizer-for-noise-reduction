@@ -7,7 +7,7 @@ if [[ $# -ne 1 || ! $1 =~ ^[0-9a-f]{40}$ ]]; then
 fi
 CODE_COMMIT=$1
 PROJECT=${NUMERAI_PROJECT:-/mnt/nw/home/t.buckworth/numerai-competitive}
-SEARCH=${NUMERAI_SEARCH_CONFIG:-$PROJECT/configs/search-v1-high-rank.json}
+SEARCH=${NUMERAI_SEARCH_CONFIG:-$PROJECT/results/search-v1-high-rank.json}
 [[ -f $SEARCH ]] || { echo "audited high-rank search is missing" >&2; exit 1; }
 SELECTION="$PROJECT/results/selection-final-top1.json"
 AUDIT="$PROJECT/results/audit-final-refits-u100000/refit-audit.json"

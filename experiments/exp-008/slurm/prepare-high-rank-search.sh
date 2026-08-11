@@ -14,10 +14,10 @@ fi
 PROJECT=${NUMERAI_PROJECT:-/mnt/nw/home/t.buckworth/numerai-competitive}
 BASE="$PROJECT/configs/search-v1.json"
 SOURCE="$PROJECT/results/selection-high-rank-source-r2048.json"
-EXTENSION="$PROJECT/configs/search-v1-high-rank-extension.json"
+EXTENSION="$PROJECT/results/search-v1-high-rank-extension.json"
 MANIFEST="$PROJECT/results/submission-high-rank-probes.tsv"
 AUDIT="$PROJECT/results/audit-high-rank-probes.json"
-AUGMENTED="$PROJECT/configs/search-v1-high-rank.json"
+AUGMENTED="$PROJECT/results/search-v1-high-rank.json"
 LOG="$PROJECT/results/prepare-high-rank-search.log"
 for SCORE in "$@"; do
   [[ -f $SCORE ]] || { echo "missing development score file $SCORE" >&2; exit 1; }
