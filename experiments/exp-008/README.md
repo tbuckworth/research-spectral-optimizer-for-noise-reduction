@@ -22,16 +22,16 @@ unavailable to HPO.
 
 ## Frozen HPO sequence
 
-For each outer fold, run the exact stages below. `select_configs` requires equal split/seed
-coverage and deterministically ranks mean CORR, worst-fold CORR, then lower config ID.
+For each outer fold, run the exact stages below. Selection requires equal split/seed coverage
+and deterministically ranks mean CORR, worst-cell CORR, lower config ID, then lower budget.
 
 1. Both arms, all 40 paired config IDs, earliest inner fold, seed 0, 5,000 updates.
 2. Both arms over the top-12 paired union, every eligible inner fold, seed 0, 20,000 updates.
-3. Both arms over the top-4 paired union plus every GPU-audited high-rank spectral variant,
-   every eligible inner fold, seeds 0/1/2, 100,000 updates. Identical high-rank AdamW controls
-   are run once rather than duplicated by rank.
-4. One winner per arm, refit on the outer-training block and score the untouched outer block at
-   seeds 0/1/2.
+3. Both arms over the top-4 paired union, every eligible inner fold and seeds 0/1/2 at
+   5,000/20,000/100,000 updates, plus GPU-audited high-rank spectral variants at the 100,000
+   budget needed to activate them. Exact earlier cells are reused, not rerun.
+4. One configuration/update-budget winner per arm, refit on the outer-training block at its
+   selected budget and score the untouched outer block at seeds 0/1/2.
 
 On MATS, synchronize source only between stages, then build the shared frozen environment once:
 
@@ -47,7 +47,7 @@ session rather than duplicating a procedure.
 `promote-f0-when-ready.sh` waits for the audited F0 table before submitting F1.
 `promote-f1-when-ready.sh` likewise requires every audited F1 temporal-fold table, selects the
 top-four paired union, selects the best development architecture feasible at rank 2,048,
-GPU-probes ranks 512/1,024/1,536/2,048/4,096, and submits the exact asymmetric three-seed F2
+GPU-probes ranks 512/1,024/1,536/2,048/4,096, and submits the exact asymmetric three-budget F2
 manifest. Caught CUDA OOM rejects only that probed rank; any other probe error stops promotion.
 All three promotion scripts accept an optional `outer_1`, `outer_2`, or `outer_3` argument and
 derive the required two, three, or four eligible inner folds. Fold-specific monitor, supervisor,
@@ -57,7 +57,7 @@ Submission scripts print tab-separated job provenance. `monitor-stage.sh` refuse
 coverage and dependency failures. GPU jobs use the dependency-built environment with `--no-sync`
 so concurrent jobs never mutate it. Jobs receive `SIGUSR1` one hour before the free-partition
 walltime and atomically checkpoint; `resume-checkpointed-stage.sh` resubmits only those exact
-manifested tasks without changing their config, seed, fold, or update target. The 100,000-update
+manifested tasks without changing their config, seed, fold, or update target. The budgeted F2
 stage runs under `supervise-resumable-stage.sh`, which repeats exact checkpoint resumptions until
 every manifested result exists and only then creates the audited fold/seed summaries.
 The selected nested-outer estimate is a different operation: `submit-outer-eval.sh` runs only
@@ -65,8 +65,8 @@ the independently selected config for each arm on the named untouched outer spli
 uses the same resumable supervisor with `--skip-summary` and must pass the dedicated outer-result
 audit before entering `oof.py`. `submit-refit.sh` is reserved for the later all-train deployment
 refit and must never be used as nested-outer evidence.
-`promote-f2-when-ready.sh` applies that route automatically only after all six audited F2
-fold/seed summaries exist; `audit-outer-when-ready.sh` then blocks until all six arm-specific
+`promote-f2-when-ready.sh` applies that route automatically only after every audited F2
+budget/fold/seed summary exists; `audit-outer-when-ready.sh` then blocks until all six arm-specific
 outer results exist and runs the dedicated audit.
 
 For an unattended complete nested run, start `slurm/continue-nested-pipeline.sh` in tmux while

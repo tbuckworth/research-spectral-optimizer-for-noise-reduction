@@ -89,20 +89,23 @@ while true; do
 done
 
 if [[ $SUMMARY_MODE != "--skip-summary" ]]; then
-  mapfile -t EXPECTED_PAIRS < <(
-    awk -F $'\t' '{print $5 ":" $6}' "$ORIGINAL_MANIFEST" | sort -u
-  )
-  ADAMW_EXPECTED=$(printf '%s\n' "${EXPECTED_PAIRS[@]}" | grep -c '^adamw:' || true)
-  SPECTRAL_EXPECTED=$(printf '%s\n' "${EXPECTED_PAIRS[@]}" | grep -c '^spectral:' || true)
-  if [[ $ADAMW_EXPECTED -eq 0 || $SPECTRAL_EXPECTED -eq 0 ]]; then
-    echo "summary must contain expected configurations for both arms" >&2
-    exit 1
-  fi
-  EXPECTED_ARGS=()
-  for PAIR in "${EXPECTED_PAIRS[@]}"; do
-    EXPECTED_ARGS+=(--expected-arm-config-id "$PAIR")
-  done
   while IFS=$'\t' read -r split updates seed; do
+    mapfile -t EXPECTED_PAIRS < <(
+      awk -F $'\t' -v target_split="$split" -v target_updates="$updates" \
+        -v target_seed="$seed" \
+        '$2 == target_split && $3 == target_updates && $4 == target_seed {print $5 ":" $6}' \
+        "$ORIGINAL_MANIFEST" | sort -u
+    )
+    ADAMW_EXPECTED=$(printf '%s\n' "${EXPECTED_PAIRS[@]}" | grep -c '^adamw:' || true)
+    SPECTRAL_EXPECTED=$(printf '%s\n' "${EXPECTED_PAIRS[@]}" | grep -c '^spectral:' || true)
+    if [[ $ADAMW_EXPECTED -eq 0 || $SPECTRAL_EXPECTED -eq 0 ]]; then
+      echo "each summary cell must contain expected configurations for both arms" >&2
+      exit 1
+    fi
+    EXPECTED_ARGS=()
+    for PAIR in "${EXPECTED_PAIRS[@]}"; do
+      EXPECTED_ARGS+=(--expected-arm-config-id "$PAIR")
+    done
     output="$PROJECT/results/summary-${SUMMARY_PREFIX}${split}-u${updates}-s${seed}"
     "$PROJECT/uv" run --no-sync python -m numerai_competitive.summarize \
       --results "$PROJECT/results" --output "$output" --split "$split" \

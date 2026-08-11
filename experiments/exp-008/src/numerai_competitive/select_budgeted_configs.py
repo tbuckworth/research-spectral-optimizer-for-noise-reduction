@@ -23,7 +23,9 @@ def restrict_candidates(scores: pd.DataFrame, config_ids: list[int] | None) -> p
     return selected
 
 
-def select_budgeted_configs(scores: pd.DataFrame, top: int) -> dict[str, list[dict[str, int]]]:
+def select_budgeted_configs(
+    scores: pd.DataFrame, top: int, *, allow_asymmetric: bool = False,
+) -> dict[str, list[dict[str, int]]]:
     """Select arm-specific ``(config_id, updates)`` candidates with equal coverage.
 
     This is deliberately separate from successive-halving selection: it is for a
@@ -52,8 +54,10 @@ def select_budgeted_configs(scores: pd.DataFrame, top: int) -> dict[str, list[di
         ))
         for arm in ("adamw", "spectral")
     }
-    if candidates["adamw"] != candidates["spectral"]:
+    if not allow_asymmetric and candidates["adamw"] != candidates["spectral"]:
         raise ValueError("AdamW and spectral config/budget coverage differs")
+    if any(not values for values in candidates.values()):
+        raise ValueError("both optimizer arms require at least one candidate")
 
     coverage = scores.groupby(["arm", "config_id", "updates"]).apply(
         lambda frame: frozenset(zip(frame["split"], frame["seed"])),
@@ -86,9 +90,13 @@ def main() -> None:
     parser.add_argument("--top", type=int, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--config-id", type=int, nargs="+")
+    parser.add_argument("--allow-asymmetric", action="store_true")
     args = parser.parse_args()
     frame = pd.concat([pd.read_csv(path) for path in args.scores], ignore_index=True)
     frame = restrict_candidates(frame, args.config_id)
+    selected = select_budgeted_configs(
+        frame, args.top, allow_asymmetric=args.allow_asymmetric,
+    )
     payload = {
         "status": "development_budget_sensitivity_selection",
         "criterion": (
@@ -98,7 +106,16 @@ def main() -> None:
         "config_ids": args.config_id,
         "score_files": [str(path) for path in args.scores],
         "score_sha256": {str(path): sha256(path) for path in args.scores},
-        "selected": select_budgeted_configs(frame, args.top),
+        "selected": {
+            arm: [entry["config_id"] for entry in entries]
+            for arm, entries in selected.items()
+        },
+        "selected_updates": {
+            arm: [entry["updates"] for entry in entries]
+            for arm, entries in selected.items()
+        },
+        "selected_budgeted": selected,
+        "allow_asymmetric": args.allow_asymmetric,
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")

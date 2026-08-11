@@ -23,7 +23,7 @@ fi
 PROJECT=${NUMERAI_PROJECT:-/mnt/nw/home/t.buckworth/numerai-competitive}
 SELECTION="$PROJECT/results/selection-${OUTER_SPLIT}-f1-top4.json"
 BASE_SELECTION="$PROJECT/results/selection-${OUTER_SPLIT}-f1-base-top4.json"
-MANIFEST="$PROJECT/results/submission-${OUTER_SPLIT}-f2-u100000.tsv"
+MANIFEST="$PROJECT/results/submission-${OUTER_SPLIT}-f2-budgeted.tsv"
 LOG="$PROJECT/results/promote-${OUTER_SPLIT}-f1.log"
 SUMMARIES=()
 MARKERS=()
@@ -89,19 +89,24 @@ fi
 
 TEMPORARY="${MANIFEST}.tmp"
 : > "$TEMPORARY"
+export NUMERAI_REUSE_COMPLETE=1
+for BUDGET in 5000 20000 100000; do
+  for SEED in 0 1 2; do
+    bash "$PROJECT/slurm/submit-selected.sh" "$SELECTION" "$BUDGET" "$SEED" \
+      "$DEPENDENCY_JOB" "${SPLITS[@]}" >> "$TEMPORARY"
+  done
+done
 for SEED in 0 1 2; do
-  bash "$PROJECT/slurm/submit-selected.sh" "$SELECTION" 100000 "$SEED" \
-    "$DEPENDENCY_JOB" "${SPLITS[@]}" >> "$TEMPORARY"
   bash "$PROJECT/slurm/submit-high-rank-spectral.sh" "$SELECTION" 100000 "$SEED" \
     "$DEPENDENCY_JOB" "${SPLITS[@]}" >> "$TEMPORARY"
 done
 mv "$TEMPORARY" "$MANIFEST"
 FIRST_JOB=$(head -n 1 "$MANIFEST" | cut -f1 | cut -d';' -f1)
 LAST_JOB=$(tail -n 1 "$MANIFEST" | cut -f1 | cut -d';' -f1)
-EXPECTED_ROWS=$(((EXPECTED * 2 + HIGH_RANK_EXPECTED) * INNER_COUNT * 3))
+EXPECTED_ROWS=$((EXPECTED * 2 * INNER_COUNT * 3 * 3 + HIGH_RANK_EXPECTED * INNER_COUNT * 3))
 if [[ $(wc -l < "$MANIFEST") -ne $EXPECTED_ROWS \
       || $(cut -f2-6 "$MANIFEST" | sort -u | wc -l) -ne $EXPECTED_ROWS ]]; then
-  echo "F2 manifest differs from exact ordinary-pair plus high-rank-spectral coverage" >&2
+  echo "F2 manifest differs from exact three-budget pair plus high-rank coverage" >&2
   exit 1
 fi
 
