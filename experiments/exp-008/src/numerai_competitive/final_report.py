@@ -110,7 +110,7 @@ def build_report(outer_path: Path, validation_path: Path, leaderboard_path: Path
     search = json.loads(search_path.read_text())
     high_rank_ids = search.get("high_rank_config_ids", [])
     base_per_arm = search.get("configurations_per_arm")
-    if validation.get("target") != "target_cyrusd_20":
+    if validation.get("target") != "target":
         raise ValueError("official validation report uses an unexpected primary target")
     if (freeze.get("status") != "frozen" or freeze.get("primary_target") != validation["target"]
             or freeze.get("search_sha256") != sha256(search_path)
@@ -168,9 +168,9 @@ without seeing official validation; validation was opened only after the immutab
 {live_rows}</table><p>Snapshot round {leaderboard['round']}, {leaderboard['summary']['rows']} rows,
 retrieved {html.escape(leaderboard['retrieved_at'])}.</p>
 <p style="padding:12px;background:#fff4ce"><strong>Comparability boundary:</strong> these live
-one-year reputations use forward rounds and the current payout target. Historical validation CORR on
-<code>target_cyrusd_20</code> is not on the same scale. It cannot honestly be translated into a public
-leaderboard rank. Direct leaderboard comparability requires repeated unstaked live submissions to resolve.</p>
+one-year reputations use forward rounds. Historical validation uses the corresponding main
+<code>target</code> and exact CORR20v2 scorer, but it is not itself a resolved live reputation.
+Direct leaderboard comparability requires repeated unstaked live submissions to resolve.</p>
 </body></html>"""
     (output / "report.html").write_text(body)
     markdown = f"""# Numerai optimizer comparison
@@ -187,8 +187,8 @@ AdamW was selected from 40 base paired configuration IDs using the chronological
 `{json.dumps(selected_configs['spectral'], sort_keys=True)}`.
 
 The historical comparisons use the same rows, target and exact scorer. The public round
-{leaderboard['round']} live reputation snapshot is context only: it cannot be converted into a rank for
-historical `target_cyrusd_20`. Repeated unstaked live submissions are required for direct comparability.
+{leaderboard['round']} live reputation snapshot is context only: historical main-target CORR cannot be
+converted into a live rank. Repeated unstaked live submissions are required for direct comparability.
 """
     (output / "report.md").write_text(markdown)
     manifest = {

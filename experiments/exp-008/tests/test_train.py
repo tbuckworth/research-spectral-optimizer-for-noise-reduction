@@ -24,7 +24,7 @@ def _shard(root: Path) -> Path:
     (root / "manifest.json").write_text(json.dumps({
         "split": "train", "data_version": "v5.3", "rows": rows,
         "feature_names": [f"f{i}" for i in range(features)],
-        "targets": ["target_cyrusd_20", "other"], "benchmarks": ["benchmark"],
+        "targets": ["target", "other"], "benchmarks": ["benchmark"],
     }))
     return root
 

@@ -1,6 +1,6 @@
 # Exp-008 Plan: Current Numerai Competitive Pipeline
 
-This experiment implements `output/2026-08-10-numerai-competitive-spectral-submission/planned-experiments.md`. The governing protocol is the challenge-revised decomposition. Primary target: `target_cyrusd_20`. Primary endpoint: standalone exact official CORR, spectral minus AdamW. Development uses only v5.3 train eras 0001–0574 with 8-era purges. Official validation remains unavailable to development commands until a freeze manifest exists.
+This experiment implements `output/2026-08-10-numerai-competitive-spectral-submission/planned-experiments.md`. The governing protocol is the challenge-revised decomposition. Primary target: the v5.3 main `target`. Primary endpoint: standalone exact official CORR, spectral minus AdamW. Development uses only v5.3 train eras 0001–0574 with 8-era purges. Official validation remains unavailable to development commands until a freeze manifest exists.
 
 Initial pass gates:
 

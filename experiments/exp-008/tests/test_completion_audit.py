@@ -76,7 +76,7 @@ def _complete_tree(tmp_path: Path) -> tuple[Path, Path]:
         "eligible_ranks": [512],
     })
     search = _write(results / "search-v1-high-rank.json", {
-        "status": "development_only_augmented_search", "primary_target": "target_cyrusd_20",
+        "status": "development_only_augmented_search", "primary_target": "target",
         "configurations_per_arm": 40, "high_rank_config_ids": [1070512],
         "base_search_sha256": sha256(base_search), "extension_sha256": sha256(extension),
         "probe_audit_sha256": sha256(probes), "configs": [],
@@ -130,7 +130,7 @@ def _complete_tree(tmp_path: Path) -> tuple[Path, Path]:
         frozen[arm] = {"config_id": config, "seeds": [0, 1, 2], "updates": 100_000,
                        "model_sha256": [sha256(path) for path in paths]}
     freeze = _write(results / "freeze.json", {
-        "status": "frozen", "code_commit": "a" * 40, "primary_target": "target_cyrusd_20",
+        "status": "frozen", "code_commit": "a" * 40, "primary_target": "target",
         "code_snapshot_sha256": sha256(code_snapshot),
         "search_sha256": sha256(search),
         "fidelity_protocol_sha256": sha256(tmp_path / "fidelity-protocol.md"),
@@ -140,7 +140,7 @@ def _complete_tree(tmp_path: Path) -> tuple[Path, Path]:
 
     validation = results / "official-validation"
     validation_report = _write(validation / "official-validation-report.json", {
-        "status": "complete", "target": "target_cyrusd_20",
+        "status": "complete", "target": "target",
         "freeze_manifest_sha256": sha256(freeze), "spectral_minus_adamw": {},
         "candidate_minus_ender20": {},
     })

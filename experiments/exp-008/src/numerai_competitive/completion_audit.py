@@ -175,7 +175,7 @@ def audit(results: Path, leaderboard_path: Path, output: Path) -> dict:
     code_snapshot_path = root / "code-snapshot.json"
     protocol_path = root / "fidelity-protocol.md"
     if (not re.fullmatch(r"[0-9a-f]{40}", freeze.get("code_commit", ""))
-            or freeze.get("primary_target") != "target_cyrusd_20"
+            or freeze.get("primary_target") != "target"
             or freeze.get("code_snapshot_sha256") != sha256(code_snapshot_path)
             or freeze.get("search_sha256") != sha256(search_path)
             or freeze.get("fidelity_protocol_sha256") != sha256(protocol_path)
@@ -200,7 +200,7 @@ def audit(results: Path, leaderboard_path: Path, output: Path) -> dict:
     _verify_named_hashes(validation_dir, validation_marker.get("artifacts", {}))
     validation_path = validation_dir / "official-validation-report.json"
     validation = _json(validation_path, ("complete",))
-    if (validation.get("target") != "target_cyrusd_20"
+    if (validation.get("target") != "target"
             or validation.get("freeze_manifest_sha256") != sha256(freeze_path)
             or "spectral_minus_adamw" not in validation
             or "candidate_minus_ender20" not in validation):
@@ -268,7 +268,7 @@ def audit(results: Path, leaderboard_path: Path, output: Path) -> dict:
                      "final_report": sha256(report_manifest_path)})
 
     result = {
-        "status": "audit_complete", "primary_target": "target_cyrusd_20",
+        "status": "audit_complete", "primary_target": "target",
         "outer_selected": outer_selected, "final_selected": refit["selected"],
         "code_commit": freeze["code_commit"], "evidence_sha256": evidence,
     }

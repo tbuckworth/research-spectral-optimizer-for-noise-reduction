@@ -89,7 +89,7 @@ def _draw(arm="adamw"):
     draw = {
         "arm": arm, "config_id": 7, "feature_set": "medium", "width": 8,
         "depth": 2, "residual": False, "normalization": "none", "activation": "relu",
-        "dropout": 0.0, "target": "target_cyrusd_20", "batch_mode": "rows",
+        "dropout": 0.0, "target": "target", "batch_mode": "rows",
         "batch_size": 4, "learning_rate": 1e-3, "weight_decay": 0.0, "loss": "mse",
         "schedule": "constant", "warmup_fraction": 0.0, "clip_grad_norm": 0.0,
     }

@@ -33,7 +33,7 @@ def _model(path, arm, config_id, seed):
         "signature": f"{arm}-{seed}", "data_version": "v5.3",
         "train_config": {
             "arm": arm, "search_config_id": config_id, "seed": seed, "updates": 100,
-            "target": "target_cyrusd_20", "feature_set": "medium",
+            "target": "target", "feature_set": "medium",
         },
         "train_split": {
             "name": "all_train_refit", "train_eras": [f"{i:04d}" for i in range(1, 575)],

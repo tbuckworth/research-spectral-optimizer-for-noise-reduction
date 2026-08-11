@@ -24,7 +24,7 @@ def test_loader_rejects_validation_manifest(tmp_path: Path):
 def test_loader_rejects_mismatched_rows(tmp_path: Path):
     (tmp_path / "manifest.json").write_text(json.dumps({
         "split": "train", "data_version": "v5.3", "rows": 2,
-        "targets": ["target_cyrusd_20"], "benchmarks": ["v53_lgbm_ender20"]
+        "targets": ["target"], "benchmarks": ["v53_lgbm_ender20"]
     }))
     for name, shape, dtype in [
         ("X_u8.npy", (1, 1), np.uint8), ("targets_f32.npy", (1, 1), np.float32),

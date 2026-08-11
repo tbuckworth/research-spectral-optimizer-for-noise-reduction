@@ -32,7 +32,7 @@ class TrainConfig:
     search_config_id: int | None = None
     feature_set: str | None = None
     arm: str = "adamw"
-    target: str = "target_cyrusd_20"
+    target: str = "target"
     benchmark: str = "v53_lgbm_ender20"
     seed: int = 0
     device: str = "auto"

@@ -15,7 +15,7 @@
       "normalization": "none",
       "residual": true,
       "schedule": "cosine",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.0,
       "weight_decay": 0.0011575341656975267,
       "width": 1536
@@ -41,7 +41,7 @@
       "rank": 32,
       "residual": true,
       "schedule": "cosine",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.0,
       "weight_decay": 0.0011575341656975267,
       "width": 1536
@@ -61,7 +61,7 @@
       "normalization": "none",
       "residual": true,
       "schedule": "constant",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.05,
       "weight_decay": 3.0599022872176713e-07,
       "width": 1536
@@ -87,7 +87,7 @@
       "rank": 16,
       "residual": true,
       "schedule": "constant",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.05,
       "weight_decay": 3.0599022872176713e-07,
       "width": 1536
@@ -107,7 +107,7 @@
       "normalization": "none",
       "residual": false,
       "schedule": "cosine",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.1,
       "weight_decay": 8.149808618541149e-07,
       "width": 1536
@@ -133,7 +133,7 @@
       "rank": 64,
       "residual": false,
       "schedule": "cosine",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.1,
       "weight_decay": 8.149808618541149e-07,
       "width": 1536
@@ -153,7 +153,7 @@
       "normalization": "none",
       "residual": false,
       "schedule": "constant",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.1,
       "weight_decay": 0.0,
       "width": 1024
@@ -179,7 +179,7 @@
       "rank": 16,
       "residual": false,
       "schedule": "constant",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.1,
       "weight_decay": 0.0,
       "width": 1024
@@ -199,7 +199,7 @@
       "normalization": "none",
       "residual": true,
       "schedule": "cosine",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.02,
       "weight_decay": 1.4378048268599238e-07,
       "width": 2048
@@ -225,7 +225,7 @@
       "rank": 256,
       "residual": true,
       "schedule": "cosine",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.02,
       "weight_decay": 1.4378048268599238e-07,
       "width": 2048
@@ -245,7 +245,7 @@
       "normalization": "layer",
       "residual": true,
       "schedule": "cosine",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.05,
       "weight_decay": 0.0,
       "width": 512
@@ -271,7 +271,7 @@
       "rank": 32,
       "residual": true,
       "schedule": "cosine",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.05,
       "weight_decay": 0.0,
       "width": 512
@@ -291,7 +291,7 @@
       "normalization": "layer",
       "residual": true,
       "schedule": "constant",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.02,
       "weight_decay": 0.0,
       "width": 1536
@@ -317,7 +317,7 @@
       "rank": 256,
       "residual": true,
       "schedule": "constant",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.02,
       "weight_decay": 0.0,
       "width": 1536
@@ -337,7 +337,7 @@
       "normalization": "layer",
       "residual": false,
       "schedule": "cosine",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.05,
       "weight_decay": 0.0,
       "width": 768
@@ -363,7 +363,7 @@
       "rank": 256,
       "residual": false,
       "schedule": "cosine",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.05,
       "weight_decay": 0.0,
       "width": 768
@@ -383,7 +383,7 @@
       "normalization": "none",
       "residual": true,
       "schedule": "cosine",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.0,
       "weight_decay": 0.0005345632982778477,
       "width": 768
@@ -409,7 +409,7 @@
       "rank": 64,
       "residual": true,
       "schedule": "cosine",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.0,
       "weight_decay": 0.0005345632982778477,
       "width": 768
@@ -429,7 +429,7 @@
       "normalization": "none",
       "residual": true,
       "schedule": "constant",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.05,
       "weight_decay": 0.0,
       "width": 768
@@ -455,7 +455,7 @@
       "rank": 64,
       "residual": true,
       "schedule": "constant",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.05,
       "weight_decay": 0.0,
       "width": 768
@@ -475,7 +475,7 @@
       "normalization": "none",
       "residual": false,
       "schedule": "cosine",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.0,
       "weight_decay": 0.0,
       "width": 512
@@ -501,7 +501,7 @@
       "rank": 128,
       "residual": false,
       "schedule": "cosine",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.0,
       "weight_decay": 0.0,
       "width": 512
@@ -521,7 +521,7 @@
       "normalization": "layer",
       "residual": false,
       "schedule": "constant",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.05,
       "weight_decay": 1.879842499266703e-08,
       "width": 512
@@ -547,7 +547,7 @@
       "rank": 256,
       "residual": false,
       "schedule": "constant",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.05,
       "weight_decay": 1.879842499266703e-08,
       "width": 512
@@ -567,7 +567,7 @@
       "normalization": "none",
       "residual": true,
       "schedule": "cosine",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.02,
       "weight_decay": 0.0,
       "width": 512
@@ -593,7 +593,7 @@
       "rank": 128,
       "residual": true,
       "schedule": "cosine",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.02,
       "weight_decay": 0.0,
       "width": 512
@@ -613,7 +613,7 @@
       "normalization": "none",
       "residual": false,
       "schedule": "cosine",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.1,
       "weight_decay": 1.3349306021023901e-08,
       "width": 768
@@ -639,7 +639,7 @@
       "rank": 32,
       "residual": false,
       "schedule": "cosine",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.1,
       "weight_decay": 1.3349306021023901e-08,
       "width": 768
@@ -659,7 +659,7 @@
       "normalization": "none",
       "residual": false,
       "schedule": "constant",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.0,
       "weight_decay": 1.698365765058508e-07,
       "width": 2048
@@ -685,7 +685,7 @@
       "rank": 16,
       "residual": false,
       "schedule": "constant",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.0,
       "weight_decay": 1.698365765058508e-07,
       "width": 2048
@@ -705,7 +705,7 @@
       "normalization": "layer",
       "residual": false,
       "schedule": "cosine",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.02,
       "weight_decay": 0.0,
       "width": 768
@@ -731,7 +731,7 @@
       "rank": 256,
       "residual": false,
       "schedule": "cosine",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.02,
       "weight_decay": 0.0,
       "width": 768
@@ -751,7 +751,7 @@
       "normalization": "layer",
       "residual": false,
       "schedule": "constant",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.02,
       "weight_decay": 2.459304783614358e-08,
       "width": 768
@@ -777,7 +777,7 @@
       "rank": 16,
       "residual": false,
       "schedule": "constant",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.02,
       "weight_decay": 2.459304783614358e-08,
       "width": 768
@@ -797,7 +797,7 @@
       "normalization": "none",
       "residual": false,
       "schedule": "constant",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.05,
       "weight_decay": 0.0,
       "width": 2048
@@ -823,7 +823,7 @@
       "rank": 16,
       "residual": false,
       "schedule": "constant",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.05,
       "weight_decay": 0.0,
       "width": 2048
@@ -843,7 +843,7 @@
       "normalization": "layer",
       "residual": true,
       "schedule": "constant",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.05,
       "weight_decay": 0.0,
       "width": 768
@@ -869,7 +869,7 @@
       "rank": 64,
       "residual": true,
       "schedule": "constant",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.05,
       "weight_decay": 0.0,
       "width": 768
@@ -889,7 +889,7 @@
       "normalization": "layer",
       "residual": true,
       "schedule": "constant",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.05,
       "weight_decay": 0.00018091978610798896,
       "width": 512
@@ -915,7 +915,7 @@
       "rank": 32,
       "residual": true,
       "schedule": "constant",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.05,
       "weight_decay": 0.00018091978610798896,
       "width": 512
@@ -935,7 +935,7 @@
       "normalization": "layer",
       "residual": false,
       "schedule": "cosine",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.1,
       "weight_decay": 0.0,
       "width": 512
@@ -961,7 +961,7 @@
       "rank": 64,
       "residual": false,
       "schedule": "cosine",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.1,
       "weight_decay": 0.0,
       "width": 512
@@ -981,7 +981,7 @@
       "normalization": "layer",
       "residual": false,
       "schedule": "cosine",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.02,
       "weight_decay": 3.602934106612901e-07,
       "width": 512
@@ -1007,7 +1007,7 @@
       "rank": 256,
       "residual": false,
       "schedule": "cosine",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.02,
       "weight_decay": 3.602934106612901e-07,
       "width": 512
@@ -1027,7 +1027,7 @@
       "normalization": "none",
       "residual": false,
       "schedule": "cosine",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.1,
       "weight_decay": 1.6187096774060156e-05,
       "width": 1536
@@ -1053,7 +1053,7 @@
       "rank": 128,
       "residual": false,
       "schedule": "cosine",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.1,
       "weight_decay": 1.6187096774060156e-05,
       "width": 1536
@@ -1073,7 +1073,7 @@
       "normalization": "layer",
       "residual": false,
       "schedule": "cosine",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.02,
       "weight_decay": 0.0,
       "width": 2048
@@ -1099,7 +1099,7 @@
       "rank": 32,
       "residual": false,
       "schedule": "cosine",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.02,
       "weight_decay": 0.0,
       "width": 2048
@@ -1119,7 +1119,7 @@
       "normalization": "layer",
       "residual": false,
       "schedule": "cosine",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.0,
       "weight_decay": 2.0789158042006327e-06,
       "width": 768
@@ -1145,7 +1145,7 @@
       "rank": 16,
       "residual": false,
       "schedule": "cosine",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.0,
       "weight_decay": 2.0789158042006327e-06,
       "width": 768
@@ -1165,7 +1165,7 @@
       "normalization": "none",
       "residual": true,
       "schedule": "constant",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.1,
       "weight_decay": 0.0,
       "width": 1536
@@ -1191,7 +1191,7 @@
       "rank": 128,
       "residual": true,
       "schedule": "constant",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.1,
       "weight_decay": 0.0,
       "width": 1536
@@ -1211,7 +1211,7 @@
       "normalization": "layer",
       "residual": true,
       "schedule": "constant",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.0,
       "weight_decay": 0.0,
       "width": 1024
@@ -1237,7 +1237,7 @@
       "rank": 64,
       "residual": true,
       "schedule": "constant",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.0,
       "weight_decay": 0.0,
       "width": 1024
@@ -1257,7 +1257,7 @@
       "normalization": "none",
       "residual": true,
       "schedule": "cosine",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.1,
       "weight_decay": 0.0,
       "width": 1024
@@ -1283,7 +1283,7 @@
       "rank": 256,
       "residual": true,
       "schedule": "cosine",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.1,
       "weight_decay": 0.0,
       "width": 1024
@@ -1303,7 +1303,7 @@
       "normalization": "none",
       "residual": false,
       "schedule": "cosine",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.02,
       "weight_decay": 0.0,
       "width": 2048
@@ -1329,7 +1329,7 @@
       "rank": 32,
       "residual": false,
       "schedule": "cosine",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.02,
       "weight_decay": 0.0,
       "width": 2048
@@ -1349,7 +1349,7 @@
       "normalization": "none",
       "residual": true,
       "schedule": "constant",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.02,
       "weight_decay": 7.657073301837627e-05,
       "width": 1024
@@ -1375,7 +1375,7 @@
       "rank": 128,
       "residual": true,
       "schedule": "constant",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.02,
       "weight_decay": 7.657073301837627e-05,
       "width": 1024
@@ -1395,7 +1395,7 @@
       "normalization": "layer",
       "residual": true,
       "schedule": "constant",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.05,
       "weight_decay": 0.0,
       "width": 2048
@@ -1421,7 +1421,7 @@
       "rank": 128,
       "residual": true,
       "schedule": "constant",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.05,
       "weight_decay": 0.0,
       "width": 2048
@@ -1441,7 +1441,7 @@
       "normalization": "none",
       "residual": false,
       "schedule": "constant",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.0,
       "weight_decay": 0.0,
       "width": 512
@@ -1467,7 +1467,7 @@
       "rank": 32,
       "residual": false,
       "schedule": "constant",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.0,
       "weight_decay": 0.0,
       "width": 512
@@ -1487,7 +1487,7 @@
       "normalization": "none",
       "residual": false,
       "schedule": "cosine",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.1,
       "weight_decay": 0.001906661596696596,
       "width": 2048
@@ -1513,7 +1513,7 @@
       "rank": 16,
       "residual": false,
       "schedule": "cosine",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.1,
       "weight_decay": 0.001906661596696596,
       "width": 2048
@@ -1533,7 +1533,7 @@
       "normalization": "layer",
       "residual": true,
       "schedule": "constant",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.05,
       "weight_decay": 4.349132068390231e-05,
       "width": 1024
@@ -1559,7 +1559,7 @@
       "rank": 32,
       "residual": true,
       "schedule": "constant",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.05,
       "weight_decay": 4.349132068390231e-05,
       "width": 1024
@@ -1579,7 +1579,7 @@
       "normalization": "layer",
       "residual": true,
       "schedule": "constant",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.1,
       "weight_decay": 0.0003274650178090468,
       "width": 1024
@@ -1605,7 +1605,7 @@
       "rank": 16,
       "residual": true,
       "schedule": "constant",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.1,
       "weight_decay": 0.0003274650178090468,
       "width": 1024
@@ -1625,7 +1625,7 @@
       "normalization": "none",
       "residual": false,
       "schedule": "constant",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.02,
       "weight_decay": 0.0,
       "width": 1536
@@ -1651,7 +1651,7 @@
       "rank": 128,
       "residual": false,
       "schedule": "constant",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.02,
       "weight_decay": 0.0,
       "width": 1536
@@ -1671,7 +1671,7 @@
       "normalization": "layer",
       "residual": false,
       "schedule": "cosine",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.0,
       "weight_decay": 9.87130317389619e-06,
       "width": 1024
@@ -1697,7 +1697,7 @@
       "rank": 256,
       "residual": false,
       "schedule": "cosine",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.0,
       "weight_decay": 9.87130317389619e-06,
       "width": 1024
@@ -1717,7 +1717,7 @@
       "normalization": "layer",
       "residual": true,
       "schedule": "constant",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.0,
       "weight_decay": 0.004241115739047862,
       "width": 2048
@@ -1743,7 +1743,7 @@
       "rank": 64,
       "residual": true,
       "schedule": "constant",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.0,
       "weight_decay": 0.004241115739047862,
       "width": 2048
@@ -1763,7 +1763,7 @@
       "normalization": "layer",
       "residual": true,
       "schedule": "cosine",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.1,
       "weight_decay": 4.482196787026264e-06,
       "width": 1024
@@ -1789,7 +1789,7 @@
       "rank": 64,
       "residual": true,
       "schedule": "cosine",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.1,
       "weight_decay": 4.482196787026264e-06,
       "width": 1024
@@ -1809,7 +1809,7 @@
       "normalization": "layer",
       "residual": true,
       "schedule": "constant",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.0,
       "weight_decay": 0.0,
       "width": 1536
@@ -1835,7 +1835,7 @@
       "rank": 128,
       "residual": true,
       "schedule": "constant",
-      "target": "target_cyrusd_20",
+      "target": "target",
       "warmup_fraction": 0.0,
       "weight_decay": 0.0,
       "width": 1536
@@ -1844,7 +1844,7 @@
   "configurations_per_arm": 40,
   "fairness_unit": "completed configs/folds/seeds/examples/updates; runtime descriptive",
   "primary_metric": "standalone_exact_corr",
-  "primary_target": "target_cyrusd_20",
-  "protocol": "exp-008-symmetric-complete-procedure-v1",
+  "primary_target": "target",
+  "protocol": "exp-008-main-target-symmetric-complete-procedure-v2",
   "seed": 20260810
 }

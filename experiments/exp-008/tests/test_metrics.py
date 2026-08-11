@@ -19,7 +19,7 @@ def panel():
     pred = pd.Series([0.1, 0.1, 0.4, 0.7, 0.7, 0.2, 0.9, 0.4] * 2,
                      index=ids, name="model")
     target = pd.Series([0.0, 0.25, 0.5, 0.75, 1.0, 0.25, 0.75, 0.5] * 2,
-                       index=ids, name="target_cyrusd_20")
+                       index=ids, name="target")
     benchmark = pd.Series([0.8, 0.2, 0.2, 0.6, 0.4, 0.9, 0.1, 0.6] * 2,
                           index=ids, name="v53_lgbm_ender20")
     return pred, target, benchmark, eras

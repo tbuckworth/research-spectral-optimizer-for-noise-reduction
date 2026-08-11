@@ -14,7 +14,7 @@ from numerai_competitive.high_rank import (
 def test_high_rank_extension_clones_only_selected_spectral_draw(tmp_path):
     search = tmp_path / "search.json"
     search.write_text(json.dumps({
-        "primary_target": "target_cyrusd_20", "primary_metric": "standalone_exact_corr",
+        "primary_target": "target", "primary_metric": "standalone_exact_corr",
         "configs": [
             {"arm": "adamw", "config_id": 4, "width": 512, "depth": 2,
              "feature_set": "medium", "normalization": "none"},

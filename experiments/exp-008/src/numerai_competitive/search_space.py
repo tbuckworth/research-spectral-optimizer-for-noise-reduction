@@ -47,7 +47,7 @@ def generate_search(seed: int = SEARCH_SEED, n: int = N_CONFIGS) -> list[dict]:
             "schedule": _choice(["constant", "cosine"], u[13]),
             "warmup_fraction": _choice([0.0, 0.02, 0.05, 0.1], u[14]),
             "clip_grad_norm": _choice([0.0, 1.0, 5.0], u[15]),
-            "target": "target_cyrusd_20",
+            "target": "target",
         }
         spectral = {
             "rank": _choice([16, 32, 64, 128, 256], u[16]),
@@ -65,10 +65,10 @@ def generate_search(seed: int = SEARCH_SEED, n: int = N_CONFIGS) -> list[dict]:
 def write_search(path: Path, seed: int = SEARCH_SEED, n: int = N_CONFIGS) -> None:
     configs = generate_search(seed, n)
     payload = {
-        "protocol": "exp-008-symmetric-complete-procedure-v1",
+        "protocol": "exp-008-main-target-symmetric-complete-procedure-v2",
         "seed": seed,
         "configurations_per_arm": n,
-        "primary_target": "target_cyrusd_20",
+        "primary_target": "target",
         "primary_metric": "standalone_exact_corr",
         "fairness_unit": "completed configs/folds/seeds/examples/updates; runtime descriptive",
         "configs": configs,

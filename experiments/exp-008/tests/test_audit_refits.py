@@ -13,7 +13,7 @@ def _draw(arm, config_id):
     value = {
         "arm": arm, "config_id": config_id, "feature_set": "medium",
         "width": 8, "depth": 2, "residual": False, "normalization": "none",
-        "activation": "relu", "dropout": 0.0, "target": "target_cyrusd_20",
+        "activation": "relu", "dropout": 0.0, "target": "target",
         "batch_mode": "rows", "batch_size": 4, "learning_rate": 1e-3,
         "weight_decay": 0.0, "loss": "mse", "schedule": "constant",
         "warmup_fraction": 0.0, "clip_grad_norm": 0.0,
@@ -44,7 +44,7 @@ def _refit(root, draw, seed):
     torch.save({
         "signature": signature, "model_config": config["model"],
         "model": model.state_dict(), "train_config": config, "train_split": split,
-        "target": "target_cyrusd_20", "feature_names": ["a", "b", "c"],
+        "target": "target", "feature_names": ["a", "b", "c"],
         "data_version": "v5.3",
     }, directory / "model.pt")
     result = {
