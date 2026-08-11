@@ -67,14 +67,12 @@ outer results exist and runs the dedicated audit.
 After all outer folds, aggregate only untouched nested-outer predictions:
 
 ```bash
-uv run python -m numerai_competitive.oof \
-  --adamw-result ADAMW_OUTER_SEED_RESULT ... \
-  --spectral-result SPECTRAL_OUTER_SEED_RESULT ... \
-  --output out/nested-outer
-uv run python -m numerai_competitive.candidate \
-  --oof out/nested-outer/nested-outer-predictions.npz \
-  --output out/candidate-plan.json
+bash slurm/build-oof-candidate.sh
 ```
+
+The script requires all three completed outer audits, verifies each selection against its audit,
+resolves exactly nine seed results per arm, and then writes the nested-outer estimate and frozen
+train-only candidate plan. It refuses to overwrite either output.
 
 The candidate selector tests predeclared model weights 0.1/0.25/0.5/0.75/1.0 against Ender20.
 An arm is eligible only if its standalone signal is positive in every nested outer fold. The

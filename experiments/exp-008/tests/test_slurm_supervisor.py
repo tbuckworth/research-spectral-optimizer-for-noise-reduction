@@ -1,3 +1,4 @@
+import json
 import os
 import subprocess
 from pathlib import Path
@@ -9,6 +10,7 @@ SUBMIT_STAGE = Path(__file__).parents[1] / "slurm" / "submit-stage.sh"
 SUBMIT_SELECTED = Path(__file__).parents[1] / "slurm" / "submit-selected.sh"
 LAUNCH_OUTER = Path(__file__).parents[1] / "slurm" / "launch-outer.sh"
 SUBMIT_REFIT = Path(__file__).parents[1] / "slurm" / "submit-refit.sh"
+BUILD_OOF = Path(__file__).parents[1] / "slurm" / "build-oof-candidate.sh"
 PROMOTERS = [
     Path(__file__).parents[1] / "slurm" / name
     for name in (
@@ -289,3 +291,42 @@ def test_launch_outer_rejects_duplicate_manifest_coverage(tmp_path):
     assert failed.returncode != 0
     assert "40 configs x two arms" in failed.stderr
     assert not (project / "results" / "submission-outer_2-f0-u5000-s0.tsv").exists()
+
+
+def test_build_oof_resolves_three_audited_folds_and_three_seeds(tmp_path):
+    project = tmp_path / "project"
+    results = project / "results"
+    results.mkdir(parents=True)
+    for number in range(1, 4):
+        selection = {"selected": {"adamw": [number], "spectral": [number + 3]}}
+        (results / f"selection-outer_{number}-f2-top1.json").write_text(
+            json.dumps(selection)
+        )
+        audit_dir = results / f"audit-outer_{number}-u100000"
+        audit_dir.mkdir()
+        (audit_dir / "outer-audit.json").write_text(json.dumps({
+            "status": "audit_complete", "split": {"name": f"outer_{number}"},
+            "selected": {"adamw": number, "spectral": number + 3},
+        }))
+        for arm, config_id in (("adamw", number), ("spectral", number + 3)):
+            for seed in range(3):
+                directory = results / (
+                    f"stage-outer_{number}-u100000-s{seed}-{arm}-c{config_id}"
+                )
+                directory.mkdir()
+                (directory / "result.json").write_text("{}")
+    calls = project / "uv-calls"
+    _executable(
+        project / "uv",
+        f'printf "%s\\n" "$*" >> "{calls}"\n'
+        f'if [[ "$*" == *numerai_competitive.oof* ]]; then mkdir -p "{results}/nested-outer"; '
+        f'touch "{results}/nested-outer/nested-outer-predictions.npz"; fi\n'
+        f'if [[ "$*" == *numerai_competitive.candidate* ]]; then touch '
+        f'"{results}/candidate-plan.json"; fi\n',
+    )
+    env = os.environ | {"NUMERAI_PROJECT": str(project)}
+    subprocess.run(["bash", BUILD_OOF], check=True, env=env)
+    text = calls.read_text()
+    assert text.count("--adamw-result") == 9
+    assert text.count("--spectral-result") == 9
+    assert "numerai_competitive.candidate" in text
