@@ -225,7 +225,7 @@ def test_stage_retry_rejects_partial_checkpoint(tmp_path):
     completed = subprocess.run(
         ["bash", RESUME_STAGE, manifest, "7"],
         env=os.environ | {"NUMERAI_PROJECT": str(project)},
-        capture_output=True, text=True,
+        capture_output=True, text=True, check=False,
     )
     assert completed.returncode != 0
     assert "partial restart checkpoint" in completed.stderr
