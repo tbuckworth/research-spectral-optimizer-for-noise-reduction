@@ -31,8 +31,11 @@ while IFS=$'\t' read -r _OLD_JOB SPLIT_NAME UPDATES SEED TASK_ARM CONFIG_ID EXTR
   if [[ -f "$DIRECTORY/result.json" ]]; then
     continue
   fi
-  if [[ ! -f "$DIRECTORY/checkpoint-status.json" || ! -f "$DIRECTORY/checkpoint.pt" ]]; then
-    echo "$TASK_NAME is incomplete without a restart checkpoint" >&2
+  CHECKPOINT_STATUS="$DIRECTORY/checkpoint-status.json"
+  CHECKPOINT_STATE="$DIRECTORY/checkpoint.pt"
+  if [[ -f $CHECKPOINT_STATUS && ! -f $CHECKPOINT_STATE \
+        || ! -f $CHECKPOINT_STATUS && -f $CHECKPOINT_STATE ]]; then
+    echo "$TASK_NAME has a partial restart checkpoint" >&2
     exit 1
   fi
   JOB_ID=$(sbatch --parsable --job-name="n8-${TASK_ARM:0:1}-${CONFIG_ID}r" \
