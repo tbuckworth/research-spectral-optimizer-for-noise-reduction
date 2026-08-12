@@ -22,16 +22,15 @@ unavailable to HPO.
 
 ## Frozen HPO sequence
 
-For each outer fold, run the exact stages below. Selection requires equal split/seed coverage
-and deterministically ranks mean CORR, worst-cell CORR, lower config ID, then lower budget.
+Run development search once before any outer score. Selection requires equal split/seed coverage
+within a budget and ranks mean CORR, worst-cell CORR, lower config ID, then lower budget.
 
 1. Both arms, all 40 paired config IDs, earliest inner fold, seed 0, 5,000 updates.
 2. Both arms over the top-12 paired union, every eligible inner fold, seed 0, 20,000 updates.
-3. Both arms over the union of each arm's top four at 5,000 and 20,000 updates, every eligible inner fold and seeds 0/1/2 at
-   5,000/20,000/100,000 updates, plus GPU-audited high-rank spectral variants at the 100,000
-   budget needed to activate them. Exact earlier cells are reused, not rerun.
-4. One configuration/update-budget winner per arm, refit on the outer-training block at its
-   selected budget and score the untouched outer block at seeds 0/1/2.
+3. Paired successive halving: top-two same-budget confirmations, a top-one 100,000-update scout,
+   and GPU-audited high-rank scouting/confirmation. Exact earlier cells are reused, not rerun.
+4. Freeze one configuration/update-budget winner per arm before outer outcomes, then evaluate the
+   same pair on all three chronological untouched outer blocks at seeds 0/1/2.
 
 On MATS, synchronize source only between stages, then build the shared frozen environment once:
 
@@ -45,13 +44,11 @@ bash slurm/submit-selected.sh SELECTION.json 20000 0 ENV_JOB_ID SPLIT...
 starts the fold-specific promotion waiter. It refuses an existing manifest, summary, or controller
 session rather than duplicating a procedure.
 `promote-f0-when-ready.sh` waits for the audited F0 table before submitting F1.
-`promote-f1-when-ready.sh` likewise requires every audited F1 temporal-fold table, selects the
-multi-fidelity top-four-per-arm paired union, selects the best development architecture feasible at rank 2,048,
-GPU-probes ranks 512/1,024/1,536/2,048/4,096, and submits the exact asymmetric three-budget F2
-manifest. Caught CUDA OOM rejects only that probed rank; any other probe error stops promotion.
-All three promotion scripts accept an optional `outer_1`, `outer_2`, or `outer_3` argument and
-derive the required two, three, or four eligible inner folds. Fold-specific monitor, supervisor,
-selection, manifest, and audit names prevent one outer procedure from satisfying another's gate.
+`promote-f1-when-ready.sh` requires both audited F1 tables, selects the best development
+architecture feasible at rank 2,048, GPU-probes ranks 512/1,024/1,536/2,048/4,096, freezes the
+successive-halving plan, and submits phase A. Later gates complete equal-coverage phase B, freeze
+one winner per arm and launch fixed-config walk-forward evaluation. Caught CUDA OOM rejects only
+that probed rank; any other probe error stops promotion.
 
 Submission scripts print tab-separated job provenance. `monitor-stage.sh` refuses incomplete
 coverage and dependency failures. GPU jobs use the dependency-built environment with `--no-sync`
@@ -69,11 +66,10 @@ refit and must never be used as nested-outer evidence.
 budget/fold/seed summary exists; `audit-outer-when-ready.sh` then blocks until all six arm-specific
 outer results exist and runs the dedicated audit.
 
-For an unattended complete nested run, start `slurm/continue-nested-pipeline.sh` in tmux while
-outer 1 is active. It waits for each audited outer result, submits a fresh environment gate before
-launching outer 2 and outer 3, builds the audited OOF/candidate handoff, and starts final canonical
-selection/refits. It stops at the final-refit audit: validation is still revealed only through the
-separate immutable-freeze command.
+The halving promoter starts `slurm/continue-nested-pipeline.sh` with walk-forward evaluation. It
+waits for all three audits, verifies they match the pre-outer selection, builds the OOF/candidate
+handoff, and starts final refits. It stops at the final-refit audit: validation is still revealed
+only through the separate immutable-freeze command.
 
 After all outer folds, aggregate only untouched nested-outer predictions:
 
@@ -111,7 +107,7 @@ and parameter counts before the later freeze computes full model-file hashes.
 
 ## One-time validation and live bundle
 
-After final canonical-fold selection and three 60-day-purged validation refits per arm, create
+After fixed-config walk-forward confirmation and three 60-day-purged validation refits per arm, create
 the freeze:
 
 ```bash
