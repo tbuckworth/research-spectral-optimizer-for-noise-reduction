@@ -27,7 +27,7 @@ and deterministically ranks mean CORR, worst-cell CORR, lower config ID, then lo
 
 1. Both arms, all 40 paired config IDs, earliest inner fold, seed 0, 5,000 updates.
 2. Both arms over the top-12 paired union, every eligible inner fold, seed 0, 20,000 updates.
-3. Both arms over the top-4 paired union, every eligible inner fold and seeds 0/1/2 at
+3. Both arms over the union of each arm's top four at 5,000 and 20,000 updates, every eligible inner fold and seeds 0/1/2 at
    5,000/20,000/100,000 updates, plus GPU-audited high-rank spectral variants at the 100,000
    budget needed to activate them. Exact earlier cells are reused, not rerun.
 4. One configuration/update-budget winner per arm, refit on the outer-training block at its
@@ -46,7 +46,7 @@ starts the fold-specific promotion waiter. It refuses an existing manifest, summ
 session rather than duplicating a procedure.
 `promote-f0-when-ready.sh` waits for the audited F0 table before submitting F1.
 `promote-f1-when-ready.sh` likewise requires every audited F1 temporal-fold table, selects the
-top-four paired union, selects the best development architecture feasible at rank 2,048,
+multi-fidelity top-four-per-arm paired union, selects the best development architecture feasible at rank 2,048,
 GPU-probes ranks 512/1,024/1,536/2,048/4,096, and submits the exact asymmetric three-budget F2
 manifest. Caught CUDA OOM rejects only that probed rank; any other probe error stops promotion.
 All three promotion scripts accept an optional `outer_1`, `outer_2`, or `outer_3` argument and

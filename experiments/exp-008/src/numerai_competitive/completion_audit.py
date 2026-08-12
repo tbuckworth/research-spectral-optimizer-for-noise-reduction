@@ -140,7 +140,7 @@ def audit(results: Path, leaderboard_path: Path, output: Path,
         ]
         f1_path = results / f"selection-outer_{number}-f1-top4.json"
         f1 = _json(f1_path, ("f1_selection_augmented_with_gpu_audited_high_ranks",))
-        _verify_score_hashes(f1.get("score_sha256", {}), f1_scores)
+        _verify_score_hashes(f1.get("score_sha256", {}), [f0_score, *f1_scores])
         ordinary = set(f1.get("selected", {}).get("paired_union", []))
         for score_path in f1_scores:
             if _score_arm_ids(score_path) != {
@@ -148,9 +148,21 @@ def audit(results: Path, leaderboard_path: Path, output: Path,
                 "spectral": set(f0_selected["paired_union"]),
             }:
                 raise ValueError(f"{score_path}: F1 coverage differs from F0 promotion")
-        if (f1.get("augmented_search_sha256") != sha256(search_path)
+        fidelity = f1.get("fidelity_selections", {})
+        if (f1.get("status") != "f1_selection_augmented_with_gpu_audited_high_ranks"
+                or f1.get("top_per_arm_per_fidelity") != 4
+                or set(fidelity) != {"5000", "20000"}
+                or any(len(fidelity[budget].get(arm, [])) != 4
+                       for budget in fidelity for arm in ("adamw", "spectral"))
+                or any(set(fidelity[budget].get("paired_union", []))
+                       != set(fidelity[budget]["adamw"]) | set(fidelity[budget]["spectral"])
+                       for budget in fidelity)
+                or any(set(f1.get("selected", {}).get(arm, []))
+                       != set(fidelity["5000"][arm]) | set(fidelity["20000"][arm])
+                       for arm in ("adamw", "spectral"))
+                or f1.get("augmented_search_sha256") != sha256(search_path)
                 or f1.get("selected", {}).get("high_rank_spectral") != extension_ids
-                or not 4 <= len(ordinary) <= 8):
+                or not 4 <= len(ordinary) <= 16):
             raise ValueError(f"outer_{number} F1 selection omits audited candidates")
         f2_scores = [
             results / f"summary-f2-outer_{number}_inner_{inner}-u{budget}-s{seed}"
