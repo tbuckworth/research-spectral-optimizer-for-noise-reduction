@@ -6,7 +6,7 @@
 #SBATCH --output=/mnt/nw/home/t.buckworth/numerai-competitive/slurm-%x-%j.out
 
 set -euo pipefail
-PROJECT=/mnt/nw/home/t.buckworth/numerai-competitive
+PROJECT=${NUMERAI_PROJECT:-/mnt/nw/home/t.buckworth/numerai-competitive}
 BUNDLE="$PROJECT/results/live-bundle"
 export UV_CACHE_DIR=/ephemeral/t.buckworth/uv-cache
 export OMP_NUM_THREADS=1

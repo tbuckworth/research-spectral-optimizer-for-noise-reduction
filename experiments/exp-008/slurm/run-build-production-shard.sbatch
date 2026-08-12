@@ -7,7 +7,7 @@
 #SBATCH --output=/mnt/nw/home/t.buckworth/numerai-competitive/slurm-%x-%j.out
 
 set -euo pipefail
-PROJECT=/mnt/nw/home/t.buckworth/numerai-competitive
+PROJECT=${NUMERAI_PROJECT:-/mnt/nw/home/t.buckworth/numerai-competitive}
 TRAIN=/ephemeral/t.buckworth/numerai-v5.3/${CANDIDATE_FEATURE_SET}
 VALIDATION=/ephemeral/t.buckworth/numerai-v5.3-validation-all-${PROCEDURE_CODE_COMMIT:0:12}
 DESTINATION=/ephemeral/t.buckworth/numerai-v5.3-production-${PRODUCTION_CODE_COMMIT:0:12}-${CANDIDATE_FEATURE_SET}

@@ -6,7 +6,7 @@
 #SBATCH --output=/mnt/nw/home/t.buckworth/numerai-competitive/slurm-%x-%j.out
 
 set -euo pipefail
-PROJECT=/mnt/nw/home/t.buckworth/numerai-competitive
+PROJECT=${NUMERAI_PROJECT:-/mnt/nw/home/t.buckworth/numerai-competitive}
 FREEZE="$PROJECT/results/freeze.json"
 PRODUCTION_AUDIT="$PROJECT/results/production-refit-audit.json"
 BUNDLE="$PROJECT/results/live-bundle"

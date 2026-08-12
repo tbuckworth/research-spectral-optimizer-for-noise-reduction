@@ -1,5 +1,6 @@
 import hashlib
 import json
+import shutil
 from pathlib import Path
 
 import pytest
@@ -274,6 +275,24 @@ def test_completion_audit_cross_checks_full_chain(tmp_path):
     assert report["status"] == "audit_complete"
     assert report["final_selected"] == {"adamw": 1, "spectral": 4}
     assert len(report["evidence_sha256"]) == 33
+
+
+def test_completion_audit_supports_immutable_separate_code_roots(tmp_path):
+    results, leaderboard = _complete_tree(tmp_path)
+    production_root = tmp_path / "production-root"
+    snapshot_path = tmp_path / "production-code-snapshot.json"
+    snapshot = json.loads(snapshot_path.read_text())
+    for relative in snapshot["files"]:
+        destination = production_root / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(tmp_path / relative, destination)
+    production_snapshot = production_root / snapshot_path.name
+    shutil.move(snapshot_path, production_snapshot)
+    report = audit(
+        results, leaderboard, tmp_path / "separate-completion.json",
+        procedure_code_root=tmp_path, production_code_root=production_root,
+    )
+    assert report["status"] == "audit_complete"
 
 
 def test_completion_audit_rejects_model_changed_after_freeze(tmp_path):

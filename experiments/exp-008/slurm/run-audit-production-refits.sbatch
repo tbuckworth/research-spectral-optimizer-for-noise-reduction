@@ -7,7 +7,7 @@
 #SBATCH --output=/mnt/nw/home/t.buckworth/numerai-competitive/slurm-%x-%j.out
 
 set -euo pipefail
-PROJECT=/mnt/nw/home/t.buckworth/numerai-competitive
+PROJECT=${NUMERAI_PROJECT:-/mnt/nw/home/t.buckworth/numerai-competitive}
 SHARD=/ephemeral/t.buckworth/numerai-v5.3-production-${PRODUCTION_CODE_COMMIT:0:12}-${CANDIDATE_FEATURE_SET}
 MODELS=()
 for SEED in 0 1 2; do

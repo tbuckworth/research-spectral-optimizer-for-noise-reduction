@@ -167,6 +167,11 @@ bash slurm/submit-production-refits.sh \
 The frozen manifest retains the earlier procedure commit used for search and sealed validation;
 the production audit separately records and verifies the production implementation commit. This
 avoids pretending that models trained before the live-refit addition used later source bytes.
+Deploy production code to a separate execution root whose `results` points to the immutable
+procedure results; set `NUMERAI_PROJECT` to that root when submitting production jobs. Never
+overwrite the procedure root, because its earlier code snapshot must remain independently
+verifiable. The final completion audit accepts `--procedure-code-root` and
+`--production-code-root` explicitly.
 
 Export the separately audited production seed ensemble and frozen blend as a Model Upload callable:
 
@@ -248,6 +253,7 @@ cross-check the complete evidence chain:
 ```bash
 uv run python -m numerai_competitive.completion_audit \
   --results results --leaderboard leaderboard/leaderboard-summary.json \
+  --procedure-code-root PROCEDURE_ROOT --production-code-root PRODUCTION_ROOT \
   --output results/completion-audit.json
 ```
 

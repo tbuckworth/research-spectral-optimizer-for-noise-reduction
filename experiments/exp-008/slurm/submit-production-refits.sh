@@ -29,7 +29,7 @@ selected=freeze["selected"][arm]
 print(freeze["code_commit"], arm, selected["config_id"], selected["updates"], selected["feature_set"])
 ' "$FREEZE" "$PRODUCTION_SNAPSHOT" "$PRODUCTION_CODE_COMMIT")
 BUILD=$(sbatch --parsable --dependency="afterok:${DEPENDENCY}" \
-  --export="ALL,PROCEDURE_CODE_COMMIT=${PROCEDURE_CODE_COMMIT},PRODUCTION_CODE_COMMIT=${PRODUCTION_CODE_COMMIT},CANDIDATE_FEATURE_SET=${CANDIDATE_FEATURE_SET}" \
+  --export="ALL,NUMERAI_PROJECT=${PROJECT},PROCEDURE_CODE_COMMIT=${PROCEDURE_CODE_COMMIT},PRODUCTION_CODE_COMMIT=${PRODUCTION_CODE_COMMIT},CANDIDATE_FEATURE_SET=${CANDIDATE_FEATURE_SET}" \
   "$PROJECT/slurm/run-build-production-shard.sbatch")
 printf 'stage\tjob_id\tdependency\tseed\n' > "${MANIFEST}.tmp"
 printf 'build_production_shard\t%s\t%s\t\n' "$BUILD" "$DEPENDENCY" >> "${MANIFEST}.tmp"
@@ -38,14 +38,14 @@ for SEED in 0 1 2; do
   TASK_NAME="production-refit-s${SEED}-${CANDIDATE_ARM}-c${CANDIDATE_CONFIG}"
   JOB=$(sbatch --parsable --job-name="n8-prod-${CANDIDATE_ARM:0:1}-${SEED}" \
     --dependency="afterok:${BUILD%%;*}" \
-    --export="ALL,PRODUCTION_CODE_COMMIT=${PRODUCTION_CODE_COMMIT},CANDIDATE_FEATURE_SET=${CANDIDATE_FEATURE_SET},TASK_NAME=${TASK_NAME},SEED=${SEED}" \
+    --export="ALL,NUMERAI_PROJECT=${PROJECT},PRODUCTION_CODE_COMMIT=${PRODUCTION_CODE_COMMIT},CANDIDATE_FEATURE_SET=${CANDIDATE_FEATURE_SET},TASK_NAME=${TASK_NAME},SEED=${SEED}" \
     "$PROJECT/slurm/run-production-refit.sbatch")
   REFITS+=("${JOB%%;*}")
   printf 'production_refit\t%s\t%s\t%s\n' "$JOB" "${BUILD%%;*}" "$SEED" >> "${MANIFEST}.tmp"
 done
 DEPENDENCIES=$(IFS=:; echo "${REFITS[*]}")
 AUDIT=$(sbatch --parsable --dependency="afterok:${DEPENDENCIES}" \
-  --export="ALL,PRODUCTION_CODE_COMMIT=${PRODUCTION_CODE_COMMIT},CANDIDATE_FEATURE_SET=${CANDIDATE_FEATURE_SET},CANDIDATE_ARM=${CANDIDATE_ARM},CANDIDATE_CONFIG=${CANDIDATE_CONFIG}" \
+  --export="ALL,NUMERAI_PROJECT=${PROJECT},PRODUCTION_CODE_COMMIT=${PRODUCTION_CODE_COMMIT},CANDIDATE_FEATURE_SET=${CANDIDATE_FEATURE_SET},CANDIDATE_ARM=${CANDIDATE_ARM},CANDIDATE_CONFIG=${CANDIDATE_CONFIG}" \
   "$PROJECT/slurm/run-audit-production-refits.sbatch")
 printf 'audit_production_refits\t%s\t%s\t\n' "$AUDIT" "$DEPENDENCIES" >> "${MANIFEST}.tmp"
 mv "${MANIFEST}.tmp" "$MANIFEST"
