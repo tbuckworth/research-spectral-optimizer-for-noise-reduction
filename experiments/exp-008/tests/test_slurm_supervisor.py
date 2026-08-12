@@ -20,6 +20,7 @@ BUILD_OOF = Path(__file__).parents[1] / "slurm" / "build-oof-candidate.sh"
 SUBMIT_SEALED = Path(__file__).parents[1] / "slurm" / "submit-sealed-evaluation.sh"
 SUBMIT_LIVE = Path(__file__).parents[1] / "slurm" / "submit-live-bundle.sh"
 MAIN_TARGET_SMOKE = Path(__file__).parents[1] / "slurm" / "run-main-target-smoke.sbatch"
+LAUNCH_WALKFORWARD = Path(__file__).parents[1] / "slurm" / "launch-walkforward-evaluation.sh"
 PROMOTERS = [
     Path(__file__).parents[1] / "slurm" / name
     for name in (
@@ -632,6 +633,12 @@ def test_launch_outer_rejects_duplicate_manifest_coverage(tmp_path):
     assert failed.returncode != 0
     assert "40 configs x two arms" in failed.stderr
     assert not (project / "results" / "submission-outer_2-f0-u5000-s0.tsv").exists()
+
+
+def test_walkforward_allows_development_f0_but_rejects_repeated_later_f0():
+    script = LAUNCH_WALKFORWARD.read_text()
+    assert '( $NUMBER -ne 1 && -e $OBSOLETE_SEARCH )' in script
+    assert 'submission-${SPLIT}-f0-u5000-s0.tsv' in script
 
 
 def test_nested_controller_confirms_fixed_walkforward_and_submits_refits(tmp_path):

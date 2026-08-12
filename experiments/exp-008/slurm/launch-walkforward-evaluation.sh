@@ -22,8 +22,9 @@ for NUMBER in 1 2 3; do
   OUTPUT="$PROJECT/results/audit-${SPLIT}-budgeted"
   SUPERVISOR="numerai-outer${NUMBER}-supervisor"
   AUDITOR="numerai-outer${NUMBER}-audit"
+  OBSOLETE_SEARCH="$PROJECT/results/submission-${SPLIT}-f0-u5000-s0.tsv"
   if [[ -e $MANIFEST || -e ${MANIFEST}.tmp || -e $OUTPUT \
-        || -e $PROJECT/results/submission-${SPLIT}-f0-u5000-s0.tsv ]] \
+        || ( $NUMBER -ne 1 && -e $OBSOLETE_SEARCH ) ]] \
         || tmux has-session -t "$SUPERVISOR" 2>/dev/null \
         || tmux has-session -t "$AUDITOR" 2>/dev/null; then
     echo "$SPLIT walk-forward artifact, obsolete search, or session already exists" >&2
