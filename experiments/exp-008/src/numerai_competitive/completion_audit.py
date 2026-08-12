@@ -158,11 +158,14 @@ def audit(results: Path, leaderboard_path: Path, output: Path,
                        != set(fidelity[budget]["adamw"]) | set(fidelity[budget]["spectral"])
                        for budget in fidelity)
                 or any(set(f1.get("selected", {}).get(arm, []))
-                       != set(fidelity["5000"][arm]) | set(fidelity["20000"][arm])
+                       != (set(fidelity["5000"][arm]) | set(fidelity["20000"][arm])
+                           | {extension["source_config_id"]})
                        for arm in ("adamw", "spectral"))
+                or f1.get("high_rank_source_config_id") != extension["source_config_id"]
+                or extension["source_config_id"] not in ordinary
                 or f1.get("augmented_search_sha256") != sha256(search_path)
                 or f1.get("selected", {}).get("high_rank_spectral") != extension_ids
-                or not 4 <= len(ordinary) <= 16):
+                or not 4 <= len(ordinary) <= 17):
             raise ValueError(f"outer_{number} F1 selection omits audited candidates")
         f2_scores = [
             results / f"summary-f2-outer_{number}_inner_{inner}-u{budget}-s{seed}"

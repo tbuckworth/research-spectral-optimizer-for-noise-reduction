@@ -22,17 +22,29 @@ def augment_selection(selection_path: Path, search_path: Path, output: Path) -> 
     if any((arm, config_id) not in available
            for config_id in [*base, *high_rank] for arm in ("adamw", "spectral")):
         raise ValueError("promoted configuration is not paired in augmented search")
+    sources = {
+        config.get("source_config_id") for config in search.get("configs", [])
+        if config.get("config_id") in high_rank and config.get("arm") == "spectral"
+    }
+    if len(sources) != 1 or None in sources:
+        raise ValueError("high-rank candidates do not identify exactly one source config")
+    source_id = int(next(iter(sources)))
+    if any((arm, source_id) not in available for arm in ("adamw", "spectral")):
+        raise ValueError("high-rank source is not paired in the augmented search")
     report = dict(selection)
     report["status"] = "f1_selection_augmented_with_gpu_audited_high_ranks"
     report["base_selection_sha256"] = sha256(selection_path)
     report["augmented_search_sha256"] = sha256(search_path)
     report["high_rank_config_ids"] = sorted(high_rank)
+    report["high_rank_source_config_id"] = source_id
     report["selected"] = dict(selection["selected"])
     # The high-rank IDs differ only in the spectral rank. Their AdamW members
     # are identical controls, so F2 trains the ordinary paired union plus only
     # the spectral member of each high-rank ID. Final winners are cross-evaluated
     # by both arms in the later canonical-fold stage.
-    report["selected"]["paired_union"] = sorted(base)
+    for arm in ("adamw", "spectral"):
+        report["selected"][arm] = sorted(set(report["selected"].get(arm, [])) | {source_id})
+    report["selected"]["paired_union"] = sorted(set(base) | {source_id})
     report["selected"]["high_rank_spectral"] = sorted(high_rank)
     atomic_json(output, report)
     return report

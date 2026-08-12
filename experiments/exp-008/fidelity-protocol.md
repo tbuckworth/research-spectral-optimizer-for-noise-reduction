@@ -112,4 +112,7 @@ top four per arm from each observed fidelity, 5,000 and 20,000 updates, and eval
 union at all three F2 budgets. The nomination count, ranking statistic and tie-breaks are unchanged.
 This rule uses development CORR only and was fixed without an outer, official-validation, live or
 leaderboard outcome. It can enlarge the ordinary paired union from 4--8 to at most 16 IDs; exact
-fold/seed/budget coverage remains mandatory.
+fold/seed/budget coverage remains mandatory. The separately selected high-rank source architecture
+is forced into both base arms and the paired union if it was not already nominated, giving an
+absolute maximum of 17 ordinary IDs and guaranteeing every high-rank spectral clone has its
+unchanged source AdamW control.
