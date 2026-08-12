@@ -35,6 +35,14 @@ def test_f2_uses_separate_summary_namespace_from_f0_and_f1():
     assert "summary-f2-${SPLIT}-u${BUDGET}-s${SEED}" in f2_promoter
 
 
+def test_f0_promotion_uses_exact_resumable_f1_supervision_and_promoter():
+    script = PROMOTERS[0].read_text()
+    assert "supervise-resumable-stage.sh' '$FOLD_MANIFEST' --selection '$SELECTION'" in script
+    assert "submission-${OUTER_SPLIT}-f1-${SPLIT}-u20000-s0.tsv" in script
+    assert "promote-f1-when-ready.sh' '$LAST_JOB' '$OUTER_SPLIT'" in script
+    assert "monitor-stage.sh" not in script
+
+
 def test_main_target_smoke_gates_matching_ender60_benchmark():
     script = MAIN_TARGET_SMOKE.read_text()
     assert 'result["config"]["target"] == "target"' in script
