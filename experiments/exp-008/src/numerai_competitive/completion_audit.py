@@ -47,6 +47,137 @@ def _score_arm_ids(path: Path) -> dict[str, set[int]]:
     return values
 
 
+def _audit_successive_development(
+    results: Path, admitted_ids: set[int], search_path: Path, extension: dict,
+    extension_ids: list[int], evidence: dict[str, str],
+) -> tuple[dict, dict, Path, dict, Path]:
+    """Audit one pre-outer search followed by fixed-config walk-forward evaluation."""
+    f0_score = results / "summary-outer_1_inner_1-u5000-s0" / "scores.csv"
+    if _score_arm_ids(f0_score) != {"adamw": admitted_ids, "spectral": admitted_ids}:
+        raise ValueError("outer_1 F0 coverage differs from memory admission")
+    f0_path = results / "selection-outer_1-f0-top12.json"
+    f0 = json.loads(f0_path.read_text())
+    _verify_score_hashes(f0.get("score_sha256", {}), [f0_score])
+    promoted = set(f0.get("selected", {}).get("paired_union", []))
+    if (f0.get("top") != 12
+            or any(len(f0.get("selected", {}).get(arm, [])) != 12
+                   for arm in ("adamw", "spectral"))
+            or promoted != (set(f0["selected"]["adamw"]) | set(f0["selected"]["spectral"]))
+            or not promoted <= admitted_ids):
+        raise ValueError("outer_1 F0 selection is inconsistent")
+    f1_scores = [
+        results / f"summary-outer_1_inner_{inner}-u20000-s0" / "scores.csv"
+        for inner in (1, 2)
+    ]
+    for path in f1_scores:
+        if _score_arm_ids(path) != {"adamw": promoted, "spectral": promoted}:
+            raise ValueError(f"{path}: F1 coverage differs from F0 promotion")
+
+    plan_path = results / "selection-outer_1-successive-plan.json"
+    plan = _json(plan_path, ("successive_halving_plan_frozen",))
+    _verify_score_hashes(plan.get("score_sha256", {}), [f0_score, *f1_scores])
+    confirmations = plan.get("confirmation_selections", {})
+    source_id = extension.get("source_config_id")
+    if (plan.get("confirmation_top_per_arm_per_fidelity") != 2
+            or plan.get("long_scout_top_per_arm_per_fidelity") != 1
+            or plan.get("augmented_search_sha256") != sha256(search_path)
+            or plan.get("high_rank_spectral") != extension_ids
+            or plan.get("high_rank_source_config_id") != source_id
+            or set(confirmations) != {"5000", "20000"}
+            or any(set(confirmations[budget].get("paired_union", []))
+                   != set(confirmations[budget].get("adamw", []))
+                   | set(confirmations[budget].get("spectral", []))
+                   for budget in confirmations)
+            or source_id not in confirmations["20000"].get("paired_union", [])
+            or source_id not in plan.get("long_scout_paired_union", [])):
+        raise ValueError("successive-halving plan or source control is inconsistent")
+
+    finalists_path = results / "selection-outer_1-successive-finalists.json"
+    finalists = _json(finalists_path, ("successive_halving_finalists_frozen",))
+    ordinary_scout = results / "summary-f2a-outer_1_inner_1-u100000-s0" / "scores.csv"
+    high_scouts = [
+        results / f"summary-f2a-outer_1_inner_{inner}-u20000-s0" / "scores.csv"
+        for inner in (1, 2)
+    ]
+    _verify_score_hashes(finalists.get("score_sha256", {}), [ordinary_scout, *high_scouts])
+    high_finalists = finalists.get("high_rank_spectral", [])
+    ordinary_finalists = finalists.get("ordinary_confirmation_paired_union", [])
+    if (not 1 <= len(high_finalists) <= 2
+            or not set(high_finalists) <= set(extension_ids)
+            or finalists.get("high_rank_source_config_id") != source_id
+            or source_id not in ordinary_finalists
+            or any(len(finalists.get("ordinary_winners", {}).get(arm, [])) != 1
+                   for arm in ("adamw", "spectral"))):
+        raise ValueError("successive-halving finalists are inconsistent")
+
+    assembly_dir = results / "summary-outer_1-successive-equal-coverage"
+    assembly_path = assembly_dir / "assembly-audit.json"
+    assembly = _json(assembly_path, ("successive_scores_equal_coverage",))
+    assembled_scores = assembly_dir / "scores.csv"
+    if (assembly.get("splits") != ["outer_1_inner_1", "outer_1_inner_2"]
+            or assembly.get("seeds") != [0, 1, 2]
+            or assembly.get("plan_sha256") != sha256(plan_path)
+            or assembly.get("finalists_sha256") != sha256(finalists_path)
+            or assembly.get("scores_sha256") != sha256(assembled_scores)):
+        raise ValueError("equal-coverage score assembly is inconsistent")
+    for raw_path, digest in assembly.get("source_score_sha256", {}).items():
+        path = Path(raw_path)
+        if not path.is_file() or sha256(path) != digest:
+            raise ValueError("equal-coverage source score changed")
+
+    development_selection_path = results / "selection-outer_1-f2-budget-top1.json"
+    development_selection = _json(
+        development_selection_path, ("development_budget_sensitivity_selection",),
+    )
+    _verify_score_hashes(
+        development_selection.get("score_sha256", {}), [assembled_scores],
+    )
+    if (development_selection.get("top") != 1
+            or development_selection.get("allow_asymmetric") is not True
+            or any(len(development_selection.get("selected", {}).get(arm, [])) != 1
+                   or len(development_selection.get("selected_updates", {}).get(arm, [])) != 1
+                   for arm in ("adamw", "spectral"))):
+        raise ValueError("pre-outer development selection is not exact top-1 per arm")
+
+    audit_paths = [
+        results / f"audit-outer_{number}-budgeted" / "outer-audit.json"
+        for number in range(1, 4)
+    ]
+    for number, path in enumerate(audit_paths, 1):
+        value = _json(path, ("audit_complete",))
+        if (value.get("split", {}).get("name") != f"outer_{number}"
+                or value.get("seeds") != [0, 1, 2] or value.get("cells") != 6
+                or any(value.get("selected", {}).get(arm)
+                       != development_selection["selected"][arm][0]
+                       or value.get("updates", {}).get(arm)
+                       != development_selection["selected_updates"][arm][0]
+                       for arm in ("adamw", "spectral"))):
+            raise ValueError(f"outer_{number} differs from frozen development winner")
+        evidence[f"outer_{number}_audit"] = sha256(path)
+
+    final_selection_path = results / "selection-final-top1.json"
+    final_selection = _json(final_selection_path, ("fixed_config_walkforward_confirmed",))
+    if (final_selection.get("source_selection_sha256") != sha256(development_selection_path)
+            or final_selection.get("reselected_on_outer_outcomes") is not False
+            or final_selection.get("selected") != development_selection.get("selected")
+            or final_selection.get("selected_updates")
+            != development_selection.get("selected_updates")
+            or final_selection.get("walkforward_audit_sha256") != {
+                f"outer_{number}": sha256(path)
+                for number, path in enumerate(audit_paths, 1)
+            }):
+        raise ValueError("final selection was changed by walk-forward outcomes")
+    evidence.update({
+        "outer_1_f0_selection": sha256(f0_path),
+        "successive_plan": sha256(plan_path),
+        "successive_finalists": sha256(finalists_path),
+        "successive_score_assembly": sha256(assembly_path),
+        "development_selection": sha256(development_selection_path),
+        "final_selection": sha256(final_selection_path),
+    })
+    return final_selection, development_selection, final_selection_path, finalists, plan_path
+
+
 def audit(results: Path, leaderboard_path: Path, output: Path,
           procedure_code_root: Path | None = None,
           production_code_root: Path | None = None) -> dict:
