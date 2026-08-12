@@ -19,8 +19,9 @@ For each outer fold independently:
    config ID. Form the union of nominated IDs. Run **both** arms for every union ID on every inner
    fold, seed 0, for 20,000 updates. The union rule preserves paired exposure even when the arms
    nominate different architectures or batch sizes.
-3. Re-rank from the 20,000-update folds. Nominate the top four per arm and run both arms on their
-   union, on every inner fold and seeds 0, 1 and 2, at 5,000, 20,000 and 100,000 updates. Reuse
+3. Nominate the top four per arm independently from the 5,000-update screen and from the
+   20,000-update folds, then take the union across arms and budgets. Run both arms on that union,
+   on every inner fold and seeds 0, 1 and 2, at 5,000, 20,000 and 100,000 updates. Reuse
    only exact pre-existing cells. Training budget is therefore a development hyperparameter, not
    an assumed constant.
 4. Select one `(config ID, update budget)` pair per arm using mean CORR across equal eligible
@@ -97,3 +98,18 @@ arms. Runtime never selects or disqualifies an optimizer.
 Artifact cadence is non-scientific: runs retain about 200 diagnostic points and one atomic mid-run
 restart checkpoint. Final predictions/results replace the checkpoint on successful completion.
 Promoted jobs request 23.5 hours, below the free partition's tested 24-hour QOS ceiling.
+
+## Multi-fidelity promotion amendment (2026-08-12)
+
+This amendment was made before F1 completed, before F2 began, and before any outer or official
+validation score existed. Paired development diagnostics showed that 15 of the 17 promoted AdamW
+configurations scored lower at 20,000 than at 5,000 updates on the first inner fold. The original
+step 3 selected architectures only at 20,000 updates and therefore could discard a strong
+5,000-update specialist before training budget was allowed to compete in F2.
+
+To avoid assuming configuration rankings are monotone in training budget, F2 now preserves the
+top four per arm from each observed fidelity, 5,000 and 20,000 updates, and evaluates their paired
+union at all three F2 budgets. The nomination count, ranking statistic and tie-breaks are unchanged.
+This rule uses development CORR only and was fixed without an outer, official-validation, live or
+leaderboard outcome. It can enlarge the ordinary paired union from 4--8 to at most 16 IDs; exact
+fold/seed/budget coverage remains mandatory.

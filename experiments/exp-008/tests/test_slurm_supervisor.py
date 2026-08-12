@@ -35,6 +35,13 @@ def test_f2_uses_separate_summary_namespace_from_f0_and_f1():
     assert "summary-f2-${SPLIT}-u${BUDGET}-s${SEED}" in f2_promoter
 
 
+def test_f1_promotion_preserves_5k_and_20k_fidelity_winners():
+    script = PROMOTERS[1].read_text()
+    assert "numerai_competitive.select_multifidelity_configs" in script
+    assert '--score-group "$F0_SUMMARY" --score-group "${SUMMARIES[@]}"' in script
+    assert "$EXPECTED -gt 16" in script
+
+
 def test_f0_promotion_uses_exact_resumable_f1_supervision_and_promoter():
     script = PROMOTERS[0].read_text()
     assert "supervise-resumable-stage.sh' '$FOLD_MANIFEST' --selection '$SELECTION'" in script

@@ -29,6 +29,7 @@ SUMMARIES=()
 MARKERS=()
 SESSIONS=()
 SPLITS=()
+F0_SUMMARY="$PROJECT/results/summary-${OUTER_SPLIT}_inner_1-u5000-s0/scores.csv"
 for INDEX in $(seq 1 "$INNER_COUNT"); do
   SPLITS+=("${OUTER_SPLIT}_inner_${INDEX}")
   SUMMARIES+=("$PROJECT/results/summary-${OUTER_SPLIT}_inner_${INDEX}-u20000-s0/scores.csv")
@@ -63,8 +64,9 @@ if [[ -e "$SELECTION" || -e "$BASE_SELECTION" || -e "$MANIFEST" || -e "${MANIFES
   echo "F2 selection, manifest, temporary file or supervisor session already exists" >&2
   exit 1
 fi
-"$PROJECT/uv" run --no-sync python -m numerai_competitive.select_configs \
-  --scores "${SUMMARIES[@]}" --top 4 --output "$BASE_SELECTION"
+"$PROJECT/uv" run --no-sync python -m numerai_competitive.select_multifidelity_configs \
+  --score-group "$F0_SUMMARY" --score-group "${SUMMARIES[@]}" \
+  --top 4 --output "$BASE_SELECTION"
 HIGH_RANK_SEARCH="$PROJECT/results/search-v1-high-rank.json"
 if [[ $OUTER_NUMBER == 1 ]]; then
   bash "$PROJECT/slurm/prepare-high-rank-search.sh" "$DEPENDENCY_JOB" "${SUMMARIES[@]}"
@@ -81,7 +83,7 @@ EXPECTED=$(python3 -c \
 HIGH_RANK_EXPECTED=$(python3 -c \
   'import json,sys; print(len(json.load(open(sys.argv[1]))["selected"]["high_rank_spectral"]))' \
   "$SELECTION")
-if [[ $EXPECTED -lt 4 || $EXPECTED -gt 8 || $HIGH_RANK_EXPECTED -lt 1 \
+if [[ $EXPECTED -lt 4 || $EXPECTED -gt 16 || $HIGH_RANK_EXPECTED -lt 1 \
       || $HIGH_RANK_EXPECTED -gt 5 ]]; then
   echo "invalid paired-union size $EXPECTED" >&2
   exit 1

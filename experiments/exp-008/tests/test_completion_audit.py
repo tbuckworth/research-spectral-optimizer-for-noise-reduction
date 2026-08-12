@@ -47,7 +47,7 @@ def _complete_tree(tmp_path: Path) -> tuple[Path, Path]:
         "rows": [{"config_id": config_id, "state": "static_safe"}
                  for config_id in range(40)],
     })
-    f1_by_outer, f2_by_outer, ordinary_by_outer = {}, {}, {}
+    f0_by_outer, f1_by_outer, f2_by_outer, ordinary_by_outer = {}, {}, {}, {}
     for number in range(1, 4):
         ordinary = {number, number + 3, number + 10, number + 20}
         ordinary_by_outer[number] = ordinary
@@ -66,6 +66,7 @@ def _complete_tree(tmp_path: Path) -> tuple[Path, Path]:
             "selected": {"adamw": promoted, "spectral": promoted,
                          "paired_union": promoted},
         })
+        f0_by_outer[number] = f0
         f1_paths, f2_paths = [], []
         for inner in range(1, number + 2):
             split = f"outer_{number}_inner_{inner}"
@@ -118,8 +119,18 @@ def _complete_tree(tmp_path: Path) -> tuple[Path, Path]:
         _write(results / f"selection-outer_{number}-f1-top4.json", {
             "status": "f1_selection_augmented_with_gpu_audited_high_ranks",
             "augmented_search_sha256": sha256(search),
-            "score_sha256": {str(path): sha256(path) for path in f1_by_outer[number]},
-            "selected": {"paired_union": sorted(ordinary),
+            "top_per_arm_per_fidelity": 4,
+            "score_sha256": {
+                str(path): sha256(path)
+                for path in [f0_by_outer[number], *f1_by_outer[number]]
+            },
+            "fidelity_selections": {
+                budget: {"adamw": sorted(ordinary), "spectral": sorted(ordinary),
+                         "paired_union": sorted(ordinary)}
+                for budget in ("5000", "20000")
+            },
+            "selected": {"adamw": sorted(ordinary), "spectral": sorted(ordinary),
+                         "paired_union": sorted(ordinary),
                          "high_rank_spectral": [1070512]},
         })
         _write(results / f"selection-outer_{number}-f2-budget-top1.json", {
