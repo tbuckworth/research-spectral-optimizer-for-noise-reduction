@@ -41,6 +41,22 @@ def test_f0_promotion_uses_exact_resumable_f1_supervision_and_promoter():
     assert "submission-${OUTER_SPLIT}-f1-${SPLIT}-u20000-s0.tsv" in script
     assert "promote-f1-when-ready.sh' '$LAST_JOB' '$OUTER_SPLIT'" in script
     assert "monitor-stage.sh" not in script
+    assert '-v target_split="$SPLIT"' in script
+    assert "$2 == target_split" in script
+
+
+def test_f1_fold_manifest_awk_expression_is_portable(tmp_path):
+    manifest = tmp_path / "manifest.tsv"
+    manifest.write_text(
+        "1\touter_1_inner_1\t20000\t0\tadamw\t1\n"
+        "2\touter_1_inner_2\t20000\t0\tadamw\t1\n"
+    )
+    completed = subprocess.run(
+        ["awk", "-F", "\t", "-v", "target_split=outer_1_inner_1",
+         "$2 == target_split", manifest],
+        check=True, capture_output=True, text=True,
+    )
+    assert completed.stdout == "1\touter_1_inner_1\t20000\t0\tadamw\t1\n"
 
 
 def test_main_target_smoke_gates_matching_ender60_benchmark():

@@ -68,7 +68,8 @@ fi
 for INDEX in $(seq 1 "$INNER_COUNT"); do
   SPLIT="${OUTER_SPLIT}_inner_${INDEX}"
   FOLD_MANIFEST="$PROJECT/results/submission-${OUTER_SPLIT}-f1-${SPLIT}-u20000-s0.tsv"
-  awk -F $'\t' -v split="$SPLIT" '$2 == split' "$MANIFEST" > "${FOLD_MANIFEST}.tmp"
+  awk -F $'\t' -v target_split="$SPLIT" '$2 == target_split' "$MANIFEST" \
+    > "${FOLD_MANIFEST}.tmp"
   if [[ $(wc -l < "${FOLD_MANIFEST}.tmp") -ne $((EXPECTED * 2)) ]]; then
     echo "F1 fold manifest differs from paired union x arms" >&2
     exit 1
