@@ -76,7 +76,7 @@ def select_successive_halving(
 
 def build_plan(
     score_groups: list[list[Path]], *, confirmation_top: int, long_scout_top: int,
-    high_rank_source_config_id: int, output: Path,
+    high_rank_source_config_id: int, augmented_search: Path, output: Path,
 ) -> dict:
     frames = [pd.concat([pd.read_csv(path) for path in group], ignore_index=True)
               for group in score_groups]
@@ -85,6 +85,16 @@ def build_plan(
         high_rank_source_config_id=high_rank_source_config_id,
     )
     paths = [path for group in score_groups for path in group]
+    search = json.loads(augmented_search.read_text())
+    high_rank_ids = search.get("high_rank_config_ids", [])
+    source_ids = {
+        row.get("source_config_id") for row in search.get("configs", [])
+        if row.get("arm") == "spectral" and row.get("config_id") in high_rank_ids
+    }
+    if (search.get("status") != "development_only_augmented_search"
+            or not high_rank_ids or len(high_rank_ids) != len(set(high_rank_ids))
+            or source_ids != {high_rank_source_config_id}):
+        raise ValueError("augmented search or high-rank source provenance is inconsistent")
     report = {
         "status": "successive_halving_plan_frozen",
         "criterion": (
@@ -95,6 +105,9 @@ def build_plan(
         "long_scout_top_per_arm_per_fidelity": long_scout_top,
         "score_groups": [[str(path) for path in group] for group in score_groups],
         "score_sha256": {str(path): sha256(path) for path in paths},
+        "augmented_search": str(augmented_search),
+        "augmented_search_sha256": sha256(augmented_search),
+        "high_rank_spectral": sorted(high_rank_ids),
         **value,
     }
     atomic_json(output, report)
@@ -107,13 +120,14 @@ def main() -> None:
     parser.add_argument("--confirmation-top", type=int, default=2)
     parser.add_argument("--long-scout-top", type=int, default=1)
     parser.add_argument("--high-rank-source-config-id", type=int, required=True)
+    parser.add_argument("--augmented-search", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     print(json.dumps(build_plan(
         args.score_group, confirmation_top=args.confirmation_top,
         long_scout_top=args.long_scout_top,
         high_rank_source_config_id=args.high_rank_source_config_id,
-        output=args.output,
+        augmented_search=args.augmented_search, output=args.output,
     ), sort_keys=True))
 
 

@@ -62,10 +62,15 @@ def test_build_plan_hashes_every_score_file(tmp_path: Path):
             group.append(path)
         paths.append(group)
     output = tmp_path / "plan.json"
+    search = tmp_path / "search.json"
+    search.write_text('{"status":"development_only_augmented_search",'
+                      '"high_rank_config_ids":[101],"configs":['
+                      '{"arm":"spectral","config_id":101,"source_config_id":2}]}')
     report = build_plan(
         paths, confirmation_top=2, long_scout_top=1,
-        high_rank_source_config_id=2, output=output,
+        high_rank_source_config_id=2, augmented_search=search, output=output,
     )
     assert report["status"] == "successive_halving_plan_frozen"
     assert set(report["score_sha256"]) == {str(path) for group in paths for path in group}
+    assert report["high_rank_spectral"] == [101]
     assert output.is_file()

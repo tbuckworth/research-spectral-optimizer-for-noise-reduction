@@ -11,6 +11,7 @@ SUBMIT_SELECTED = Path(__file__).parents[1] / "slurm" / "submit-selected.sh"
 SUBMIT_BUDGETED = Path(__file__).parents[1] / "slurm" / "submit-budgeted-selected.sh"
 SUBMIT_HIGH_RANK = Path(__file__).parents[1] / "slurm" / "submit-high-rank-spectral.sh"
 SUBMIT_SUCCESSIVE = Path(__file__).parents[1] / "slurm" / "submit-successive-plan.sh"
+SUBMIT_FINALISTS = Path(__file__).parents[1] / "slurm" / "submit-successive-finalists.sh"
 RESUME_STAGE = Path(__file__).parents[1] / "slurm" / "resume-checkpointed-stage.sh"
 LAUNCH_OUTER = Path(__file__).parents[1] / "slurm" / "launch-outer.sh"
 CONTINUE_NESTED = Path(__file__).parents[1] / "slurm" / "continue-nested-pipeline.sh"
@@ -485,6 +486,39 @@ def test_submit_successive_plan_rejects_100k_confirmation(tmp_path):
     )
     assert failed.returncode != 0
     assert "invalid successive-plan" in failed.stderr
+
+
+def test_submit_successive_finalists_preserves_ordinary_pairing_and_rank_asymmetry(tmp_path):
+    project = tmp_path / "project"
+    (project / "slurm").mkdir(parents=True)
+    selection = project / "finalists.json"
+    selection.write_text(json.dumps({
+        "ordinary_confirmation_paired_union": [1, 7],
+        "high_rank_spectral": [101, 102],
+    }))
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    _executable(fake_bin / "sbatch", "echo 9001\n")
+    env = os.environ | {
+        "NUMERAI_PROJECT": str(project),
+        "PATH": f"{fake_bin}:{os.environ['PATH']}",
+    }
+    ordinary = subprocess.run(
+        ["bash", SUBMIT_FINALISTS, selection, "ordinary", "100000", "0", "4", "fold"],
+        env=env, check=True, capture_output=True, text=True,
+    )
+    ranks = subprocess.run(
+        ["bash", SUBMIT_FINALISTS, selection, "high-rank", "20000", "1", "4", "fold"],
+        env=env, check=True, capture_output=True, text=True,
+    )
+    assert {(row.split("\t")[4], int(row.split("\t")[5]))
+            for row in ordinary.stdout.splitlines()} == {
+        (arm, config_id) for arm in ("adamw", "spectral") for config_id in (1, 7)
+    }
+    assert {(row.split("\t")[4], int(row.split("\t")[5]))
+            for row in ranks.stdout.splitlines()} == {
+        ("spectral", 101), ("spectral", 102),
+    }
 
 
 def test_submit_budgeted_selected_pairs_every_candidate_across_arms(tmp_path):

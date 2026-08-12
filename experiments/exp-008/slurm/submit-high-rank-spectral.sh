@@ -12,7 +12,10 @@ DEPENDENCY=$4
 shift 4
 PROJECT=${NUMERAI_PROJECT:-/mnt/nw/home/t.buckworth/numerai-competitive}
 mapfile -t IDS < <(python3 -c \
-  'import json,sys; print(*json.load(open(sys.argv[1]))["selected"]["high_rank_spectral"], sep="\n")' \
+  'import json,sys
+value=json.load(open(sys.argv[1]))
+ids=value.get("high_rank_spectral", value.get("selected", {}).get("high_rank_spectral", []))
+print(*ids, sep="\n")' \
   "$SELECTION")
 [[ ${#IDS[@]} -gt 0 ]] || { echo "selection has no high-rank spectral IDs" >&2; exit 1; }
 
