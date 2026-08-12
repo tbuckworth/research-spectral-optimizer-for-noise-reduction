@@ -47,10 +47,15 @@ def _score_arm_ids(path: Path) -> dict[str, set[int]]:
     return values
 
 
-def audit(results: Path, leaderboard_path: Path, output: Path) -> dict:
+def audit(results: Path, leaderboard_path: Path, output: Path,
+          procedure_code_root: Path | None = None,
+          production_code_root: Path | None = None) -> dict:
     evidence = {}
-    root = results.parent
-    base_search_path = root / "configs" / "search-v1.json"
+    procedure_root = (results.parent if procedure_code_root is None
+                      else procedure_code_root.resolve())
+    production_root = (results.parent if production_code_root is None
+                       else production_code_root.resolve())
+    base_search_path = procedure_root / "configs" / "search-v1.json"
     admission_path = results / "base-search-memory-admission.json"
     admission = _json(admission_path, ("complete",))
     admission_rows = admission.get("rows", [])
@@ -263,8 +268,8 @@ def audit(results: Path, leaderboard_path: Path, output: Path) -> dict:
 
     freeze_path = results / "freeze.json"
     freeze = _json(freeze_path, ("frozen",))
-    code_snapshot_path = root / "code-snapshot.json"
-    protocol_path = root / "fidelity-protocol.md"
+    code_snapshot_path = procedure_root / "code-snapshot.json"
+    protocol_path = procedure_root / "fidelity-protocol.md"
     if (not re.fullmatch(r"[0-9a-f]{40}", freeze.get("code_commit", ""))
             or freeze.get("primary_target") != "target"
             or freeze.get("primary_benchmark") != "v53_lgbm_ender60"
@@ -274,7 +279,7 @@ def audit(results: Path, leaderboard_path: Path, output: Path) -> dict:
             or freeze.get("candidate_plan_sha256") != sha256(candidate_path)
             or freeze.get("candidate_transform") != candidate.get("selected")):
         raise ValueError("freeze provenance or candidate transformation is inconsistent")
-    verify_snapshot(results.parent, code_snapshot_path, freeze["code_commit"])
+    verify_snapshot(procedure_root, code_snapshot_path, freeze["code_commit"])
     for arm in ("adamw", "spectral"):
         selected = freeze["selected"][arm]
         if (selected.get("config_id") != refit["selected"][arm]
@@ -311,7 +316,7 @@ def audit(results: Path, leaderboard_path: Path, output: Path) -> dict:
 
     production_audit_path = results / "production-refit-audit.json"
     production = _json(production_audit_path, ("audit_complete",))
-    production_snapshot_path = root / "production-code-snapshot.json"
+    production_snapshot_path = production_root / "production-code-snapshot.json"
     candidate_arm = freeze["candidate_transform"]["arm"]
     selected_candidate = freeze["selected"][candidate_arm]
     production_manifest = production.get("production_manifest", {})
@@ -333,7 +338,7 @@ def audit(results: Path, leaderboard_path: Path, output: Path) -> dict:
             or production_manifest.get("resolved_validation_rows", 0) <= 0):
         raise ValueError("production-live refit audit differs from freeze/evaluation")
     verify_snapshot(
-        root, production_snapshot_path, production["production_code_commit"],
+        production_root, production_snapshot_path, production["production_code_commit"],
     )
     production_paths = [results / (
         f"production-refit-s{seed}-{candidate_arm}-c{selected_candidate['config_id']}"
@@ -417,8 +422,13 @@ def main() -> None:
     parser.add_argument("--results", type=Path, required=True)
     parser.add_argument("--leaderboard", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--procedure-code-root", type=Path)
+    parser.add_argument("--production-code-root", type=Path)
     args = parser.parse_args()
-    print(json.dumps(audit(args.results, args.leaderboard, args.output), sort_keys=True))
+    print(json.dumps(audit(
+        args.results, args.leaderboard, args.output,
+        args.procedure_code_root, args.production_code_root,
+    ), sort_keys=True))
 
 
 if __name__ == "__main__":

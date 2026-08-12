@@ -40,10 +40,11 @@ for SEED in 0 1 2; do
   [[ -f $MODEL ]] || { echo "production candidate model missing: $MODEL" >&2; exit 1; }
 done
 BUILD_JOB=$(sbatch --parsable --job-name=n8-live-bundle \
-  --export="ALL,CODE_COMMIT=${PRODUCTION_CODE_COMMIT},CANDIDATE_ARM=${CANDIDATE_ARM},CANDIDATE_CONFIG=${CANDIDATE_CONFIG},CANDIDATE_UPDATES=${CANDIDATE_UPDATES}" \
+  --export="ALL,NUMERAI_PROJECT=${PROJECT},CODE_COMMIT=${PRODUCTION_CODE_COMMIT},CANDIDATE_ARM=${CANDIDATE_ARM},CANDIDATE_CONFIG=${CANDIDATE_CONFIG},CANDIDATE_UPDATES=${CANDIDATE_UPDATES}" \
   "$PROJECT/slurm/run-build-live-bundle.sbatch")
 VALIDATE_JOB=$(sbatch --parsable --job-name=n8-live-validate \
   --dependency="afterok:${BUILD_JOB%%;*}" \
+  --export="ALL,NUMERAI_PROJECT=${PROJECT}" \
   "$PROJECT/slurm/run-validate-live-bundle.sbatch")
 printf 'stage\tjob_id\tdependency\tcode_commit\tcandidate_arm\tcandidate_config\tcandidate_updates\n' \
   > "${MANIFEST}.tmp"
