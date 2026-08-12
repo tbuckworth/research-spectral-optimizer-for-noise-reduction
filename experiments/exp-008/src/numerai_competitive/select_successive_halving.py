@@ -50,6 +50,13 @@ def select_successive_halving(
         str(budget): select_configs(groups[budget], confirmation_top)
         for budget in (5000, 20000)
     }
+    for arm in ("adamw", "spectral"):
+        confirmations["20000"][arm] = sorted(
+            set(confirmations["20000"][arm]) | {high_rank_source_config_id}
+        )
+    confirmations["20000"]["paired_union"] = sorted(
+        set(confirmations["20000"]["adamw"]) | set(confirmations["20000"]["spectral"])
+    )
     scouts = {
         str(budget): select_configs(groups[budget], long_scout_top)
         for budget in (5000, 20000)

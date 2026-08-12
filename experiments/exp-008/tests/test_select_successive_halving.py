@@ -30,7 +30,9 @@ def test_selects_budget_specific_confirmations_and_small_paired_scout():
     assert value["confirmation_selections"]["5000"] == {
         "adamw": [4, 3], "spectral": [4, 3], "paired_union": [3, 4],
     }
-    assert value["confirmation_selections"]["20000"]["paired_union"] == [3, 4]
+    assert value["confirmation_selections"]["20000"] == {
+        "adamw": [1, 3, 4], "spectral": [1, 3, 4], "paired_union": [1, 3, 4],
+    }
     assert value["long_scout_paired_union"] == [1, 4]
     assert value["high_rank_source_config_id"] == 1
 

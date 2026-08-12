@@ -10,6 +10,7 @@ SUBMIT_STAGE = Path(__file__).parents[1] / "slurm" / "submit-stage.sh"
 SUBMIT_SELECTED = Path(__file__).parents[1] / "slurm" / "submit-selected.sh"
 SUBMIT_BUDGETED = Path(__file__).parents[1] / "slurm" / "submit-budgeted-selected.sh"
 SUBMIT_HIGH_RANK = Path(__file__).parents[1] / "slurm" / "submit-high-rank-spectral.sh"
+SUBMIT_SUCCESSIVE = Path(__file__).parents[1] / "slurm" / "submit-successive-plan.sh"
 RESUME_STAGE = Path(__file__).parents[1] / "slurm" / "resume-checkpointed-stage.sh"
 LAUNCH_OUTER = Path(__file__).parents[1] / "slurm" / "launch-outer.sh"
 CONTINUE_NESTED = Path(__file__).parents[1] / "slurm" / "continue-nested-pipeline.sh"
@@ -437,6 +438,53 @@ def test_submit_selected_can_reuse_only_existing_exact_result(tmp_path):
     assert rows[0][0] == "0" and rows[0][4:] == ["adamw", "7"]
     assert rows[1][0] == "9001" and rows[1][4:] == ["spectral", "7"]
     assert len(calls.read_text().splitlines()) == 1
+
+
+def test_submit_successive_plan_uses_budget_specific_and_long_scout_ids(tmp_path):
+    project = tmp_path / "project"
+    (project / "slurm").mkdir(parents=True)
+    plan = project / "plan.json"
+    plan.write_text(json.dumps({
+        "confirmation_selections": {
+            "5000": {"paired_union": [1, 2]},
+            "20000": {"paired_union": [2, 3]},
+        },
+        "long_scout_paired_union": [3, 7],
+    }))
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    _executable(fake_bin / "sbatch", "echo 9001\n")
+    env = os.environ | {
+        "NUMERAI_PROJECT": str(project),
+        "PATH": f"{fake_bin}:{os.environ['PATH']}",
+    }
+    confirmed = subprocess.run(
+        ["bash", SUBMIT_SUCCESSIVE, plan, "confirmation", "20000", "1", "4", "fold"],
+        env=env, check=True, capture_output=True, text=True,
+    )
+    scouted = subprocess.run(
+        ["bash", SUBMIT_SUCCESSIVE, plan, "long-scout", "100000", "0", "4", "fold"],
+        env=env, check=True, capture_output=True, text=True,
+    )
+    assert {(row.split("\t")[4], int(row.split("\t")[5]))
+            for row in confirmed.stdout.splitlines()} == {
+        (arm, config_id) for arm in ("adamw", "spectral") for config_id in (2, 3)
+    }
+    assert {(row.split("\t")[4], int(row.split("\t")[5]))
+            for row in scouted.stdout.splitlines()} == {
+        (arm, config_id) for arm in ("adamw", "spectral") for config_id in (3, 7)
+    }
+
+
+def test_submit_successive_plan_rejects_100k_confirmation(tmp_path):
+    plan = tmp_path / "plan.json"
+    plan.write_text("{}")
+    failed = subprocess.run(
+        ["bash", SUBMIT_SUCCESSIVE, plan, "confirmation", "100000", "0", "4", "fold"],
+        check=False, capture_output=True, text=True,
+    )
+    assert failed.returncode != 0
+    assert "invalid successive-plan" in failed.stderr
 
 
 def test_submit_budgeted_selected_pairs_every_candidate_across_arms(tmp_path):
