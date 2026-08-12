@@ -23,10 +23,12 @@ def test_augmented_search_includes_only_gpu_audited_paired_ranks(tmp_path):
         "status": "development_only_high_rank_extension",
         "source_search_sha256": sha256(base),
         "configs": [
-            {"arm": "adamw", "config_id": 1_040_512},
-            {"arm": "spectral", "config_id": 1_040_512, "rank": 512},
-            {"arm": "adamw", "config_id": 1_041_024},
-            {"arm": "spectral", "config_id": 1_041_024, "rank": 1024},
+            {"arm": "adamw", "config_id": 1_040_512, "source_config_id": 4},
+            {"arm": "spectral", "config_id": 1_040_512, "rank": 512,
+             "source_config_id": 4},
+            {"arm": "adamw", "config_id": 1_041_024, "source_config_id": 4},
+            {"arm": "spectral", "config_id": 1_041_024, "rank": 1024,
+             "source_config_id": 4},
         ],
     })
     audit = _write(tmp_path / "audit.json", {
@@ -49,6 +51,28 @@ def test_augmented_search_includes_only_gpu_audited_paired_ranks(tmp_path):
     assert promoted["selected"]["paired_union"] == [4]
     assert promoted["selected"]["high_rank_spectral"] == [1_041_024]
     assert promoted["selected"]["adamw"] == [4]
+    assert promoted["high_rank_source_config_id"] == 4
+
+
+def test_high_rank_source_is_forced_into_both_base_arms(tmp_path):
+    search = _write(tmp_path / "search.json", {
+        "status": "development_only_augmented_search",
+        "high_rank_config_ids": [1_041_024],
+        "configs": [
+            {"arm": arm, "config_id": config_id, **extra}
+            for config_id, extra in ((4, {}), (7, {}),
+                                     (1_041_024, {"source_config_id": 4}))
+            for arm in ("adamw", "spectral")
+        ],
+    })
+    selection = _write(tmp_path / "selection.json", {
+        "selected": {"adamw": [7], "spectral": [7], "paired_union": [7]},
+    })
+    promoted = augment_selection(selection, search, tmp_path / "promoted.json")
+    assert promoted["high_rank_source_config_id"] == 4
+    assert promoted["selected"]["adamw"] == [4, 7]
+    assert promoted["selected"]["spectral"] == [4, 7]
+    assert promoted["selected"]["paired_union"] == [4, 7]
 
 
 def test_augmented_search_rejects_unpaired_eligible_rank(tmp_path):

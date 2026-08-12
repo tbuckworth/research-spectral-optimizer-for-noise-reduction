@@ -83,7 +83,7 @@ EXPECTED=$(python3 -c \
 HIGH_RANK_EXPECTED=$(python3 -c \
   'import json,sys; print(len(json.load(open(sys.argv[1]))["selected"]["high_rank_spectral"]))' \
   "$SELECTION")
-if [[ $EXPECTED -lt 4 || $EXPECTED -gt 16 || $HIGH_RANK_EXPECTED -lt 1 \
+if [[ $EXPECTED -lt 4 || $EXPECTED -gt 17 || $HIGH_RANK_EXPECTED -lt 1 \
       || $HIGH_RANK_EXPECTED -gt 5 ]]; then
   echo "invalid paired-union size $EXPECTED" >&2
   exit 1

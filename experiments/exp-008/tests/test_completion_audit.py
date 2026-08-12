@@ -49,12 +49,13 @@ def _complete_tree(tmp_path: Path) -> tuple[Path, Path]:
     })
     f0_by_outer, f1_by_outer, f2_by_outer, ordinary_by_outer = {}, {}, {}, {}
     for number in range(1, 4):
-        ordinary = {number, number + 3, number + 10, number + 20}
+        nominated = {number, number + 3, number + 10, number + 20}
+        ordinary = nominated | {7}
         ordinary_by_outer[number] = ordinary
         promoted = sorted(ordinary | (set(range(12)) - ordinary))[:12]
         if not ordinary <= set(promoted):
             promoted = sorted(ordinary) + [value for value in range(40)
-                                           if value not in ordinary][:8]
+                                           if value not in ordinary][:12 - len(ordinary)]
         split = f"outer_{number}_inner_1"
         f0 = results / f"summary-{split}-u5000-s0" / "scores.csv"
         f0_rows = ["arm,config_id,corr_mean,split,seed,updates"]
@@ -115,18 +116,20 @@ def _complete_tree(tmp_path: Path) -> tuple[Path, Path]:
         "probe_audit_sha256": sha256(probes), "configs": [],
     })
     for number in range(1, 4):
+        nominated = {number, number + 3, number + 10, number + 20}
         ordinary = ordinary_by_outer[number]
         _write(results / f"selection-outer_{number}-f1-top4.json", {
             "status": "f1_selection_augmented_with_gpu_audited_high_ranks",
             "augmented_search_sha256": sha256(search),
+            "high_rank_source_config_id": 7,
             "top_per_arm_per_fidelity": 4,
             "score_sha256": {
                 str(path): sha256(path)
                 for path in [f0_by_outer[number], *f1_by_outer[number]]
             },
             "fidelity_selections": {
-                budget: {"adamw": sorted(ordinary), "spectral": sorted(ordinary),
-                         "paired_union": sorted(ordinary)}
+                budget: {"adamw": sorted(nominated), "spectral": sorted(nominated),
+                         "paired_union": sorted(nominated)}
                 for budget in ("5000", "20000")
             },
             "selected": {"adamw": sorted(ordinary), "spectral": sorted(ordinary),
