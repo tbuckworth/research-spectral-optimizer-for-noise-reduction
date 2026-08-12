@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 
+import pandas as pd
 import pytest
 
 from numerai_competitive.completion_audit import _audit_successive_development
@@ -67,13 +68,30 @@ def _tree(tmp_path: Path):
         "ordinary_confirmation_paired_union": [1, 5, 7],
         "ordinary_winners": {"adamw": [1], "spectral": [5]},
     })
-    assembled = _scores(results / "summary-outer_1-successive-equal-coverage/scores.csv",
-                        {1, 5, 7}, budget=100000, split="outer_1_inner_1")
+    rows = ["arm,config_id,corr_mean,split,seed,updates"]
+    expected = {
+        5000: {"adamw": {1, 2, 3}, "spectral": {1, 2, 3}},
+        20000: {"adamw": {4, 5, 7}, "spectral": {4, 5, 7, 101}},
+        100000: {"adamw": {1, 5, 7}, "spectral": {1, 5, 7, 101}},
+    }
+    for budget, arms in expected.items():
+        for arm, ids in arms.items():
+            for config_id in sorted(ids):
+                for split in ("outer_1_inner_1", "outer_1_inner_2"):
+                    for seed in range(3):
+                        rows.append(f"{arm},{config_id},0.1,{split},{seed},{budget}")
+    source_scores = _write(results / "all-successive-source-scores.csv", "\n".join(rows) + "\n")
+    assembled = results / "summary-outer_1-successive-equal-coverage/scores.csv"
+    assembled.parent.mkdir(parents=True)
+    pd.read_csv(source_scores).sort_values(
+        ["arm", "config_id", "updates", "split", "seed"]
+    ).reset_index(drop=True).to_csv(assembled, index=False)
     _write(assembled.parent / "assembly-audit.json", {
         "status": "successive_scores_equal_coverage",
         "splits": ["outer_1_inner_1", "outer_1_inner_2"], "seeds": [0, 1, 2],
         "plan_sha256": sha256(plan), "finalists_sha256": sha256(finalists),
-        "scores_sha256": sha256(assembled), "source_score_sha256": {},
+        "scores_sha256": sha256(assembled),
+        "source_score_sha256": {str(source_scores): sha256(source_scores)},
     })
     development = _write(results / "selection-outer_1-f2-budget-top1.json", {
         "status": "development_budget_sensitivity_selection", "top": 1,

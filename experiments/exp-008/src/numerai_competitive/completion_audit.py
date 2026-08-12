@@ -7,6 +7,9 @@ import json
 import re
 from pathlib import Path
 
+import pandas as pd
+
+from .assemble_successive_scores import assemble as assemble_successive_scores
 from .code_snapshot import verify_snapshot
 from .data import atomic_json, sha256
 
@@ -120,10 +123,22 @@ def _audit_successive_development(
             or assembly.get("finalists_sha256") != sha256(finalists_path)
             or assembly.get("scores_sha256") != sha256(assembled_scores)):
         raise ValueError("equal-coverage score assembly is inconsistent")
+    source_paths = []
     for raw_path, digest in assembly.get("source_score_sha256", {}).items():
         path = Path(raw_path)
         if not path.is_file() or sha256(path) != digest:
             raise ValueError("equal-coverage source score changed")
+        source_paths.append(path)
+    if not source_paths:
+        raise ValueError("equal-coverage assembly lacks source score evidence")
+    reproduced = assemble_successive_scores(
+        pd.concat([pd.read_csv(path) for path in source_paths], ignore_index=True),
+        plan, finalists, expected_splits={"outer_1_inner_1", "outer_1_inner_2"},
+        expected_seeds={0, 1, 2},
+    )
+    recorded = pd.read_csv(assembled_scores)
+    if not reproduced.equals(recorded):
+        raise ValueError("equal-coverage scores do not reproduce from hashed stage summaries")
 
     development_selection_path = results / "selection-outer_1-f2-budget-top1.json"
     development_selection = _json(
