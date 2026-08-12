@@ -159,6 +159,46 @@ def test_checkpoint_retry_preserves_high_rank_probe_runner(tmp_path):
     assert str(project / "slurm" / "run-high-rank-probe.sbatch") in calls.read_text()
 
 
+def test_stage_retry_restarts_failed_task_without_checkpoint(tmp_path):
+    project = tmp_path / "project"
+    (project / "slurm").mkdir(parents=True)
+    (project / "slurm" / "run-one.sbatch").write_text("")
+    manifest = project / "manifest.tsv"
+    manifest.write_text("1\touter_1_inner_1\t5000\t0\tspectral\t14\n")
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    calls = tmp_path / "sbatch-calls"
+    _executable(fake_bin / "sbatch", f'printf "%s\\n" "$*" >> "{calls}"\necho 9002\n')
+    env = os.environ | {
+        "NUMERAI_PROJECT": str(project),
+        "PATH": f"{fake_bin}:{os.environ['PATH']}",
+    }
+    completed = subprocess.run(
+        ["bash", RESUME_STAGE, manifest, "7"], check=True, env=env,
+        capture_output=True, text=True,
+    )
+    assert completed.stdout == "9002\touter_1_inner_1\t5000\t0\tspectral\t14\n"
+    assert "--dependency=afterok:7" in calls.read_text()
+
+
+def test_stage_retry_rejects_partial_checkpoint(tmp_path):
+    project = tmp_path / "project"
+    result = project / "results" / "stage-outer_1_inner_1-u5000-s0-spectral-c14"
+    result.mkdir(parents=True)
+    (result / "checkpoint.pt").write_text("orphaned")
+    (project / "slurm").mkdir()
+    (project / "slurm" / "run-one.sbatch").write_text("")
+    manifest = project / "manifest.tsv"
+    manifest.write_text("1\touter_1_inner_1\t5000\t0\tspectral\t14\n")
+    completed = subprocess.run(
+        ["bash", RESUME_STAGE, manifest, "7"],
+        env=os.environ | {"NUMERAI_PROJECT": str(project)},
+        capture_output=True, text=True,
+    )
+    assert completed.returncode != 0
+    assert "partial restart checkpoint" in completed.stderr
+
+
 def test_supervisor_can_defer_nonpaired_outer_summary(tmp_path):
     project, manifest, env = _project(tmp_path, complete=True)
     subprocess.run(["bash", SCRIPT, manifest, "--skip-summary"], check=True, env=env)
