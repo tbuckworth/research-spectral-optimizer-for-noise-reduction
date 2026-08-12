@@ -107,12 +107,15 @@ class NumeraiMLPPredictor:
 
 def export_callable(model_artifacts: Sequence[Path], output: Path,
                     batch_size: int = 4096, candidate_plan: Path | None = None,
-                    freeze_manifest: Path | None = None) -> Path:
+                    freeze_manifest: Path | None = None,
+                    production_audit: Path | None = None) -> Path:
     if candidate_plan is not None and freeze_manifest is not None:
         raise ValueError("supply candidate plan or final freeze manifest, not both")
     kwargs = {}
     freeze = None
     if freeze_manifest is not None:
+        if production_audit is None:
+            raise ValueError("final export requires an audited production refit")
         freeze = json.loads(freeze_manifest.read_text())
         if freeze.get("status") != "frozen":
             raise ValueError("final export requires a frozen manifest")
@@ -131,11 +134,15 @@ def export_callable(model_artifacts: Sequence[Path], output: Path,
         model_artifacts, batch_size=batch_size, **kwargs
     )
     if freeze is not None:
-        expected = freeze["selected"][selected["arm"]]
-        if list(predictor.model_signatures) != expected["model_signatures"]:
-            raise ValueError("export model signatures/order differ from final freeze")
-        if [sha256(path) for path in model_artifacts] != expected["model_sha256"]:
-            raise ValueError("export model hashes differ from final freeze")
+        audit = json.loads(production_audit.read_text())
+        if (audit.get("status") != "audit_complete"
+                or audit.get("freeze_manifest_sha256") != sha256(freeze_manifest)
+                or audit.get("arm") != selected["arm"]):
+            raise ValueError("production audit differs from final freeze")
+        if list(predictor.model_signatures) != audit.get("model_signatures"):
+            raise ValueError("export model signatures/order differ from production audit")
+        if [sha256(path) for path in model_artifacts] != audit.get("model_sha256"):
+            raise ValueError("export model hashes differ from production audit")
     output.parent.mkdir(parents=True, exist_ok=True)
     # Numerai's execution image has torch/pandas/cloudpickle, but not this project package.
     # Explicitly serialize the two small implementation modules by value so unpickling does
@@ -159,9 +166,11 @@ def main() -> None:
     parser.add_argument("--batch-size", type=int, default=4096)
     parser.add_argument("--candidate-plan", type=Path)
     parser.add_argument("--freeze", type=Path)
+    parser.add_argument("--production-audit", type=Path)
     args = parser.parse_args()
     print(export_callable(
-        args.model, args.output, args.batch_size, args.candidate_plan, args.freeze
+        args.model, args.output, args.batch_size, args.candidate_plan, args.freeze,
+        args.production_audit,
     ))
 
 

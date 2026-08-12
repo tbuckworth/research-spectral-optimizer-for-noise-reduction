@@ -475,7 +475,7 @@ def test_nested_controller_launches_remaining_outers_and_final_stage(tmp_path):
     project = tmp_path / "project"
     results = project / "results"
     (project / "slurm").mkdir(parents=True)
-    first = results / "audit-outer_1-u100000"
+    first = results / "audit-outer_1-budgeted"
     first.mkdir(parents=True)
     (first / "outer-audit.json").write_text(json.dumps({
         "status": "audit_complete", "split": {"name": "outer_1"},
@@ -486,9 +486,9 @@ def test_nested_controller_launches_remaining_outers_and_final_stage(tmp_path):
         project / "slurm" / "launch-outer.sh",
         f'printf "%s\\n" "$*" >> "{launches}"\n'
         'number=${1#outer_}\n'
-        'mkdir -p "$NUMERAI_PROJECT/results/audit-outer_${number}-u100000"\n'
+        'mkdir -p "$NUMERAI_PROJECT/results/audit-outer_${number}-budgeted"\n'
         'printf \'{"status":"audit_complete","split":{"name":"%s"}}\\n\' "$1" > '
-        '"$NUMERAI_PROJECT/results/audit-outer_${number}-u100000/outer-audit.json"\n',
+        '"$NUMERAI_PROJECT/results/audit-outer_${number}-budgeted/outer-audit.json"\n',
     )
     _executable(
         project / "slurm" / "build-oof-candidate.sh",
@@ -501,11 +501,12 @@ def test_nested_controller_launches_remaining_outers_and_final_stage(tmp_path):
     _executable(
         project / "slurm" / "launch-final-selection.sh",
         f'printf "%s\\n" "$*" >> "{launches}"\n'
-        'touch "$NUMERAI_PROJECT/results/submission-final-selection-u100000.tsv"\n'
-        'mkdir -p "$NUMERAI_PROJECT/results/audit-final-refits-u100000"\n'
-        'printf \'{"status":"audit_complete","cells":6,"updates":100000,'
+        'touch "$NUMERAI_PROJECT/results/submission-final-selection-budgeted.tsv"\n'
+        'mkdir -p "$NUMERAI_PROJECT/results/audit-final-refits-budgeted"\n'
+        'printf \'{"status":"audit_complete","cells":6,'
+        '"updates":{"adamw":5000,"spectral":100000},'
         '"seeds":[0,1,2]}\\n\' > '
-        '"$NUMERAI_PROJECT/results/audit-final-refits-u100000/refit-audit.json"\n',
+        '"$NUMERAI_PROJECT/results/audit-final-refits-budgeted/refit-audit.json"\n',
     )
     fake_bin = tmp_path / "bin"
     fake_bin.mkdir()
@@ -528,15 +529,19 @@ def test_build_oof_resolves_three_audited_folds_and_three_seeds(tmp_path):
     results = project / "results"
     results.mkdir(parents=True)
     for number in range(1, 4):
-        selection = {"selected": {"adamw": [number], "spectral": [number + 3]}}
-        (results / f"selection-outer_{number}-f2-top1.json").write_text(
+        selection = {
+            "selected": {"adamw": [number], "spectral": [number + 3]},
+            "selected_updates": {"adamw": [100000], "spectral": [100000]},
+        }
+        (results / f"selection-outer_{number}-f2-budget-top1.json").write_text(
             json.dumps(selection)
         )
-        audit_dir = results / f"audit-outer_{number}-u100000"
+        audit_dir = results / f"audit-outer_{number}-budgeted"
         audit_dir.mkdir()
         (audit_dir / "outer-audit.json").write_text(json.dumps({
-            "status": "audit_complete", "split": {"name": f"outer_{number}"},
-            "selected": {"adamw": number, "spectral": number + 3},
+                "status": "audit_complete", "split": {"name": f"outer_{number}"},
+                "selected": {"adamw": number, "spectral": number + 3},
+                "updates": {"adamw": 100000, "spectral": 100000},
         }))
         for arm, config_id in (("adamw", number), ("spectral", number + 3)):
             for seed in range(3):
@@ -565,14 +570,16 @@ def test_build_oof_resolves_three_audited_folds_and_three_seeds(tmp_path):
 def test_sealed_evaluation_submits_only_after_refit_audit_and_candidate(tmp_path):
     project = tmp_path / "project"
     results = project / "results"
-    (results / "audit-final-refits-u100000").mkdir(parents=True)
+    (results / "audit-final-refits-budgeted").mkdir(parents=True)
     (project / "slurm").mkdir()
     (results / "search-v1-high-rank.json").write_text("{}")
     (results / "selection-final-top1.json").write_text(json.dumps({
         "selected": {"adamw": [7], "spectral": [8]},
+        "selected_updates": {"adamw": [100000], "spectral": [100000]},
     }))
-    (results / "audit-final-refits-u100000" / "refit-audit.json").write_text(json.dumps({
-        "status": "audit_complete", "cells": 6, "updates": 100000,
+    (results / "audit-final-refits-budgeted" / "refit-audit.json").write_text(json.dumps({
+        "status": "audit_complete", "cells": 6,
+        "updates": {"adamw": 100000, "spectral": 100000},
         "seeds": [0, 1, 2], "selected": {"adamw": 7, "spectral": 8},
     }))
     (results / "candidate-plan.json").write_text(json.dumps({
@@ -648,15 +655,18 @@ def test_live_bundle_uses_frozen_candidate_after_sealed_evaluation(tmp_path):
     (results / "freeze.json").write_text(json.dumps({
         "status": "frozen", "code_commit": commit,
         "candidate_transform": {"arm": "spectral"},
-        "selected": {"spectral": {"config_id": 8}},
+        "selected": {"spectral": {"config_id": 8, "updates": 100000}},
     }))
     (results / "official-validation" / "evaluation-complete.json").write_text(json.dumps({
         "status": "complete",
     }))
     for seed in range(3):
-        directory = results / f"final-refit-u100000-s{seed}-spectral-c8"
+        directory = results / f"production-refit-s{seed}-spectral-c8"
         directory.mkdir()
         (directory / "model.pt").write_text("model")
+    (results / "production-refit-audit.json").write_text(json.dumps({
+        "status": "audit_complete", "arm": "spectral", "production_code_commit": commit,
+    }))
     fake_bin = tmp_path / "bin"
     fake_bin.mkdir()
     calls = tmp_path / "sbatch-calls"

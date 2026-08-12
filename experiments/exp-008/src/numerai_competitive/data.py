@@ -268,10 +268,14 @@ class TrainShard:
 
     @classmethod
     def open(cls, root: Path) -> TrainShard:
+        return cls._open(root, "train")
+
+    @classmethod
+    def _open(cls, root: Path, expected_split: str) -> TrainShard:
         root = root.resolve()
         manifest = json.loads((root / "manifest.json").read_text())
-        if manifest.get("split") != "train" or manifest.get("data_version") != "v5.3":
-            raise ValueError("development loader accepts a frozen v5.3 train shard only")
+        if manifest.get("split") != expected_split or manifest.get("data_version") != "v5.3":
+            raise ValueError(f"loader accepts a frozen v5.3 {expected_split} shard only")
         X = np.load(root / "X_u8.npy", mmap_mode="r")
         targets = np.load(root / "targets_f32.npy", mmap_mode="r")
         eras = np.load(root / "era_i16.npy", mmap_mode="r")
@@ -298,17 +302,25 @@ class ValidationShard(TrainShard):
 
     @classmethod
     def open(cls, root: Path) -> ValidationShard:
-        root = root.resolve()
-        manifest = json.loads((root / "manifest.json").read_text())
-        if manifest.get("split") != "validation" or manifest.get("data_version") != "v5.3":
-            raise ValueError("validation loader accepts a frozen v5.3 validation shard only")
-        X = np.load(root / "X_u8.npy", mmap_mode="r")
-        targets = np.load(root / "targets_f32.npy", mmap_mode="r")
-        eras = np.load(root / "era_i16.npy", mmap_mode="r")
-        benchmarks = np.load(root / "benchmarks_f32.npy", mmap_mode="r")
-        n = manifest["rows"]
-        if any(len(value) != n for value in (X, targets, eras, benchmarks)):
-            raise ValueError("validation shard row counts disagree with manifest")
+        shard = cls._open(root, "validation")
+        manifest = shard.manifest
         if "freeze_manifest_sha256" not in manifest:
             raise ValueError("validation shard lacks freeze provenance")
-        return cls(root, X, targets, eras, benchmarks, manifest)
+        return shard
+
+
+@dataclass
+class ProductionShard(TrainShard):
+    """Resolved train+validation data, unlocked only after sealed evaluation."""
+
+    @classmethod
+    def open(cls, root: Path) -> ProductionShard:
+        shard = cls._open(root, "production_train")
+        required = {
+            "freeze_manifest_sha256", "sealed_evaluation_sha256",
+            "resolved_validation_rows", "training_data_sha256",
+        }
+        missing = required - set(shard.manifest)
+        if missing:
+            raise ValueError(f"production shard lacks provenance: {sorted(missing)}")
+        return shard

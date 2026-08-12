@@ -36,6 +36,13 @@ seeds 0, 1 and 2, then choose one pair per arm by the same rule. Freeze configs,
 arm-specific training horizons, scoring,
 benchmark blends and analysis before constructing or scoring the official validation shard.
 
+The three models used for that sealed historical score remain immutable evidence and are never
+relabelled as production models. After the one-time sealed evaluation, the winning frozen
+procedure may be refit, without any further selection, on frozen train plus only those validation
+rows whose main target is resolved. These separately named production refits are the only models
+eligible for the forward unstaked live bundle. Their data manifest, evaluation dependency,
+signatures and hashes are audited independently.
+
 ## Base-search memory admission (2026-08-11)
 
 The paired base search is frozen before outcomes are observed. Every spectral draw is

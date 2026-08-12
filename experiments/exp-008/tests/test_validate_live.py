@@ -44,7 +44,7 @@ def test_target_free_live_resource_validator(tmp_path):
     assert not list(tmp_path.glob("*.tmp"))
 
 
-def test_final_callable_export_verifies_freeze_signatures_and_hashes(tmp_path):
+def test_final_callable_export_verifies_production_audit_signatures_and_hashes(tmp_path):
     config = MLPConfig(input_dim=2, width=4, depth=2)
     model = tmp_path / "model.pt"
     torch.save({
@@ -57,16 +57,25 @@ def test_final_callable_export_verifies_freeze_signatures_and_hashes(tmp_path):
         "status": "frozen",
         "candidate_transform": {"arm": "adamw", "model_weight": 1.0,
                                 "benchmark": "v53_lgbm_ender60"},
-        "selected": {"adamw": {"model_signatures": ["adamw-seed-0"],
-                                "model_sha256": [sha256(model)]}},
+        "selected": {"adamw": {}},
     }))
-    output = export_callable([model], tmp_path / "final.pkl", freeze_manifest=freeze)
+    audit = tmp_path / "production-audit.json"
+    audit.write_text(json.dumps({
+        "status": "audit_complete", "arm": "adamw",
+        "freeze_manifest_sha256": sha256(freeze),
+        "model_signatures": ["adamw-seed-0"], "model_sha256": [sha256(model)],
+    }))
+    output = export_callable(
+        [model], tmp_path / "final.pkl", freeze_manifest=freeze, production_audit=audit,
+    )
     assert output.is_file()
-    payload = json.loads(freeze.read_text())
-    payload["selected"]["adamw"]["model_signatures"] = ["wrong"]
-    freeze.write_text(json.dumps(payload))
+    payload = json.loads(audit.read_text())
+    payload["model_signatures"] = ["wrong"]
+    audit.write_text(json.dumps(payload))
     with pytest.raises(ValueError, match="signatures/order"):
-        export_callable([model], tmp_path / "bad.pkl", freeze_manifest=freeze)
+        export_callable(
+            [model], tmp_path / "bad.pkl", freeze_manifest=freeze, production_audit=audit,
+        )
 
 
 def test_export_is_self_contained_without_project_package_import(tmp_path):

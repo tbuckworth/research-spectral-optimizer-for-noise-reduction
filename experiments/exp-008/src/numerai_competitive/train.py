@@ -19,8 +19,8 @@ import pandas as pd
 import torch
 import torch.nn.functional as F
 
-from .data import TrainShard, atomic_json
 from . import PRIMARY_BENCHMARK
+from .data import ProductionShard, TrainShard, atomic_json
 from .filters import StreamingSpectralFilter
 from .metrics import per_era_corr, per_era_correlation_contribution, summarize_era_scores
 from .model import MLPConfig, ResidualMLP
@@ -152,8 +152,12 @@ def _atomic_npz(path: Path, **arrays: np.ndarray) -> None:
     os.replace(temporary, path)
 
 
-def _config_hash(config: TrainConfig, split: EraSplit) -> str:
-    payload = json.dumps({"config": asdict(config), "split": split.to_dict()}, sort_keys=True)
+def _config_hash(config: TrainConfig, split: EraSplit,
+                 training_data_sha256: str | None = None) -> str:
+    value = {"config": asdict(config), "split": split.to_dict()}
+    if training_data_sha256 is not None:
+        value["training_data_sha256"] = training_data_sha256
+    payload = json.dumps(value, sort_keys=True)
     return hashlib.sha256(payload.encode()).hexdigest()
 
 
@@ -198,12 +202,15 @@ def _evaluate(predictions: np.ndarray, shard: TrainShard, indices: np.ndarray,
 
 def run_training(shard_root: Path, split: EraSplit, config: TrainConfig, output_dir: Path,
                  *, resume: bool = True, stop_after_updates: int | None = None,
-                 refit: bool = False) -> dict[str, Any]:
+                 refit: bool = False, production_refit: bool = False) -> dict[str, Any]:
     """Train exactly one frozen-shard split/config and write restart-safe artifacts."""
-    if "validation" in str(Path(shard_root)).lower():
+    if "validation" in str(Path(shard_root)).lower() and not production_refit:
         raise ValueError("validation paths are sealed from the training runner")
+    if production_refit and not refit:
+        raise ValueError("production data is allowed only for a target-free refit")
     _seed_everything(config.seed)
-    shard = TrainShard.open(Path(shard_root))
+    shard = (ProductionShard.open(Path(shard_root)) if production_refit
+             else TrainShard.open(Path(shard_root)))
     if config.model.input_dim != shard.X.shape[1]:
         raise ValueError("model input_dim does not match shard features")
     if config.feature_set is not None and config.feature_set != shard.manifest.get("feature_set"):
@@ -233,7 +240,8 @@ def run_training(shard_root: Path, split: EraSplit, config: TrainConfig, output_
     prediction_path = output_dir / "validation_predictions.npz"
     model_path = output_dir / "model.pt"
     checkpoint_status_path = output_dir / "checkpoint-status.json"
-    signature = _config_hash(config, split)
+    training_data_sha256 = shard.manifest.get("training_data_sha256")
+    signature = _config_hash(config, split, training_data_sha256)
     logs: list[dict[str, Any]] = []
     start_update = 0
     if resume and checkpoint_path.exists():
@@ -357,6 +365,7 @@ def run_training(shard_root: Path, split: EraSplit, config: TrainConfig, output_
         "validation": validation, "logs": logs, "peak_cuda_memory_bytes": peak,
         "prediction_file": None if refit else prediction_path.name,
         "model_file": model_path.name if config.save_model else None,
+        "training_data_sha256": training_data_sha256,
     }
     if config.save_model:
         _atomic_torch(model_path, {
@@ -368,6 +377,7 @@ def run_training(shard_root: Path, split: EraSplit, config: TrainConfig, output_
             "target": config.target,
             "feature_names": shard.manifest["feature_names"],
             "data_version": shard.manifest["data_version"],
+            "training_data_sha256": training_data_sha256,
         })
     atomic_json(result_path, result)
     if checkpoint_path.exists():

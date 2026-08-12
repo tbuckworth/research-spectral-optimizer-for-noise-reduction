@@ -152,12 +152,29 @@ frozen hashes, and builds the all-feature validation shard. A dependent GPU job 
 evaluation and writes `official-validation/evaluation-complete.json`. Neither job contains upload,
 submission, or staking code.
 
-Export the exact evaluated seed ensemble and frozen blend as a Model Upload callable:
+After sealed evaluation, refit the already-frozen winning procedure on all currently resolved
+labels. This expands training data but does not reopen hyperparameter, arm, budget, blend or seed
+selection:
+
+```bash
+uv run python -m numerai_competitive.code_snapshot create \
+  --repo REPOSITORY_ROOT --source-prefix PATH/TO/experiments/exp-008 \
+  --commit FULL_40_CHARACTER_PRODUCTION_COMMIT --output production-code-snapshot.json
+bash slurm/submit-production-refits.sh \
+  FULL_40_CHARACTER_PRODUCTION_COMMIT ENVIRONMENT_JOB_ID
+```
+
+The frozen manifest retains the earlier procedure commit used for search and sealed validation;
+the production audit separately records and verifies the production implementation commit. This
+avoids pretending that models trained before the live-refit addition used later source bytes.
+
+Export the separately audited production seed ensemble and frozen blend as a Model Upload callable:
 
 ```bash
 uv run python -m numerai_competitive.live \
   --model MODEL_SEED_0 --model MODEL_SEED_1 --model MODEL_SEED_2 \
-  --freeze out/freeze.json --output out/predictor.pkl
+  --freeze out/freeze.json --production-audit out/production-refit-audit.json \
+  --output out/predictor.pkl
 uv run python -m numerai_competitive.validate_live \
   --callable out/predictor.pkl --live live.parquet \
   --benchmark live_benchmark_models.parquet --output out/live-runtime.json
@@ -197,7 +214,8 @@ After sealed evaluation, build and resource-test the target-free candidate witho
 bash slurm/submit-live-bundle.sh FULL_40_CHARACTER_CODE_COMMIT
 ```
 
-The first dependent job exports the exact frozen arm/seed ensemble and downloads `live.parquet`
+The first dependent job exports the audited production refits of the exact frozen arm/seed
+procedure and downloads `live.parquet`
 and `live_benchmark_models.parquet` within one unchanged current round. It records both hashes and
 checks unique aligned IDs, absence of targets, and the frozen benchmark column. The validation job
 uses one CPU, a 4 GB allocation, the complete unprojected live DataFrame (matching the official
@@ -234,6 +252,7 @@ uv run python -m numerai_competitive.completion_audit \
 ```
 
 This independently re-hashes the three nested outer audits, outer-winner union, final selection
-and refits, immutable model files, freeze, sealed validation artifacts, target-free live fixture,
+and validation refits, immutable validation model files, freeze, sealed validation artifacts,
+production-data/refit audit and production model files, target-free live fixture,
 resource-tested callable and predictions, official Docker output, leaderboard snapshot, and final
 report inputs. A green stage marker alone is insufficient for the final completion claim.
