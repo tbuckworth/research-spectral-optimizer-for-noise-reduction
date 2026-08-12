@@ -125,3 +125,26 @@ The search now follows steps 3--5 above. Top counts, folds, seeds and tie-breaks
 Every selection input and generated manifest is hashed and audited. Repeated HPO on outer folds 2
 and 3 is removed: one pre-outer search is followed by fixed-config walk-forward evaluation on all
 three outer blocks, which estimates one frozen procedure without selecting on outer outcomes.
+
+## One-day decision amendment (2026-08-12)
+
+The user stopped the exhaustive search before F1 completed and requested a bounded decision about
+whether spectral optimization is a serious practical competitor. All broad-search jobs and their
+automatic handoffs were cancelled before this amendment was executed. Completed results and
+checkpoints remain immutable evidence, but the partially completed 20,000-update F1 table is not
+used to nominate candidates because completion time is configuration-dependent.
+
+The bounded decision uses only the complete paired 5,000-update F0 screen to nominate the best
+AdamW configuration and the best spectral configuration independently by mean CORR, worst-cell
+CORR, and lower config ID. Their paired union is expected to be IDs 38 and 39. Both arms for both
+IDs receive identical 20,000-update confirmation coverage on `outer_1_inner_1` and
+`outer_1_inner_2`, seeds 0 and 1; already-complete exact cells may be reused. One winner per arm is
+then selected using only those eight equally covered development cells. The winners are frozen
+before any outer score exists and evaluated at 20,000 updates on untouched `outer_1`, seeds 0, 1,
+and 2. No result from the partially completed broad F1 search, runtime, BMC, outer data, official
+validation, live data, or leaderboard outcomes can nominate or reselect a winner.
+
+This amendment is a bounded go/no-go experiment, not the original full leaderboard-certification
+protocol. A positive result means spectral merits a later official-validation campaign; a null or
+negative result terminates the optimizer comparison. The one-day run does not reveal sealed
+official validation and does not create, upload, or stake a live submission.
