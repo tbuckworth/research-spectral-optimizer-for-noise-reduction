@@ -21,6 +21,7 @@ PROJECT=${NUMERAI_PROJECT:-/mnt/nw/home/t.buckworth/numerai-competitive}
 QUEUE_USER=${NUMERAI_QUEUE_USER:-t.buckworth}
 FEATURES=/mnt/nw/home/t.buckworth/numerai-v5.3-source/features.json
 SEARCH=${NUMERAI_SEARCH_CONFIG:-$PROJECT/configs/search-v1.json}
+cd "$PROJECT"
 SUMMARY_PREFIX=${NUMERAI_SUMMARY_PREFIX:-}
 if [[ ! $SUMMARY_PREFIX =~ ^[A-Za-z0-9_-]*$ ]]; then
   echo "NUMERAI_SUMMARY_PREFIX contains unsafe characters" >&2

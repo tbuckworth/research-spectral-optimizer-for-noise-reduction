@@ -91,6 +91,14 @@ def test_supervisor_uses_explicit_augmented_search(tmp_path):
     assert f"--search {search}" in (project / "uv-calls").read_text()
 
 
+def test_supervisor_runs_from_project_directory(tmp_path):
+    project, manifest, env = _project(tmp_path, complete=True)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    subprocess.run(["bash", SCRIPT, manifest], check=True, env=env, cwd=outside)
+    assert (project / "uv-calls").exists()
+
+
 def test_supervisor_uses_cell_specific_expected_pairs_for_mixed_budgets(tmp_path):
     project, manifest, env = _project(tmp_path, complete=True)
     second = project / "results" / "stage-fold-u200-s0-adamw-c8"
