@@ -8,6 +8,7 @@
 set -euo pipefail
 PROJECT=/mnt/nw/home/t.buckworth/numerai-competitive
 FREEZE="$PROJECT/results/freeze.json"
+PRODUCTION_AUDIT="$PROJECT/results/production-refit-audit.json"
 BUNDLE="$PROJECT/results/live-bundle"
 FIXTURE="$BUNDLE/live-fixture"
 CALLABLE="$BUNDLE/predictor.pkl"
@@ -19,9 +20,10 @@ cd "$PROJECT"
 MODELS=()
 for SEED in 0 1 2; do
   MODELS+=(--model \
-    "$PROJECT/results/final-refit-u${CANDIDATE_UPDATES}-s${SEED}-${CANDIDATE_ARM}-c${CANDIDATE_CONFIG}/model.pt")
+    "$PROJECT/results/production-refit-s${SEED}-${CANDIDATE_ARM}-c${CANDIDATE_CONFIG}/model.pt")
 done
 "$PROJECT/uv" run --no-sync python -m numerai_competitive.live \
-  "${MODELS[@]}" --freeze "$FREEZE" --output "$CALLABLE" --batch-size 4096
+  "${MODELS[@]}" --freeze "$FREEZE" --production-audit "$PRODUCTION_AUDIT" \
+  --output "$CALLABLE" --batch-size 4096
 "$PROJECT/uv" run --no-sync python -m numerai_competitive.download_live \
   --destination "$FIXTURE" --freeze "$FREEZE"

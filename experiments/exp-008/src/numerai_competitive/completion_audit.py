@@ -309,6 +309,40 @@ def audit(results: Path, leaderboard_path: Path, output: Path) -> dict:
         raise ValueError("sealed validation report has inconsistent provenance or endpoints")
     evidence["official_validation"] = sha256(validation_path)
 
+    production_audit_path = results / "production-refit-audit.json"
+    production = _json(production_audit_path, ("audit_complete",))
+    production_snapshot_path = root / "production-code-snapshot.json"
+    candidate_arm = freeze["candidate_transform"]["arm"]
+    selected_candidate = freeze["selected"][candidate_arm]
+    production_manifest = production.get("production_manifest", {})
+    if (production.get("purpose") != "unstaked_forward_live_candidate"
+            or production.get("arm") != candidate_arm
+            or production.get("config_id") != selected_candidate["config_id"]
+            or production.get("updates") != selected_candidate["updates"]
+            or production.get("seeds") != selected_candidate["seeds"]
+            or production.get("freeze_manifest_sha256") != sha256(freeze_path)
+            or not re.fullmatch(r"[0-9a-f]{40}", production.get("production_code_commit", ""))
+            or production.get("procedure_code_commit") != freeze["code_commit"]
+            or production.get("production_code_snapshot_sha256")
+            != sha256(production_snapshot_path)
+            or production.get("sealed_evaluation_sha256")
+            != sha256(validation_dir / "evaluation-complete.json")
+            or production_manifest.get("split") != "production_train"
+            or production_manifest.get("training_data_sha256")
+            != production.get("training_data_sha256")
+            or production_manifest.get("resolved_validation_rows", 0) <= 0):
+        raise ValueError("production-live refit audit differs from freeze/evaluation")
+    verify_snapshot(
+        root, production_snapshot_path, production["production_code_commit"],
+    )
+    production_paths = [results / (
+        f"production-refit-s{seed}-{candidate_arm}-c{selected_candidate['config_id']}"
+    ) / "model.pt" for seed in selected_candidate["seeds"]]
+    if [sha256(path) for path in production_paths] != production.get("model_sha256"):
+        raise ValueError("production-live model hashes differ from production audit")
+    evidence["production_refits"] = sha256(production_audit_path)
+    evidence["production_code_snapshot"] = sha256(production_snapshot_path)
+
     bundle = results / "live-bundle"
     fixture = bundle / "live-fixture"
     download_path = fixture / "download-complete.json"

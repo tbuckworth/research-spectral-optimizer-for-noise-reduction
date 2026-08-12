@@ -151,7 +151,7 @@ def test_explicit_final_model_artifact_is_target_free(tmp_path: Path):
     artifact = torch.load(tmp_path / "out" / result["model_file"], weights_only=False)
     assert set(artifact) == {
         "signature", "model_config", "model", "train_config", "train_split", "target",
-        "feature_names", "data_version",
+        "feature_names", "data_version", "training_data_sha256",
     }
     assert not any("target" in key for key in artifact["model"])
     assert artifact["train_config"]["seed"] == 12

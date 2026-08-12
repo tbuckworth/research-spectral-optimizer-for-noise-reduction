@@ -33,6 +33,11 @@ def _complete_tree(tmp_path: Path) -> tuple[Path, Path]:
         "files": code_files, "file_count": len(code_files),
         "file_map_sha256": code_digest,
     })
+    production_snapshot = _write(tmp_path / "production-code-snapshot.json", {
+        "status": "complete", "code_commit": "b" * 40, "source_prefix": "x",
+        "files": code_files, "file_count": len(code_files),
+        "file_map_sha256": code_digest,
+    })
     base_search = tmp_path / "configs" / "search-v1.json"
     _write(results / "base-search-memory-admission.json", {
         "status": "complete", "search_sha256": sha256(base_search),
@@ -162,6 +167,7 @@ def _complete_tree(tmp_path: Path) -> tuple[Path, Path]:
         paths = [_write(results / f"final-refit-u100000-s{seed}-{arm}-c{config}"
                         / "model.pt", f"{arm}-{seed}".encode()) for seed in range(3)]
         frozen[arm] = {"config_id": config, "seeds": [0, 1, 2], "updates": 100_000,
+                       "feature_set": "medium",
                        "model_sha256": [sha256(path) for path in paths]}
     freeze = _write(results / "freeze.json", {
         "status": "frozen", "code_commit": "a" * 40, "primary_target": "target",
@@ -186,10 +192,29 @@ def _complete_tree(tmp_path: Path) -> tuple[Path, Path]:
         "candidate_transform": selected,
     })
     plot = _write(validation / "plot.png", b"plot")
-    _write(validation / "evaluation-complete.json", {
+    evaluation_marker = _write(validation / "evaluation-complete.json", {
         "status": "complete", "artifacts": {
             validation_report.name: sha256(validation_report), plot.name: sha256(plot),
         },
+    })
+
+    production_paths = [_write(
+        results / f"production-refit-s{seed}-spectral-c4" / "model.pt",
+        f"production-spectral-{seed}".encode(),
+    ) for seed in range(3)]
+    production_manifest = {
+        "split": "production_train", "training_data_sha256": "d" * 64,
+        "resolved_validation_rows": 100, "era_max": 1000,
+    }
+    _write(results / "production-refit-audit.json", {
+        "status": "audit_complete", "purpose": "unstaked_forward_live_candidate",
+        "arm": "spectral", "config_id": 4, "updates": 100_000,
+        "seeds": [0, 1, 2], "freeze_manifest_sha256": sha256(freeze),
+        "procedure_code_commit": "a" * 40, "production_code_commit": "b" * 40,
+        "production_code_snapshot_sha256": sha256(production_snapshot),
+        "sealed_evaluation_sha256": sha256(evaluation_marker),
+        "training_data_sha256": "d" * 64, "production_manifest": production_manifest,
+        "model_sha256": [sha256(path) for path in production_paths],
     })
 
     bundle = results / "live-bundle"
@@ -248,7 +273,7 @@ def test_completion_audit_cross_checks_full_chain(tmp_path):
     report = audit(results, leaderboard, output)
     assert report["status"] == "audit_complete"
     assert report["final_selected"] == {"adamw": 1, "spectral": 4}
-    assert len(report["evidence_sha256"]) == 31
+    assert len(report["evidence_sha256"]) == 33
 
 
 def test_completion_audit_rejects_model_changed_after_freeze(tmp_path):
