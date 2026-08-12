@@ -1,53 +1,32 @@
 #!/bin/bash
 set -euo pipefail
 
-if [[ $# -lt 1 || $# -gt 2 ]]; then
-  echo "usage: $0 DEPENDENCY_JOB_ID [OUTER_SPLIT]" >&2
+if [[ $# -ne 1 || ! $1 =~ ^[0-9]+$ ]]; then
+  echo "usage: $0 DEPENDENCY_JOB_ID" >&2
   exit 2
 fi
 DEPENDENCY_JOB=$1
-OUTER_SPLIT=${2:-outer_1}
-if [[ ! $OUTER_SPLIT =~ ^outer_[123]$ ]]; then
-  echo "outer split must be outer_1, outer_2 or outer_3" >&2
-  exit 1
-fi
-OUTER_NUMBER=${OUTER_SPLIT#outer_}
-INNER_COUNT=$((OUTER_NUMBER + 1))
-if [[ $OUTER_NUMBER == 1 ]]; then
-  SUPERVISOR_SESSION=numerai-f2-supervisor
-  PROMOTE_SESSION=numerai-f2-promote
-else
-  SUPERVISOR_SESSION="numerai-outer${OUTER_NUMBER}-f2-supervisor"
-  PROMOTE_SESSION="numerai-outer${OUTER_NUMBER}-f2-promote"
-fi
 PROJECT=${NUMERAI_PROJECT:-/mnt/nw/home/t.buckworth/numerai-competitive}
-SELECTION="$PROJECT/results/selection-${OUTER_SPLIT}-f1-top4.json"
-BASE_SELECTION="$PROJECT/results/selection-${OUTER_SPLIT}-f1-base-top4.json"
-MANIFEST="$PROJECT/results/submission-${OUTER_SPLIT}-f2-budgeted.tsv"
-LOG="$PROJECT/results/promote-${OUTER_SPLIT}-f1.log"
-SUMMARIES=()
-MARKERS=()
-SESSIONS=()
-SPLITS=()
-F0_SUMMARY="$PROJECT/results/summary-${OUTER_SPLIT}_inner_1-u5000-s0/scores.csv"
-for INDEX in $(seq 1 "$INNER_COUNT"); do
-  SPLITS+=("${OUTER_SPLIT}_inner_${INDEX}")
-  SUMMARIES+=("$PROJECT/results/summary-${OUTER_SPLIT}_inner_${INDEX}-u20000-s0/scores.csv")
-  MARKERS+=("$PROJECT/results/summary-${OUTER_SPLIT}_inner_${INDEX}-u20000-s0/summary-complete.json")
-  if [[ $OUTER_NUMBER == 1 ]]; then
-    SESSIONS+=("numerai-f1-inner${INDEX}")
-  else
-    SESSIONS+=("numerai-outer${OUTER_NUMBER}-f1-inner${INDEX}")
-  fi
+RESULTS="$PROJECT/results"
+PLAN="$RESULTS/selection-outer_1-successive-plan.json"
+MANIFEST="$RESULTS/submission-outer_1-f2a-successive.tsv"
+LOG="$RESULTS/promote-outer_1-f1.log"
+F0_SUMMARY="$RESULTS/summary-outer_1_inner_1-u5000-s0/scores.csv"
+SPLITS=(outer_1_inner_1 outer_1_inner_2)
+F1_SUMMARIES=()
+F1_MARKERS=()
+for SPLIT in "${SPLITS[@]}"; do
+  F1_SUMMARIES+=("$RESULTS/summary-${SPLIT}-u20000-s0/scores.csv")
+  F1_MARKERS+=("$RESULTS/summary-${SPLIT}-u20000-s0/summary-complete.json")
 done
 
 while true; do
   MISSING=0
-  for INDEX in "${!MARKERS[@]}"; do
-    if [[ ! -f ${MARKERS[$INDEX]} ]]; then
+  for INDEX in "${!F1_MARKERS[@]}"; do
+    if [[ ! -f ${F1_MARKERS[$INDEX]} ]]; then
       MISSING=$((MISSING + 1))
-      if ! tmux has-session -t "${SESSIONS[$INDEX]}" 2>/dev/null; then
-        echo "an F1 monitor exited without an audited completion marker" >&2
+      if ! tmux has-session -t "numerai-f1-inner$((INDEX + 1))" 2>/dev/null; then
+        echo "an F1 supervisor exited without an audited completion marker" >&2
         exit 1
       fi
     fi
@@ -58,63 +37,64 @@ while true; do
 done
 
 cd "$PROJECT"
-if [[ -e "$SELECTION" || -e "$BASE_SELECTION" || -e "$MANIFEST" || -e "${MANIFEST}.tmp" ]] \
-    || tmux has-session -t "$SUPERVISOR_SESSION" 2>/dev/null \
-    || tmux has-session -t "$PROMOTE_SESSION" 2>/dev/null; then
-  echo "F2 selection, manifest, temporary file or supervisor session already exists" >&2
+if [[ -e $PLAN || -e $MANIFEST || -e ${MANIFEST}.tmp \
+      || -e $RESULTS/search-v1-high-rank.json ]] \
+      || tmux has-session -t numerai-f2a-supervisor 2>/dev/null \
+      || tmux has-session -t numerai-f2a-promote 2>/dev/null; then
+  echo "successive-halving phase-A artifact or session already exists" >&2
   exit 1
 fi
-"$PROJECT/uv" run --no-sync python -m numerai_competitive.select_multifidelity_configs \
-  --score-group "$F0_SUMMARY" --score-group "${SUMMARIES[@]}" \
-  --top 4 --output "$BASE_SELECTION"
-HIGH_RANK_SEARCH="$PROJECT/results/search-v1-high-rank.json"
-if [[ $OUTER_NUMBER == 1 ]]; then
-  bash "$PROJECT/slurm/prepare-high-rank-search.sh" "$DEPENDENCY_JOB" "${SUMMARIES[@]}"
-elif [[ ! -f $HIGH_RANK_SEARCH ]]; then
-  echo "audited high-rank search from outer_1 is missing" >&2
-  exit 1
-fi
-"$PROJECT/uv" run --no-sync python -m numerai_competitive.high_rank_selection \
-  --selection "$BASE_SELECTION" --search "$HIGH_RANK_SEARCH" --output "$SELECTION"
-export NUMERAI_SEARCH_CONFIG="$HIGH_RANK_SEARCH"
-EXPECTED=$(python3 -c \
-  'import json,sys; print(len(json.load(open(sys.argv[1]))["selected"]["paired_union"]))' \
-  "$SELECTION")
-HIGH_RANK_EXPECTED=$(python3 -c \
-  'import json,sys; print(len(json.load(open(sys.argv[1]))["selected"]["high_rank_spectral"]))' \
-  "$SELECTION")
-if [[ $EXPECTED -lt 4 || $EXPECTED -gt 17 || $HIGH_RANK_EXPECTED -lt 1 \
-      || $HIGH_RANK_EXPECTED -gt 5 ]]; then
-  echo "invalid paired-union size $EXPECTED" >&2
-  exit 1
-fi
+bash "$PROJECT/slurm/prepare-high-rank-search.sh" \
+  "$DEPENDENCY_JOB" "${F1_SUMMARIES[@]}"
+SEARCH="$RESULTS/search-v1-high-rank.json"
+EXTENSION="$RESULTS/search-v1-high-rank-extension.json"
+SOURCE_ID=$(python3 -c \
+  'import json,sys; print(json.load(open(sys.argv[1]))["source_config_id"])' "$EXTENSION")
+[[ $SOURCE_ID =~ ^[0-9]+$ ]] || { echo "invalid high-rank source ID" >&2; exit 1; }
+"$PROJECT/uv" run --no-sync python -m numerai_competitive.select_successive_halving \
+  --score-group "$F0_SUMMARY" --score-group "${F1_SUMMARIES[@]}" \
+  --confirmation-top 2 --long-scout-top 1 \
+  --high-rank-source-config-id "$SOURCE_ID" --augmented-search "$SEARCH" \
+  --output "$PLAN"
 
 TEMPORARY="${MANIFEST}.tmp"
 : > "$TEMPORARY"
 export NUMERAI_REUSE_COMPLETE=1
-for BUDGET in 5000 20000 100000; do
+export NUMERAI_SEARCH_CONFIG="$SEARCH"
+for BUDGET in 5000 20000; do
   for SEED in 0 1 2; do
-    bash "$PROJECT/slurm/submit-selected.sh" "$SELECTION" "$BUDGET" "$SEED" \
-      "$DEPENDENCY_JOB" "${SPLITS[@]}" >> "$TEMPORARY"
+    bash "$PROJECT/slurm/submit-successive-plan.sh" \
+      "$PLAN" confirmation "$BUDGET" "$SEED" "$DEPENDENCY_JOB" "${SPLITS[@]}" \
+      >> "$TEMPORARY"
   done
 done
-for SEED in 0 1 2; do
-  bash "$PROJECT/slurm/submit-high-rank-spectral.sh" "$SELECTION" 100000 "$SEED" \
-    "$DEPENDENCY_JOB" "${SPLITS[@]}" >> "$TEMPORARY"
-done
+bash "$PROJECT/slurm/submit-high-rank-spectral.sh" \
+  "$PLAN" 20000 0 "$DEPENDENCY_JOB" "${SPLITS[@]}" >> "$TEMPORARY"
+bash "$PROJECT/slurm/submit-successive-plan.sh" \
+  "$PLAN" long-scout 100000 0 "$DEPENDENCY_JOB" "${SPLITS[0]}" >> "$TEMPORARY"
 mv "$TEMPORARY" "$MANIFEST"
-FIRST_JOB=$(head -n 1 "$MANIFEST" | cut -f1 | cut -d';' -f1)
-LAST_JOB=$(tail -n 1 "$MANIFEST" | cut -f1 | cut -d';' -f1)
-EXPECTED_ROWS=$((EXPECTED * 2 * INNER_COUNT * 3 * 3 + HIGH_RANK_EXPECTED * INNER_COUNT * 3))
+
+CONFIRM_5=$(python3 -c \
+  'import json,sys; print(len(json.load(open(sys.argv[1]))["confirmation_selections"]["5000"]["paired_union"]))' \
+  "$PLAN")
+CONFIRM_20=$(python3 -c \
+  'import json,sys; print(len(json.load(open(sys.argv[1]))["confirmation_selections"]["20000"]["paired_union"]))' \
+  "$PLAN")
+LONG=$(python3 -c \
+  'import json,sys; print(len(json.load(open(sys.argv[1]))["long_scout_paired_union"]))' "$PLAN")
+HIGH=$(python3 -c \
+  'import json,sys; print(len(json.load(open(sys.argv[1]))["high_rank_spectral"]))' "$PLAN")
+EXPECTED_ROWS=$((CONFIRM_5 * 12 + CONFIRM_20 * 12 + HIGH * 2 + LONG * 2))
 if [[ $(wc -l < "$MANIFEST") -ne $EXPECTED_ROWS \
       || $(cut -f2-6 "$MANIFEST" | sort -u | wc -l) -ne $EXPECTED_ROWS ]]; then
-  echo "F2 manifest differs from exact three-budget pair plus high-rank coverage" >&2
+  echo "phase-A manifest differs from frozen successive-halving coverage" >&2
   exit 1
 fi
-
-tmux new-session -d -s "$SUPERVISOR_SESSION" \
-  "NUMERAI_SEARCH_CONFIG='$HIGH_RANK_SEARCH' NUMERAI_SUMMARY_PREFIX=f2- bash '$PROJECT/slurm/supervise-resumable-stage.sh' '$MANIFEST'"
-tmux new-session -d -s "$PROMOTE_SESSION" \
-  "NUMERAI_SEARCH_CONFIG='$HIGH_RANK_SEARCH' bash '$PROJECT/slurm/promote-f2-when-ready.sh' '$LAST_JOB' '$OUTER_SPLIT'"
-printf '%s submitted F2 union=%s jobs=%s--%s dependency=%s\n' \
-  "$(date -Is)" "$EXPECTED" "$FIRST_JOB" "$LAST_JOB" "$DEPENDENCY_JOB" >> "$LOG"
+LAST_JOB=$(awk -F $'\t' '$1 != 0 {value=$1} END {sub(/;.*/, "", value); print value}' "$MANIFEST")
+[[ $LAST_JOB =~ ^[0-9]+$ ]] || { echo "phase-A manifest has no submitted job" >&2; exit 1; }
+tmux new-session -d -s numerai-f2a-supervisor \
+  "NUMERAI_SEARCH_CONFIG='$SEARCH' NUMERAI_SUMMARY_PREFIX=f2a- bash '$PROJECT/slurm/supervise-resumable-stage.sh' '$MANIFEST'"
+tmux new-session -d -s numerai-f2a-promote \
+  "NUMERAI_SEARCH_CONFIG='$SEARCH' bash '$PROJECT/slurm/promote-successive-scout-when-ready.sh' '$LAST_JOB'"
+printf '%s submitted successive phase A rows=%s dependency=%s\n' \
+  "$(date -Is)" "$EXPECTED_ROWS" "$DEPENDENCY_JOB" >> "$LOG"

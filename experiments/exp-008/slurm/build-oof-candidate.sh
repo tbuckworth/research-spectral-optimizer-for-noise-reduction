@@ -10,13 +10,13 @@ OOF="$PROJECT/results/nested-outer"
 CANDIDATE="$PROJECT/results/candidate-plan.json"
 ADAMW_RESULTS=()
 SPECTRAL_RESULTS=()
+SELECTION="$PROJECT/results/selection-final-top1.json"
 
-if [[ -e "$OOF" || -e "$CANDIDATE" ]]; then
+if [[ -e "$OOF" || -e "$CANDIDATE" || ! -f "$SELECTION" ]]; then
   echo "nested-outer output or candidate plan already exists" >&2
   exit 1
 fi
 for OUTER_NUMBER in 1 2 3; do
-  SELECTION="$PROJECT/results/selection-outer_${OUTER_NUMBER}-f2-budget-top1.json"
   AUDIT="$PROJECT/results/audit-outer_${OUTER_NUMBER}-budgeted/outer-audit.json"
   if [[ ! -f $SELECTION || ! -f $AUDIT ]]; then
     echo "outer_${OUTER_NUMBER} selection or audit is missing" >&2

@@ -32,16 +32,18 @@ PROMOTERS = [
 
 def test_f2_uses_separate_summary_namespace_from_f0_and_f1():
     f1_promoter = PROMOTERS[1].read_text()
-    f2_promoter = PROMOTERS[2].read_text()
-    assert "NUMERAI_SUMMARY_PREFIX=f2-" in f1_promoter
-    assert "summary-f2-${SPLIT}-u${BUDGET}-s${SEED}" in f2_promoter
+    scout_promoter = (
+        Path(__file__).parents[1] / "slurm" / "promote-successive-scout-when-ready.sh"
+    ).read_text()
+    assert "NUMERAI_SUMMARY_PREFIX=f2a-" in f1_promoter
+    assert "NUMERAI_SUMMARY_PREFIX=f2b-" in scout_promoter
 
 
 def test_f1_promotion_preserves_5k_and_20k_fidelity_winners():
     script = PROMOTERS[1].read_text()
-    assert "numerai_competitive.select_multifidelity_configs" in script
-    assert '--score-group "$F0_SUMMARY" --score-group "${SUMMARIES[@]}"' in script
-    assert "$EXPECTED -gt 17" in script
+    assert "numerai_competitive.select_successive_halving" in script
+    assert '--score-group "$F0_SUMMARY" --score-group "${F1_SUMMARIES[@]}"' in script
+    assert "--confirmation-top 2 --long-scout-top 1" in script
 
 
 def test_f0_promotion_uses_exact_resumable_f1_supervision_and_promoter():
@@ -384,7 +386,7 @@ def test_outer_2_audit_watches_its_own_supervisor(tmp_path):
 
 
 def test_outer_promoters_accept_only_named_outer_splits(tmp_path):
-    for script in PROMOTERS:
+    for script in (PROMOTERS[0], PROMOTERS[2]):
         failed = subprocess.run(
             ["bash", script, "1", "outer_4"], check=False, capture_output=True, text=True,
         )
@@ -632,24 +634,30 @@ def test_launch_outer_rejects_duplicate_manifest_coverage(tmp_path):
     assert not (project / "results" / "submission-outer_2-f0-u5000-s0.tsv").exists()
 
 
-def test_nested_controller_launches_remaining_outers_and_final_stage(tmp_path):
+def test_nested_controller_confirms_fixed_walkforward_and_submits_refits(tmp_path):
     project = tmp_path / "project"
     results = project / "results"
     (project / "slurm").mkdir(parents=True)
-    first = results / "audit-outer_1-budgeted"
-    first.mkdir(parents=True)
-    (first / "outer-audit.json").write_text(json.dumps({
-        "status": "audit_complete", "split": {"name": "outer_1"},
-    }))
+    selection = {
+        "selected": {"adamw": [1], "spectral": [2]},
+        "selected_updates": {"adamw": [5000], "spectral": [100000]},
+    }
+    results.mkdir()
+    (results / "selection-outer_1-f2-budget-top1.json").write_text(json.dumps(selection))
+    for number in range(1, 4):
+        audit = results / f"audit-outer_{number}-budgeted"
+        audit.mkdir()
+        (audit / "outer-audit.json").write_text(json.dumps({
+            "status": "audit_complete", "split": {"name": f"outer_{number}"},
+            "selected": {"adamw": 1, "spectral": 2},
+            "updates": {"adamw": 5000, "spectral": 100000},
+        }))
     _executable(project / "slurm" / "sync-env.sbatch", "exit 0\n")
-    launches = project / "launches"
     _executable(
-        project / "slurm" / "launch-outer.sh",
-        f'printf "%s\\n" "$*" >> "{launches}"\n'
-        'number=${1#outer_}\n'
-        'mkdir -p "$NUMERAI_PROJECT/results/audit-outer_${number}-budgeted"\n'
-        'printf \'{"status":"audit_complete","split":{"name":"%s"}}\\n\' "$1" > '
-        '"$NUMERAI_PROJECT/results/audit-outer_${number}-budgeted/outer-audit.json"\n',
+        project / "uv",
+        'if [[ "$*" == *confirm_walkforward* ]]; then cp '
+        '"$NUMERAI_PROJECT/results/selection-outer_1-f2-budget-top1.json" '
+        '"$NUMERAI_PROJECT/results/selection-final-top1.json"; fi\n',
     )
     _executable(
         project / "slurm" / "build-oof-candidate.sh",
@@ -660,9 +668,14 @@ def test_nested_controller_launches_remaining_outers_and_final_stage(tmp_path):
         '"$NUMERAI_PROJECT/results/candidate-plan.json"\n',
     )
     _executable(
-        project / "slurm" / "launch-final-selection.sh",
-        f'printf "%s\\n" "$*" >> "{launches}"\n'
-        'touch "$NUMERAI_PROJECT/results/submission-final-selection-budgeted.tsv"\n'
+        project / "slurm" / "submit-refit.sh",
+        'for arm in adamw spectral; do for seed in 0 1 2; do '
+        'printf "9001\\t%s\\t%s\\t%s\\t%s\\n" "$arm" '
+        '"$([[ $arm == adamw ]] && echo 1 || echo 2)" '
+        '"$([[ $arm == adamw ]] && echo 5000 || echo 100000)" "$seed"; done; done\n',
+    )
+    _executable(
+        project / "slurm" / "supervise-refits.sh",
         'mkdir -p "$NUMERAI_PROJECT/results/audit-final-refits-budgeted"\n'
         'printf \'{"status":"audit_complete","cells":6,'
         '"updates":{"adamw":5000,"spectral":100000},'
@@ -673,14 +686,18 @@ def test_nested_controller_launches_remaining_outers_and_final_stage(tmp_path):
     fake_bin.mkdir()
     sbatch_calls = tmp_path / "sbatch-calls"
     _executable(fake_bin / "sbatch", f'printf "%s\\n" "$*" >> "{sbatch_calls}"\necho 9001\n')
+    _executable(
+        fake_bin / "tmux",
+        'if [[ $1 == new-session ]]; then bash -c "${@: -1}"; else exit 1; fi\n',
+    )
     env = os.environ | {
         "NUMERAI_PROJECT": str(project), "NUMERAI_POLL_SECONDS": "0",
         "PATH": f"{fake_bin}:{os.environ['PATH']}",
     }
     subprocess.run(["bash", CONTINUE_NESTED], check=True, env=env)
-    assert launches.read_text().splitlines() == ["outer_2 9001", "outer_3 9001", "9001"]
-    assert len(sbatch_calls.read_text().splitlines()) == 3
-    assert "ready for immutable freeze" in (
+    assert len(sbatch_calls.read_text().splitlines()) == 1
+    assert (results / "selection-final-top1.json").is_file()
+    assert "walk-forward pipeline ready" in (
         results / "continue-nested-pipeline.log"
     ).read_text()
 
@@ -689,22 +706,20 @@ def test_build_oof_resolves_three_audited_folds_and_three_seeds(tmp_path):
     project = tmp_path / "project"
     results = project / "results"
     results.mkdir(parents=True)
+    selection = {
+        "selected": {"adamw": [1], "spectral": [4]},
+        "selected_updates": {"adamw": [100000], "spectral": [100000]},
+    }
+    (results / "selection-final-top1.json").write_text(json.dumps(selection))
     for number in range(1, 4):
-        selection = {
-            "selected": {"adamw": [number], "spectral": [number + 3]},
-            "selected_updates": {"adamw": [100000], "spectral": [100000]},
-        }
-        (results / f"selection-outer_{number}-f2-budget-top1.json").write_text(
-            json.dumps(selection)
-        )
         audit_dir = results / f"audit-outer_{number}-budgeted"
         audit_dir.mkdir()
         (audit_dir / "outer-audit.json").write_text(json.dumps({
                 "status": "audit_complete", "split": {"name": f"outer_{number}"},
-                "selected": {"adamw": number, "spectral": number + 3},
+                "selected": {"adamw": 1, "spectral": 4},
                 "updates": {"adamw": 100000, "spectral": 100000},
         }))
-        for arm, config_id in (("adamw", number), ("spectral", number + 3)):
+        for arm, config_id in (("adamw", 1), ("spectral", 4)):
             for seed in range(3):
                 directory = results / (
                     f"stage-outer_{number}-u100000-s{seed}-{arm}-c{config_id}"
