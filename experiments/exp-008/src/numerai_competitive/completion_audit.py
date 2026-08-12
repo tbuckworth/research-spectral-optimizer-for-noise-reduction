@@ -7,6 +7,9 @@ import json
 import re
 from pathlib import Path
 
+import pandas as pd
+
+from .assemble_successive_scores import assemble as assemble_successive_scores
 from .code_snapshot import verify_snapshot
 from .data import atomic_json, sha256
 
@@ -45,6 +48,321 @@ def _score_arm_ids(path: Path) -> dict[str, set[int]]:
                 raise ValueError(f"{path}: unexpected score arm")
             values[arm].add(int(row["config_id"]))
     return values
+
+
+def _audit_successive_development(
+    results: Path, admitted_ids: set[int], search_path: Path, extension: dict,
+    extension_ids: list[int], evidence: dict[str, str],
+) -> tuple[dict, dict, Path, dict, Path]:
+    """Audit one pre-outer search followed by fixed-config walk-forward evaluation."""
+    f0_score = results / "summary-outer_1_inner_1-u5000-s0" / "scores.csv"
+    if _score_arm_ids(f0_score) != {"adamw": admitted_ids, "spectral": admitted_ids}:
+        raise ValueError("outer_1 F0 coverage differs from memory admission")
+    f0_path = results / "selection-outer_1-f0-top12.json"
+    f0 = json.loads(f0_path.read_text())
+    _verify_score_hashes(f0.get("score_sha256", {}), [f0_score])
+    promoted = set(f0.get("selected", {}).get("paired_union", []))
+    if (f0.get("top") != 12
+            or any(len(f0.get("selected", {}).get(arm, [])) != 12
+                   for arm in ("adamw", "spectral"))
+            or promoted != (set(f0["selected"]["adamw"]) | set(f0["selected"]["spectral"]))
+            or not promoted <= admitted_ids):
+        raise ValueError("outer_1 F0 selection is inconsistent")
+    f1_scores = [
+        results / f"summary-outer_1_inner_{inner}-u20000-s0" / "scores.csv"
+        for inner in (1, 2)
+    ]
+    for path in f1_scores:
+        if _score_arm_ids(path) != {"adamw": promoted, "spectral": promoted}:
+            raise ValueError(f"{path}: F1 coverage differs from F0 promotion")
+
+    plan_path = results / "selection-outer_1-successive-plan.json"
+    plan = _json(plan_path, ("successive_halving_plan_frozen",))
+    _verify_score_hashes(plan.get("score_sha256", {}), [f0_score, *f1_scores])
+    confirmations = plan.get("confirmation_selections", {})
+    source_id = extension.get("source_config_id")
+    if (plan.get("confirmation_top_per_arm_per_fidelity") != 2
+            or plan.get("long_scout_top_per_arm_per_fidelity") != 1
+            or plan.get("augmented_search_sha256") != sha256(search_path)
+            or plan.get("high_rank_spectral") != extension_ids
+            or plan.get("high_rank_source_config_id") != source_id
+            or set(confirmations) != {"5000", "20000"}
+            or any(set(confirmations[budget].get("paired_union", []))
+                   != set(confirmations[budget].get("adamw", []))
+                   | set(confirmations[budget].get("spectral", []))
+                   for budget in confirmations)
+            or source_id not in confirmations["20000"].get("paired_union", [])
+            or source_id not in plan.get("long_scout_paired_union", [])):
+        raise ValueError("successive-halving plan or source control is inconsistent")
+
+    finalists_path = results / "selection-outer_1-successive-finalists.json"
+    finalists = _json(finalists_path, ("successive_halving_finalists_frozen",))
+    ordinary_scout = results / "summary-f2a-outer_1_inner_1-u100000-s0" / "scores.csv"
+    high_scouts = [
+        results / f"summary-f2a-outer_1_inner_{inner}-u20000-s0" / "scores.csv"
+        for inner in (1, 2)
+    ]
+    _verify_score_hashes(finalists.get("score_sha256", {}), [ordinary_scout, *high_scouts])
+    high_finalists = finalists.get("high_rank_spectral", [])
+    ordinary_finalists = finalists.get("ordinary_confirmation_paired_union", [])
+    if (not 1 <= len(high_finalists) <= 2
+            or not set(high_finalists) <= set(extension_ids)
+            or finalists.get("high_rank_source_config_id") != source_id
+            or source_id not in ordinary_finalists
+            or any(len(finalists.get("ordinary_winners", {}).get(arm, [])) != 1
+                   for arm in ("adamw", "spectral"))):
+        raise ValueError("successive-halving finalists are inconsistent")
+
+    assembly_dir = results / "summary-outer_1-successive-equal-coverage"
+    assembly_path = assembly_dir / "assembly-audit.json"
+    assembly = _json(assembly_path, ("successive_scores_equal_coverage",))
+    assembled_scores = assembly_dir / "scores.csv"
+    if (assembly.get("splits") != ["outer_1_inner_1", "outer_1_inner_2"]
+            or assembly.get("seeds") != [0, 1, 2]
+            or assembly.get("plan_sha256") != sha256(plan_path)
+            or assembly.get("finalists_sha256") != sha256(finalists_path)
+            or assembly.get("scores_sha256") != sha256(assembled_scores)):
+        raise ValueError("equal-coverage score assembly is inconsistent")
+    source_paths = []
+    for raw_path, digest in assembly.get("source_score_sha256", {}).items():
+        path = Path(raw_path)
+        if not path.is_file() or sha256(path) != digest:
+            raise ValueError("equal-coverage source score changed")
+        source_paths.append(path)
+    if not source_paths:
+        raise ValueError("equal-coverage assembly lacks source score evidence")
+    reproduced = assemble_successive_scores(
+        pd.concat([pd.read_csv(path) for path in source_paths], ignore_index=True),
+        plan, finalists, expected_splits={"outer_1_inner_1", "outer_1_inner_2"},
+        expected_seeds={0, 1, 2},
+    )
+    recorded = pd.read_csv(assembled_scores)
+    if not reproduced.equals(recorded):
+        raise ValueError("equal-coverage scores do not reproduce from hashed stage summaries")
+
+    development_selection_path = results / "selection-outer_1-f2-budget-top1.json"
+    development_selection = _json(
+        development_selection_path, ("development_budget_sensitivity_selection",),
+    )
+    _verify_score_hashes(
+        development_selection.get("score_sha256", {}), [assembled_scores],
+    )
+    if (development_selection.get("top") != 1
+            or development_selection.get("allow_asymmetric") is not True
+            or any(len(development_selection.get("selected", {}).get(arm, [])) != 1
+                   or len(development_selection.get("selected_updates", {}).get(arm, [])) != 1
+                   for arm in ("adamw", "spectral"))):
+        raise ValueError("pre-outer development selection is not exact top-1 per arm")
+
+    audit_paths = [
+        results / f"audit-outer_{number}-budgeted" / "outer-audit.json"
+        for number in range(1, 4)
+    ]
+    for number, path in enumerate(audit_paths, 1):
+        value = _json(path, ("audit_complete",))
+        if (value.get("split", {}).get("name") != f"outer_{number}"
+                or value.get("seeds") != [0, 1, 2] or value.get("cells") != 6
+                or any(value.get("selected", {}).get(arm)
+                       != development_selection["selected"][arm][0]
+                       or value.get("updates", {}).get(arm)
+                       != development_selection["selected_updates"][arm][0]
+                       for arm in ("adamw", "spectral"))):
+            raise ValueError(f"outer_{number} differs from frozen development winner")
+        evidence[f"outer_{number}_audit"] = sha256(path)
+
+    final_selection_path = results / "selection-final-top1.json"
+    final_selection = _json(final_selection_path, ("fixed_config_walkforward_confirmed",))
+    if (final_selection.get("source_selection_sha256") != sha256(development_selection_path)
+            or final_selection.get("reselected_on_outer_outcomes") is not False
+            or final_selection.get("selected") != development_selection.get("selected")
+            or final_selection.get("selected_updates")
+            != development_selection.get("selected_updates")
+            or final_selection.get("walkforward_audit_sha256") != {
+                f"outer_{number}": sha256(path)
+                for number, path in enumerate(audit_paths, 1)
+            }):
+        raise ValueError("final selection was changed by walk-forward outcomes")
+    evidence.update({
+        "outer_1_f0_selection": sha256(f0_path),
+        "successive_plan": sha256(plan_path),
+        "successive_finalists": sha256(finalists_path),
+        "successive_score_assembly": sha256(assembly_path),
+        "development_selection": sha256(development_selection_path),
+        "final_selection": sha256(final_selection_path),
+    })
+    return final_selection, development_selection, final_selection_path, finalists, plan_path
+
+
+def _audit_successive_tail(
+    *, results: Path, leaderboard_path: Path, output: Path, procedure_root: Path,
+    production_root: Path, admitted_ids: set[int], admission_path: Path,
+    search_path: Path, extension: dict, extension_ids: list[int], evidence: dict[str, str],
+) -> dict:
+    final_selection, _, _, _, _ = _audit_successive_development(
+        results, admitted_ids, search_path, extension, extension_ids, evidence,
+    )
+    nested_path = results / "nested-outer" / "nested-outer-report.json"
+    nested = _json(nested_path, ("complete",))
+    if (nested.get("outer_splits") != ["outer_1", "outer_2", "outer_3"]
+            or nested.get("expected_seeds") != [0, 1, 2]
+            or "spectral_minus_adamw" not in nested):
+        raise ValueError("walk-forward report lacks exact folds, seeds or paired inference")
+    candidate_path = results / "candidate-plan.json"
+    candidate = _json(candidate_path, ("frozen_train_only_selection",))
+    evidence.update({"nested_outer": sha256(nested_path),
+                     "candidate_plan": sha256(candidate_path)})
+
+    refit_path = results / "audit-final-refits-budgeted" / "refit-audit.json"
+    refit = _json(refit_path, ("audit_complete",))
+    if (refit.get("cells") != 6 or refit.get("seeds") != [0, 1, 2]
+            or set(refit.get("selected", {})) != {"adamw", "spectral"}
+            or set(refit.get("updates", {})) != {"adamw", "spectral"}
+            or any(refit["selected"][arm] != final_selection["selected"][arm][0]
+                   or refit["updates"][arm] != final_selection["selected_updates"][arm][0]
+                   for arm in ("adamw", "spectral"))):
+        raise ValueError("final refits differ from fixed walk-forward winners")
+    evidence["final_refit_audit"] = sha256(refit_path)
+
+    freeze_path = results / "freeze.json"
+    freeze = _json(freeze_path, ("frozen",))
+    code_snapshot_path = procedure_root / "code-snapshot.json"
+    protocol_path = procedure_root / "fidelity-protocol.md"
+    if (not re.fullmatch(r"[0-9a-f]{40}", freeze.get("code_commit", ""))
+            or freeze.get("primary_target") != "target"
+            or freeze.get("primary_benchmark") != "v53_lgbm_ender60"
+            or freeze.get("code_snapshot_sha256") != sha256(code_snapshot_path)
+            or freeze.get("search_sha256") != sha256(search_path)
+            or freeze.get("fidelity_protocol_sha256") != sha256(protocol_path)
+            or freeze.get("candidate_plan_sha256") != sha256(candidate_path)
+            or freeze.get("candidate_transform") != candidate.get("selected")):
+        raise ValueError("freeze provenance or candidate transform is inconsistent")
+    verify_snapshot(procedure_root, code_snapshot_path, freeze["code_commit"])
+    for arm in ("adamw", "spectral"):
+        selected = freeze.get("selected", {}).get(arm, {})
+        if (selected.get("config_id") != refit["selected"][arm]
+                or selected.get("updates") != refit["updates"][arm]
+                or selected.get("seeds") != [0, 1, 2]):
+            raise ValueError(f"{arm} freeze differs from audited final refits")
+        paths = [results / (
+            f"final-refit-u{selected['updates']}-s{seed}-{arm}-c{selected['config_id']}"
+        ) / "model.pt" for seed in range(3)]
+        if [sha256(path) for path in paths] != selected.get("model_sha256"):
+            raise ValueError(f"{arm} frozen model hashes differ")
+    evidence.update({"freeze": sha256(freeze_path),
+                     "code_snapshot": sha256(code_snapshot_path)})
+
+    validation_dir = results / "official-validation"
+    validation_marker = _json(validation_dir / "evaluation-complete.json", ("complete",))
+    _verify_named_hashes(validation_dir, validation_marker.get("artifacts", {}))
+    validation_path = validation_dir / "official-validation-report.json"
+    validation = _json(validation_path, ("complete",))
+    if (validation.get("target") != "target"
+            or validation.get("benchmark") != "v53_lgbm_ender60"
+            or validation.get("freeze_manifest_sha256") != sha256(freeze_path)
+            or validation.get("target_alias_audit") != {
+                "target_equals_target_ender_60": True,
+                "live_corr20v2_target": "target_cyrus_20",
+                "live_target_released_in_v5_3": False,
+            } or "spectral_minus_adamw" not in validation
+            or "candidate_minus_ender60" not in validation):
+        raise ValueError("sealed validation provenance or endpoints are inconsistent")
+    evidence["official_validation"] = sha256(validation_path)
+
+    production_path = results / "production-refit-audit.json"
+    production = _json(production_path, ("audit_complete",))
+    production_snapshot = production_root / "production-code-snapshot.json"
+    candidate_arm = freeze["candidate_transform"]["arm"]
+    frozen_candidate = freeze["selected"][candidate_arm]
+    manifest = production.get("production_manifest", {})
+    if (production.get("purpose") != "unstaked_forward_live_candidate"
+            or production.get("arm") != candidate_arm
+            or production.get("config_id") != frozen_candidate["config_id"]
+            or production.get("updates") != frozen_candidate["updates"]
+            or production.get("seeds") != [0, 1, 2]
+            or production.get("freeze_manifest_sha256") != sha256(freeze_path)
+            or production.get("procedure_code_commit") != freeze["code_commit"]
+            or production.get("production_code_snapshot_sha256")
+            != sha256(production_snapshot)
+            or production.get("sealed_evaluation_sha256")
+            != sha256(validation_dir / "evaluation-complete.json")
+            or manifest.get("split") != "production_train"
+            or manifest.get("resolved_validation_rows", 0) <= 0):
+        raise ValueError("production refit differs from frozen evaluated procedure")
+    verify_snapshot(production_root, production_snapshot, production["production_code_commit"])
+    production_models = [results / (
+        f"production-refit-s{seed}-{candidate_arm}-c{frozen_candidate['config_id']}"
+    ) / "model.pt" for seed in range(3)]
+    if [sha256(path) for path in production_models] != production.get("model_sha256"):
+        raise ValueError("production model hashes differ")
+    evidence.update({"production_refits": sha256(production_path),
+                     "production_code_snapshot": sha256(production_snapshot)})
+
+    bundle = results / "live-bundle"
+    download_path = bundle / "live-fixture" / "download-complete.json"
+    download = _json(download_path, ("complete",))
+    if download.get("freeze_manifest_sha256") != sha256(freeze_path):
+        raise ValueError("live fixture differs from freeze")
+    for name, metadata in download.get("artifacts", {}).items():
+        path = download_path.parent / name
+        if sha256(path) != metadata.get("sha256") or path.stat().st_size != metadata.get("bytes"):
+            raise ValueError("live fixture artifact differs from download audit")
+    runtime_path = bundle / "runtime-audit.json"
+    runtime = _json(runtime_path, ("pass",))
+    predictor, predictions = bundle / "predictor.pkl", bundle / "live_predictions.csv"
+    if (runtime.get("artifact_sha256") != sha256(predictor)
+            or runtime.get("prediction_sha256") != sha256(predictions)
+            or runtime.get("max_bytes") != 4_000_000_000
+            or runtime.get("max_seconds") != 600):
+        raise ValueError("live runtime audit is inconsistent")
+    official_path = bundle / "official-container" / "official-container-audit.json"
+    official = _json(official_path, ("pass",))
+    official_predictions = list(official_path.parent.glob("live_predictions-*.csv"))
+    if (len(official_predictions) != 1
+            or official.get("expected_sha256") != sha256(predictions)
+            or official.get("official_sha256") != sha256(official_predictions[0])
+            or official.get("cpu_limit") != 1
+            or official.get("memory_limit_bytes") != 4_000_000_000
+            or official.get("max_seconds") != 600
+            or official.get("elapsed_seconds", 600) >= 600
+            or official.get("max_abs_difference", float("inf"))
+            > official.get("allowed_max_abs_difference", -1)):
+        raise ValueError("official container audit is inconsistent")
+    evidence.update({"live_download": sha256(download_path),
+                     "live_runtime": sha256(runtime_path),
+                     "official_container": sha256(official_path)})
+
+    leaderboard = _json(leaderboard_path, ("complete",))
+    raw = leaderboard_path.parent / "leaderboard-raw.json"
+    if (not leaderboard.get("summary", {}).get("rows")
+            or not isinstance(leaderboard.get("round"), int)
+            or leaderboard.get("raw_sha256") != sha256(raw)):
+        raise ValueError("leaderboard snapshot is incomplete")
+    report_dir = results / "final-report"
+    report_path = report_dir / "report-manifest.json"
+    report = _json(report_path, ("complete",))
+    expected_inputs = {sha256(nested_path), sha256(validation_path), sha256(leaderboard_path),
+                       sha256(freeze_path), sha256(search_path), sha256(admission_path)}
+    if (report.get("comparability") != "historical-direct_live-context-only"
+            or set(report.get("inputs", {}).values()) != expected_inputs
+            or set(report.get("selected_configs", {})) != {"adamw", "spectral"}):
+        raise ValueError("final report comparability or inputs are inconsistent")
+    _verify_named_hashes(report_dir, report.get("artifacts", {}))
+    evidence.update({"leaderboard": sha256(leaderboard_path), "leaderboard_raw": sha256(raw),
+                     "final_report": sha256(report_path)})
+
+    selected = {arm: refit["selected"][arm] for arm in ("adamw", "spectral")}
+    outer_selected = {
+        str(number): {
+            arm: {"config_id": selected[arm], "updates": refit["updates"][arm]}
+            for arm in ("adamw", "spectral")
+        } for number in range(1, 4)
+    }
+    result = {"status": "audit_complete", "protocol": "successive_halving_walkforward",
+              "primary_target": "target", "outer_selected": outer_selected,
+              "final_selected": selected, "code_commit": freeze["code_commit"],
+              "evidence_sha256": evidence}
+    atomic_json(output, result)
+    return result
 
 
 def audit(results: Path, leaderboard_path: Path, output: Path,
@@ -114,6 +432,14 @@ def audit(results: Path, leaderboard_path: Path, output: Path,
                      "high_rank_extension": sha256(extension_path),
                      "high_rank_probe_audit": sha256(probe_path),
                      "augmented_search": sha256(search_path)})
+    if (results / "selection-outer_1-successive-plan.json").is_file():
+        return _audit_successive_tail(
+            results=results, leaderboard_path=leaderboard_path, output=output,
+            procedure_root=procedure_root, production_root=production_root,
+            admitted_ids=admitted_ids, admission_path=admission_path,
+            search_path=search_path, extension=extension, extension_ids=extension_ids,
+            evidence=evidence,
+        )
     outer_selected = {}
     for number in range(1, 4):
         inner_count = number + 1
