@@ -58,7 +58,9 @@ def _prediction_arrays(path: Path, result: dict, split: EraSplit) -> dict[str, n
     summary = summarize_era_scores(corr).loc["prediction"]
     recorded = result["validation"]["corr"]
     for key in ("mean", "std", "sharpe", "max_drawdown", "cumulative"):
-        if not np.isclose(float(summary[key]), float(recorded[key]), rtol=1e-10, atol=1e-12):
+        # Predictions are persisted as float32, while training-time summaries are
+        # computed before serialization. Allow the resulting sub-ppm roundoff.
+        if not np.isclose(float(summary[key]), float(recorded[key]), rtol=1e-6, atol=1e-9):
             raise ValueError(f"{prediction_path}: recorded CORR {key} does not reproduce")
     if (len(arrays["per_era_corr"]) != len(corr)
             or not np.allclose(arrays["per_era_corr"], corr.to_numpy(), equal_nan=False)):
@@ -72,7 +74,7 @@ def _prediction_arrays(path: Path, result: dict, split: EraSplit) -> dict[str, n
     recorded_bmc = result["validation"]["bmc"]
     for key in ("mean", "std", "sharpe", "max_drawdown", "cumulative"):
         if not np.isclose(float(bmc_summary[key]), float(recorded_bmc[key]),
-                          rtol=1e-10, atol=1e-12):
+                          rtol=1e-6, atol=1e-9):
             raise ValueError(f"{prediction_path}: recorded BMC {key} does not reproduce")
     if (len(arrays["per_era_bmc"]) != len(bmc)
             or not np.allclose(arrays["per_era_bmc"], bmc.to_numpy(), equal_nan=False)):
