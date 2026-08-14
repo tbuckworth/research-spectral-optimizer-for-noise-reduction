@@ -18,9 +18,21 @@ DATASETS = {
 }
 
 
+def _validate_live_freeze(path: Path) -> dict:
+    value = json.loads(path.read_text())
+    if value.get("status") == "bounded_live_frozen":
+        if (set(value.get("selected", {})) != {"adamw", "spectral"}
+                or value.get("upload_authorized") is not False
+                or value.get("staking_authorized") is not False
+                or len(value.get("code_commit", "")) != 40):
+            raise ValueError("bounded live freeze is incomplete")
+        return value
+    return _validate_freeze_manifest(path)
+
+
 def download_live(destination: Path, freeze_manifest: Path,
                   api: NumerAPI | None = None) -> dict:
-    freeze = _validate_freeze_manifest(freeze_manifest)
+    freeze = _validate_live_freeze(freeze_manifest)
     api = NumerAPI() if api is None else api
     round_before = int(api.get_current_round())
     available = set(api.list_datasets())

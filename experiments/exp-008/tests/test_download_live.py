@@ -65,6 +65,17 @@ def test_live_download_records_one_consistent_target_free_round(tmp_path):
     assert report["rows"] == 2 and set(report["artifacts"]) == set(DATASETS.values())
 
 
+def test_live_download_accepts_unstakeable_bounded_pair_freeze(tmp_path):
+    freeze = tmp_path / "freeze.json"
+    freeze.write_text(json.dumps({
+        "status": "bounded_live_frozen", "code_commit": "a" * 40,
+        "selected": {"adamw": {}, "spectral": {}},
+        "upload_authorized": False, "staking_authorized": False,
+    }))
+    report = download_live(tmp_path / "live", freeze, FakeAPI(_files(tmp_path)))
+    assert report["status"] == "complete" and report["freeze_code_commit"] == "a" * 40
+
+
 def test_live_download_refuses_round_transition_and_removes_temporary_files(tmp_path):
     freeze = tmp_path / "freeze.json"
     _freeze(freeze)

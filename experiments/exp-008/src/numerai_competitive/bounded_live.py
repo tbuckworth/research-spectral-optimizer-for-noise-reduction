@@ -10,7 +10,9 @@ from pathlib import Path
 import numpy as np
 import torch
 
+from . import PRIMARY_BENCHMARK
 from .data import ProductionShard, TrainShard, atomic_json, sha256
+from .live import export_callable
 from .materialize import materialize_config
 from .model import MLPConfig
 from .splits import EraSplit
@@ -162,6 +164,48 @@ def audit_refits(freeze_path: Path, shard_root: Path, results_root: Path,
     return report
 
 
+def export_bundles(freeze_path: Path, audit_path: Path, output: Path,
+                   batch_size: int = 2048) -> dict:
+    freeze = json.loads(freeze_path.read_text())
+    audit = json.loads(audit_path.read_text())
+    if (freeze.get("status") != "bounded_live_frozen"
+            or audit.get("status") != "audit_complete"
+            or audit.get("freeze_sha256") != sha256(freeze_path)):
+        raise ValueError("bounded freeze and refit audit differ")
+    output.mkdir(parents=True, exist_ok=False)
+    bundles = {}
+    for arm in ARMS:
+        cells = sorted((row for row in audit["cells"] if row["arm"] == arm),
+                       key=lambda row: row["seed"])
+        if [row["seed"] for row in cells] != list(SEEDS):
+            raise ValueError(f"{arm} audit lacks the exact seed ensemble")
+        models = [Path(row["model"]) for row in cells]
+        if any(not path.is_file() for path in models):
+            raise ValueError(f"{arm} audited model file is missing")
+        if [sha256(path) for path in models] != [row["model_sha256"] for row in cells]:
+            raise ValueError(f"{arm} audited model hash changed")
+        plan_path = output / f"{arm}-candidate-plan.json"
+        atomic_json(plan_path, {
+            "status": "frozen_train_only_selection",
+            "selected": {"arm": arm, "model_weight": 1.0,
+                         "benchmark": PRIMARY_BENCHMARK},
+            "bounded_live_freeze_sha256": sha256(freeze_path),
+            "bounded_live_audit_sha256": sha256(audit_path),
+        })
+        callable_path = output / f"{arm}-predictor.pkl"
+        export_callable(models, callable_path, batch_size=batch_size,
+                        candidate_plan=plan_path)
+        bundles[arm] = {"callable": str(callable_path),
+                        "callable_sha256": sha256(callable_path),
+                        "candidate_plan": str(plan_path),
+                        "candidate_plan_sha256": sha256(plan_path)}
+    report = {"status": "bundles_complete", "freeze_sha256": sha256(freeze_path),
+              "refit_audit_sha256": sha256(audit_path), "bundles": bundles,
+              "upload_authorized": False, "staking_authorized": False}
+    atomic_json(output / "bundle-audit.json", report)
+    return report
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="command", required=True)
@@ -189,6 +233,11 @@ def main() -> None:
     audit.add_argument("--shard", type=Path, required=True)
     audit.add_argument("--results", type=Path, required=True)
     audit.add_argument("--output", type=Path, required=True)
+    export = sub.add_parser("export")
+    export.add_argument("--freeze", type=Path, required=True)
+    export.add_argument("--audit", type=Path, required=True)
+    export.add_argument("--output", type=Path, required=True)
+    export.add_argument("--batch-size", type=int, default=2048)
     args = parser.parse_args()
     if args.command == "freeze":
         value = create_freeze(args.selection, args.outer_audit, args.search, args.protocol,
@@ -198,8 +247,10 @@ def main() -> None:
     elif args.command == "refit":
         value = run_refit(args.search, args.shard, args.freeze, args.output,
                           args.arm, args.seed, args.device)
-    else:
+    elif args.command == "audit":
         value = audit_refits(args.freeze, args.shard, args.results, args.output)
+    else:
+        value = export_bundles(args.freeze, args.audit, args.output, args.batch_size)
     print(json.dumps(value, sort_keys=True))
 
 
