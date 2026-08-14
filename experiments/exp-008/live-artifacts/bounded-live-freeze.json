@@ -1,0 +1,33 @@
+{
+  "code_commit": "25fd2df34bb6278557ca5de434f8c10b23f8777c",
+  "outer_audit_sha256": "d1bf8dc8b7e4a9137e11ddd9212ca8b1bacd4b9a3de92731a1357c612c4382f5",
+  "protocol_sha256": "1ec4cd7b0e7baf3c1254758689f6d38847306f1d3b05cc9781780de823797f6a",
+  "search_sha256": "bf70d3f3b9629000712b5352c6b6526c8c936025f99de192af49bfa3f84562bc",
+  "selected": {
+    "adamw": {
+      "config_id": 38,
+      "feature_set": "all",
+      "seeds": [
+        0,
+        1,
+        2
+      ],
+      "updates": 20000
+    },
+    "spectral": {
+      "config_id": 39,
+      "feature_set": "all",
+      "seeds": [
+        0,
+        1,
+        2
+      ],
+      "updates": 20000
+    }
+  },
+  "selection_sha256": "6c69627bbd53536bb6dc6c52bd24cdeb4f74e556550bbcd49c8661054c1c2e6f",
+  "staking_authorized": false,
+  "status": "bounded_live_frozen",
+  "target": "target",
+  "upload_authorized": false
+}
