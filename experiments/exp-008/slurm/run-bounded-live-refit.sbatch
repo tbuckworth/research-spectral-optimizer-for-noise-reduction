@@ -10,6 +10,7 @@
 set -euo pipefail
 PROJECT=/mnt/nw/home/t.buckworth/numerai-live-candidates
 SHARD=/ephemeral/t.buckworth/numerai-v5.3-bounded-live-all
+export PYTHONPATH="$PROJECT/src"
 cd "$PROJECT"
 "$PROJECT/.venv/bin/python" -c 'import torch; assert torch.cuda.is_available()'
 exec "$PROJECT/.venv/bin/python" -m numerai_competitive.bounded_live refit \

@@ -10,6 +10,7 @@ set -euo pipefail
 PROJECT=/mnt/nw/home/t.buckworth/numerai-live-candidates
 TRAIN=/ephemeral/t.buckworth/numerai-v5.3/all
 DEST=/ephemeral/t.buckworth/numerai-v5.3-bounded-live-all
+export PYTHONPATH="$PROJECT/src"
 cd "$PROJECT"
 [[ -f "$TRAIN/manifest.json" ]] || { echo "existing audited train shard missing" >&2; exit 1; }
 if [[ ! -e "$DEST" ]]; then
