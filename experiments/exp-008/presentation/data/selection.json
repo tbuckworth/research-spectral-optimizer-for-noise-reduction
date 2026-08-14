@@ -1,0 +1,39 @@
+{
+  "allow_asymmetric": false,
+  "criterion": "descending mean exact standalone CORR; worst-fold then config-id ties",
+  "outer_reselection_allowed": false,
+  "score_files": [
+    "/mnt/nw/home/t.buckworth/numerai-competitive/results/summary-one-day-outer_1_inner_1-u20000-s0/scores.csv",
+    "/mnt/nw/home/t.buckworth/numerai-competitive/results/summary-one-day-outer_1_inner_1-u20000-s1/scores.csv",
+    "/mnt/nw/home/t.buckworth/numerai-competitive/results/summary-one-day-outer_1_inner_2-u20000-s0/scores.csv",
+    "/mnt/nw/home/t.buckworth/numerai-competitive/results/summary-one-day-outer_1_inner_2-u20000-s1/scores.csv"
+  ],
+  "score_sha256": {
+    "/mnt/nw/home/t.buckworth/numerai-competitive/results/summary-one-day-outer_1_inner_1-u20000-s0/scores.csv": "a9d95252489953da1107cca40719d3e19d41c99309c9a53c616eaa2db6aa8913",
+    "/mnt/nw/home/t.buckworth/numerai-competitive/results/summary-one-day-outer_1_inner_1-u20000-s1/scores.csv": "01bf5b6d62ae5ae06302afc06291acdc4df86c75fbcdd1234ca19ab9ac0b9eb7",
+    "/mnt/nw/home/t.buckworth/numerai-competitive/results/summary-one-day-outer_1_inner_2-u20000-s0/scores.csv": "80cf090feb03a330bfa37b33e946c1726c5f584feceb4718b0f3299fa5f3fdab",
+    "/mnt/nw/home/t.buckworth/numerai-competitive/results/summary-one-day-outer_1_inner_2-u20000-s1/scores.csv": "60c40868ddbd235662493041b12975e43b83baae5c1878b71a3a6fa58bcb7a74"
+  },
+  "selected": {
+    "adamw": [
+      38
+    ],
+    "paired_union": [
+      38,
+      39
+    ],
+    "spectral": [
+      39
+    ]
+  },
+  "selected_updates": {
+    "adamw": [
+      20000
+    ],
+    "spectral": [
+      20000
+    ]
+  },
+  "status": "one_day_development_selection_frozen",
+  "top": 1
+}

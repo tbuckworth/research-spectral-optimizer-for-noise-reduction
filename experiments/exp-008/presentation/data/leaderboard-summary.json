@@ -1,0 +1,61 @@
+{
+  "limit": 1000,
+  "raw_sha256": "c7690e5d417cb274d336ddecb64d21100baf73bae925afde80c73d2ad7bf681e",
+  "retrieved_at": "2026-08-12T00:17:00.774473+00:00",
+  "round": 1330,
+  "status": "complete",
+  "summary": {
+    "metrics": {
+      "bmcRep": {
+        "finite_rows": 1000,
+        "label": "BMC",
+        "maximum": 0.017201857829528946,
+        "median": 0.006330893380262003,
+        "missing_rows": 0,
+        "p90": 0.009671500441599945,
+        "top_rank_values": [
+          0.01697096651399651
+        ]
+      },
+      "corj60Rep": {
+        "finite_rows": 993,
+        "label": "CORJ60",
+        "maximum": 0.032616662386838025,
+        "median": 0.010544637086521088,
+        "missing_rows": 7,
+        "p90": 0.01918139588783819,
+        "top_rank_values": [
+          0.01828111338732286
+        ]
+      },
+      "corr20V2Rep": {
+        "finite_rows": 1000,
+        "label": "CORR20v2",
+        "maximum": 0.019585533445720418,
+        "median": 0.00926410794904543,
+        "missing_rows": 0,
+        "p90": 0.014661366730363777,
+        "top_rank_values": [
+          0.015790496573094982
+        ]
+      },
+      "mmcRep": {
+        "finite_rows": 1000,
+        "label": "MMC",
+        "maximum": 0.012617493484195377,
+        "median": 0.003991600631530127,
+        "missing_rows": 0,
+        "p90": 0.006578859414505206,
+        "top_rank_values": [
+          0.012617493484195377
+        ]
+      }
+    },
+    "rank_max": 1000,
+    "rank_min": 1,
+    "rows": 1000,
+    "top_rank_models": [
+      "tdd_model107"
+    ]
+  }
+}
