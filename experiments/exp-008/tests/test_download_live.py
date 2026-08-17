@@ -65,6 +65,40 @@ def test_live_download_records_one_consistent_target_free_round(tmp_path):
     assert report["rows"] == 2 and set(report["artifacts"]) == set(DATASETS.values())
 
 
+def test_live_download_accepts_null_target_schema_columns(tmp_path):
+    freeze = tmp_path / "freeze.json"
+    _freeze(freeze)
+    files = _files(tmp_path)
+    live_path = files["v5.3/live.parquet"]
+    live = pd.read_parquet(live_path)
+    live["target"] = float("nan")
+    live.to_parquet(live_path)
+    assert download_live(tmp_path / "live", freeze, FakeAPI(files))["status"] == "complete"
+
+
+def test_live_download_refuses_revealed_target_values(tmp_path):
+    freeze = tmp_path / "freeze.json"
+    _freeze(freeze)
+    files = _files(tmp_path)
+    live_path = files["v5.3/live.parquet"]
+    live = pd.read_parquet(live_path)
+    live["target"] = [float("nan"), 0.5]
+    live.to_parquet(live_path)
+    with pytest.raises(ValueError, match="revealed target values"):
+        download_live(tmp_path / "live", freeze, FakeAPI(files))
+
+
+def test_live_download_accepts_unstakeable_bounded_pair_freeze(tmp_path):
+    freeze = tmp_path / "freeze.json"
+    freeze.write_text(json.dumps({
+        "status": "bounded_live_frozen", "code_commit": "a" * 40,
+        "selected": {"adamw": {}, "spectral": {}},
+        "upload_authorized": False, "staking_authorized": False,
+    }))
+    report = download_live(tmp_path / "live", freeze, FakeAPI(_files(tmp_path)))
+    assert report["status"] == "complete" and report["freeze_code_commit"] == "a" * 40
+
+
 def test_live_download_refuses_round_transition_and_removes_temporary_files(tmp_path):
     freeze = tmp_path / "freeze.json"
     _freeze(freeze)
