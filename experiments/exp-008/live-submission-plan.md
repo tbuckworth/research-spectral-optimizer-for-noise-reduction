@@ -1,7 +1,8 @@
 # Unstaked Numerai live-candidate plan
 
-Status: execution authorized for local/cluster preparation and training. No upload, submission,
-staking, deletion, or replacement of a Numerai model is authorized by this document.
+Status: preparation, training, bundle export, and official-container validation are complete.
+No upload, submission, staking, deletion, or replacement of a Numerai model is authorized by
+this document. See `live-artifacts/readiness-audit.md` for the final evidence summary.
 
 ## Objective
 
@@ -69,13 +70,13 @@ checks. A failed bundle is fixed and re-audited; it is never uploaded speculativ
 ### 5. Human account setup and explicit authorization
 
 The user creates/signs into a Numerai account, creates two fresh Tournament model slots, and
-creates a least-privilege API key with only `View user info` and
-`Upload submissions and pickled models`. Credentials are stored outside Git with mode 600.
+creates a least-privilege API key with `View user info`, `View historical submission info`, and
+`Upload submissions and pickled models`. Credentials are stored outside Git.
 
-Suggested slot names:
+Confirmed slot names:
 
-- `spectral_pxp_live_01`
-- `adamw_control_live_01`
+- `eden_eve` (spectral)
+- `eden_adam` (AdamW)
 
 Gate: user confirms the exact slot IDs and explicitly authorizes uploading the two audited
 pickles. Staking remains disabled.
@@ -104,13 +105,9 @@ configuration, or uploading replacement artifacts is out of scope.
 
 ## User actions
 
-1. Create or sign into a Numerai account: <https://numer.ai/signup>
-2. Create two new Numerai Tournament model slots at <https://numer.ai/models>.
-3. Do not stake them.
-4. After the local artifacts pass every gate, create a dedicated API key in Account Settings with
-   only the two scopes listed above. Do not paste the secret into chat or commit it.
-5. Provide the two model IDs through an agreed secure local configuration mechanism and explicitly
-   authorize the first two uploads.
+Completed: the account exists; the unstaked `eden_eve` and `eden_adam` slots exist; and the
+dedicated API public ID and secret are stored outside Git in Bitwarden. Remaining user action:
+explicitly authorize the first two uploads. The secret must never be pasted into chat or committed.
 
 ## Success criteria
 
