@@ -60,8 +60,15 @@ def download_live(destination: Path, freeze_manifest: Path,
         if (live.empty or live.index.has_duplicates or benchmark.index.has_duplicates
                 or not live.index.equals(benchmark.index)):
             raise ValueError("live and benchmark IDs are empty, duplicated, or misaligned")
-        if any(column.startswith("target") for column in live.columns):
-            raise ValueError("live fixture unexpectedly contains target columns")
+        target_columns = [column for column in live.columns
+                          if column.startswith("target")]
+        revealed_targets = [column for column in target_columns
+                            if live[column].notna().any()]
+        if revealed_targets:
+            raise ValueError(
+                "live fixture unexpectedly contains revealed target values: "
+                f"{revealed_targets}"
+            )
         if PRIMARY_BENCHMARK not in benchmark.columns:
             raise ValueError("live benchmark lacks frozen Ender60 column")
         if benchmark[PRIMARY_BENCHMARK].isna().any():
