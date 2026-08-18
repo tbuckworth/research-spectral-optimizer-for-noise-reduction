@@ -78,6 +78,26 @@ def test_full_cpu_run_writes_exact_metrics_and_atomic_predictions(tmp_path: Path
     assert not list((tmp_path / "out").glob("*.tmp"))
 
 
+def test_metric_history_uses_one_fixed_training_trajectory(tmp_path: Path):
+    shard_dir = tmp_path / "shard"
+    shard_dir.mkdir()
+    shard = _shard(shard_dir)
+    result = run_training(
+        shard, SPLIT, _config(validation_updates=(2, 4, 6)), tmp_path / "out"
+    )
+    assert [row["update"] for row in result["validation_history"]] == [2, 4, 6]
+    assert [row["examples"] for row in result["validation_history"]] == [16, 32, 48]
+    assert all(np.isfinite(row["validation"]["corr"]["mean"])
+               for row in result["validation_history"])
+
+
+def test_validation_updates_must_be_ordered_and_in_range():
+    with pytest.raises(ValueError, match="validation_updates"):
+        _config(validation_updates=(4, 2))
+    with pytest.raises(ValueError, match="validation_updates"):
+        _config(validation_updates=(2, 7))
+
+
 def test_checkpoint_resume_is_deterministic(tmp_path: Path):
     shard_dir = tmp_path / "shard"
     shard_dir.mkdir()
