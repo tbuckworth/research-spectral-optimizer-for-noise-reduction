@@ -11,6 +11,7 @@ set -euo pipefail
 PROJECT=/mnt/nw/home/t.buckworth/numerai-corrected-live/experiments/exp-008
 SHARD=/ephemeral/t.buckworth/numerai-v5.3-corrected-production-all
 export TMPDIR=/ephemeral/t.buckworth/tmp
+export PYTHONPATH="$PROJECT/src"
 export CUBLAS_WORKSPACE_CONFIG=:4096:8
 mkdir -p "$TMPDIR"
 cd "$PROJECT"

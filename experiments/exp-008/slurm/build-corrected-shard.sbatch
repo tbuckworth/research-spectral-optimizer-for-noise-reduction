@@ -12,6 +12,7 @@ SOURCE=/mnt/nw/home/t.buckworth/numerai-v5.3-source
 DEST=/ephemeral/t.buckworth/numerai-v5.3-corrected-live/all
 export UV_CACHE_DIR=/ephemeral/t.buckworth/uv-cache
 export TMPDIR=/ephemeral/t.buckworth/tmp
+export PYTHONPATH="$PROJECT/src"
 mkdir -p "$TMPDIR" "$(dirname "$DEST")"
 cd "$PROJECT"
 if [[ ! -f "$DEST/manifest.json" ]]; then

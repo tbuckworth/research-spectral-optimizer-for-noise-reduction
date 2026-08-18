@@ -12,6 +12,7 @@ PROJECT=/mnt/nw/home/t.buckworth/numerai-corrected-live/experiments/exp-008
 SHARDS=/ephemeral/t.buckworth/numerai-v5.3-corrected-live
 export UV_CACHE_DIR=/ephemeral/t.buckworth/uv-cache
 export TMPDIR=/ephemeral/t.buckworth/tmp
+export PYTHONPATH="$PROJECT/src"
 export CUBLAS_WORKSPACE_CONFIG=:4096:8
 mkdir -p "$TMPDIR"
 cd "$PROJECT"

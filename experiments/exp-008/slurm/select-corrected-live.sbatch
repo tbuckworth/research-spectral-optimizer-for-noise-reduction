@@ -12,6 +12,7 @@ TRAIN=/ephemeral/t.buckworth/numerai-v5.3-corrected-live/all
 PRODUCTION=/ephemeral/t.buckworth/numerai-v5.3-corrected-production-all
 FREEZE=$PROJECT/results/corrected-live-freeze.json
 export TMPDIR=/ephemeral/t.buckworth/tmp
+export PYTHONPATH="$PROJECT/src"
 mkdir -p "$TMPDIR"
 cd "$PROJECT"
 COMMIT=$(git rev-parse HEAD)
