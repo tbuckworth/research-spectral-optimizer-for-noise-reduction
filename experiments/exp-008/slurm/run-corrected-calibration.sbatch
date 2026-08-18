@@ -8,7 +8,7 @@
 #SBATCH --output=/mnt/nw/home/t.buckworth/numerai-corrected-live/slurm-%x-%j.out
 
 set -euo pipefail
-PROJECT=/mnt/nw/home/t.buckworth/numerai-corrected-live
+PROJECT=/mnt/nw/home/t.buckworth/numerai-corrected-live/experiments/exp-008
 SHARDS=/ephemeral/t.buckworth/numerai-v5.3-corrected-live
 export UV_CACHE_DIR=/ephemeral/t.buckworth/uv-cache
 export TMPDIR=/ephemeral/t.buckworth/tmp
