@@ -16,8 +16,11 @@ export CUBLAS_WORKSPACE_CONFIG=:4096:8
 mkdir -p "$TMPDIR"
 cd "$PROJECT"
 "$PROJECT/.venv/bin/python" -c 'import torch; assert torch.cuda.is_available()'
-exec "$PROJECT/.venv/bin/python" -m numerai_competitive.corrected_live refit \
+"$PROJECT/.venv/bin/python" -m numerai_competitive.corrected_live refit \
   --search configs/search-v1.json --shard "$SHARD" \
   --freeze results/corrected-live-freeze.json \
   --output "results/corrected-live-refit-s${SEED}-${ARM}-c${CONFIG_ID}" \
   --arm "$ARM" --seed "$SEED" --device cuda
+"$PROJECT/.venv/bin/python" -c \
+  'import json,sys; value=json.load(open(sys.argv[1])); assert value["status"] == "complete"' \
+  "results/corrected-live-refit-s${SEED}-${ARM}-c${CONFIG_ID}/result.json"
