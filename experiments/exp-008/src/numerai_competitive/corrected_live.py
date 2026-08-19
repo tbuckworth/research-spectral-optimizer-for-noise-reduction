@@ -115,7 +115,7 @@ def build_production_shard(train_root: Path, freeze_path: Path, destination: Pat
         "era_max": int(train.eras.max()), "feature_set": train.manifest["feature_set"],
     }
     manifest = {
-        **train.manifest, "split": "corrected_production_train",
+        **train.manifest, "split": "production_train",
         "corrected_live_freeze_sha256": sha256(freeze_path),
         "training_data_sha256": _identity(identity_inputs), "identity_inputs": identity_inputs,
     }
