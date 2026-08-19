@@ -117,6 +117,10 @@ def build_production_shard(train_root: Path, freeze_path: Path, destination: Pat
     manifest = {
         **train.manifest, "split": "production_train",
         "corrected_live_freeze_sha256": sha256(freeze_path),
+        "freeze_manifest_sha256": sha256(freeze_path),
+        "sealed_evaluation_sha256": None,
+        "resolved_validation_rows": 0,
+        "frozen_train_rows": len(train.X),
         "training_data_sha256": _identity(identity_inputs), "identity_inputs": identity_inputs,
     }
     atomic_json(temporary / "manifest.json", manifest)
