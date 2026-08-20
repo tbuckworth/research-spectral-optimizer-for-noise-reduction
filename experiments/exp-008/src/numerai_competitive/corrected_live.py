@@ -211,14 +211,17 @@ def export_bundles(freeze_path: Path, audit_path: Path, output: Path,
         if [sha256(path) for path in models] != [row["model_sha256"] for row in cells]:
             raise ValueError(f"{arm} model hash changed")
         plan = output / f"{arm}-candidate-plan.json"
-        atomic_json(plan, {"status": "corrected_validation_stopped",
-                           "selected": {"arm": arm, "benchmark": PRIMARY_BENCHMARK},
+        atomic_json(plan, {"status": "frozen_train_only_selection",
+                           "selected": {"arm": arm, "model_weight": 1.0,
+                                        "benchmark": PRIMARY_BENCHMARK},
                            "freeze_sha256": sha256(freeze_path),
                            "audit_sha256": sha256(audit_path)})
         callable_path = output / f"{arm}-predictor.pkl"
         export_callable(models, callable_path, batch_size=batch_size, candidate_plan=plan)
         bundles[arm] = {"callable": str(callable_path),
-                        "callable_sha256": sha256(callable_path)}
+                        "callable_sha256": sha256(callable_path),
+                        "candidate_plan": str(plan),
+                        "candidate_plan_sha256": sha256(plan)}
     report = {"status": "bundles_complete", "freeze_sha256": sha256(freeze_path),
               "audit_sha256": sha256(audit_path), "bundles": bundles,
               "upload_authorized": True, "staking_authorized": False}

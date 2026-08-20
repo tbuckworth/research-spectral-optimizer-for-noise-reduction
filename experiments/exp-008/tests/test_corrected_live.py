@@ -2,7 +2,16 @@ from __future__ import annotations
 
 import json
 
-from numerai_competitive.corrected_live import CHECKPOINT_EXAMPLES, select_stopping
+import torch
+
+from numerai_competitive import PRIMARY_BENCHMARK
+from numerai_competitive.corrected_live import (
+    CHECKPOINT_EXAMPLES,
+    export_bundles,
+    select_stopping,
+)
+from numerai_competitive.data import sha256
+from numerai_competitive.model import MLPConfig, ResidualMLP
 
 
 def _result(path, arm, fold, scores):
@@ -39,3 +48,36 @@ def test_selects_each_arm_peak_and_scales_schedule_by_eras(tmp_path):
     assert spectral["refit_updates"] == round(10_000 * 574 / 218)
     assert adam["refit_schedule_updates"] == round(40_000 * 574 / 218)
     assert result["staking_authorized"] is False
+
+
+def test_export_uses_shared_frozen_candidate_plan_schema(tmp_path):
+    freeze = tmp_path / "freeze.json"
+    freeze.write_text(json.dumps({"status": "corrected_live_frozen"}))
+    cells = []
+    config = MLPConfig(input_dim=2, width=4, depth=1)
+    for arm in ("adamw", "spectral"):
+        for seed in range(3):
+            model_path = tmp_path / f"{arm}-{seed}.pt"
+            model = ResidualMLP(config)
+            torch.save({
+                "feature_names": ["feature_a", "feature_b"],
+                "data_version": "v5.3",
+                "model_config": config.__dict__,
+                "model": model.state_dict(),
+                "signature": f"{arm}-{seed}",
+            }, model_path)
+            cells.append({"arm": arm, "seed": seed, "model": str(model_path),
+                          "model_sha256": sha256(model_path)})
+    audit = tmp_path / "audit.json"
+    audit.write_text(json.dumps({"status": "audit_complete",
+                                 "freeze_sha256": sha256(freeze), "cells": cells}))
+
+    report = export_bundles(freeze, audit, tmp_path / "bundles")
+
+    assert report["status"] == "bundles_complete"
+    for arm in ("adamw", "spectral"):
+        plan = json.loads((tmp_path / "bundles" / f"{arm}-candidate-plan.json").read_text())
+        assert plan["status"] == "frozen_train_only_selection"
+        assert plan["selected"] == {
+            "arm": arm, "model_weight": 1.0, "benchmark": PRIMARY_BENCHMARK,
+        }
