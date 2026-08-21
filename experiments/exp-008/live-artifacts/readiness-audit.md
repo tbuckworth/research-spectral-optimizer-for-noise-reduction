@@ -1,5 +1,11 @@
 # Numerai live-candidate readiness audit
 
+> **Historical artifact (superseded).** This audit covers the first fixed-20,000-update bundles.
+> Those bundles were uploaded and later replaced by validation-selected refits. For the current
+> deployment, hashes, upload IDs, diagnostics, and limitations, see
+> [`corrected-live-outcome.md`](corrected-live-outcome.md). The authorization language below
+> records the boundary at the time of this audit, not the repository's present deployment state.
+
 Audited 2026-08-17 against Numerai round 1334. This is an evidence summary; the
 large immutable model, fixture, prediction, and JSON audit artifacts are retained
 under `/mnt/nw/home/t.buckworth/numerai-live-candidates/results/bounded-live-bundles`.
@@ -36,6 +42,7 @@ The complete experiment test suite passed: 191 tests.
 
 ## Authorization boundary
 
-These artifacts are technically ready for an unstaked live upload. No prediction
-or model has been uploaded, and no staking action has been taken. Upload and
-staking remain separate actions requiring explicit user authorization.
+At the time of this audit, these artifacts were technically ready for an unstaked live upload and
+no model had yet been uploaded. The user subsequently authorized their upload and then authorized
+their replacement by the corrected bundles. No staking action has been taken. Upload and staking
+remain separate actions requiring explicit user authorization.
