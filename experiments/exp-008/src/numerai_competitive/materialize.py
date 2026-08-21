@@ -7,10 +7,13 @@ from . import PRIMARY_BENCHMARK
 
 
 def materialize_config(draw: dict[str, Any], *, input_dim: int, updates: int,
-                       seed: int = 0) -> dict[str, Any]:
+                       seed: int = 0, schedule_updates: int | None = None) -> dict[str, Any]:
     """Materialize one search draw without changing any sampled hyperparameter."""
     if draw["feature_set"] not in {"medium", "all"}:
         raise ValueError("unsupported feature set")
+    horizon = updates if schedule_updates is None else schedule_updates
+    if horizon < updates:
+        raise ValueError("schedule_updates must be at least updates")
     config: dict[str, Any] = {
         "search_config_id": draw["config_id"],
         "feature_set": draw["feature_set"],
@@ -37,7 +40,8 @@ def materialize_config(draw: dict[str, Any], *, input_dim: int, updates: int,
         "weight_decay": draw["weight_decay"],
         "loss": draw["loss"],
         "schedule": draw["schedule"],
-        "warmup_updates": round(updates * draw["warmup_fraction"]),
+        "schedule_updates": horizon,
+        "warmup_updates": round(horizon * draw["warmup_fraction"]),
         "clip_norm": None if draw["clip_grad_norm"] == 0 else draw["clip_grad_norm"],
     }
     if draw["arm"] == "spectral":

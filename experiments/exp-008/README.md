@@ -5,6 +5,10 @@ The primary target is explicitly the v5.3 main `target`; the primary endpoint is
 Numerai CORR. Historical validation is not itself a resolved current live leaderboard reputation.
 No command here uploads a model, submits predictions, or stakes NMR.
 
+The corrected production refits were subsequently uploaded after separate explicit authorization.
+Their hashes, Numerai diagnostics, and the post-deployment stopping-selection audit are recorded in
+[`live-artifacts/corrected-live-outcome.md`](live-artifacts/corrected-live-outcome.md).
+
 ## Reproduce integrity checks
 
 ```bash

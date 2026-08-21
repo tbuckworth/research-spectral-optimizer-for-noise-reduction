@@ -26,6 +26,7 @@ def main() -> None:
     parser.add_argument("--split", required=True)
     parser.add_argument("--updates", type=int, required=True)
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--validation-examples", type=int, nargs="*", default=[])
     args = parser.parse_args()
 
     payload = json.loads(args.search.read_text())
@@ -43,6 +44,11 @@ def main() -> None:
         )
     value = materialize_config(draw, input_dim=shard.X.shape[1], updates=args.updates,
                                seed=args.seed)
+    if any(examples % value["batch_size"] for examples in args.validation_examples):
+        raise ValueError("validation example checkpoints must divide by batch size")
+    value["validation_updates"] = tuple(
+        examples // value["batch_size"] for examples in args.validation_examples
+    )
     value["model"] = MLPConfig(**value["model"])
     result = run_training(shard_root, resolve_split(args.split), TrainConfig(**value),
                           args.output)

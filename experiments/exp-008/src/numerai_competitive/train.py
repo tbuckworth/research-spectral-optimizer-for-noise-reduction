@@ -46,11 +46,13 @@ class TrainConfig:
     loss: str = "mse"
     huber_delta: float = 1.0
     schedule: str = "constant"
+    schedule_updates: int | None = None
     warmup_updates: int = 0
     clip_norm: float | None = None
     eval_batch_size: int = 4096
     log_every: int = 50
     checkpoint_every: int = 250
+    validation_updates: tuple[int, ...] = ()
     save_model: bool = False
     filter: dict[str, Any] = field(default_factory=dict)
 
@@ -66,10 +68,17 @@ class TrainConfig:
         expected = self.updates * self.batch_size
         if self.examples is not None and self.examples != expected:
             raise ValueError(f"examples must equal updates * batch_size ({expected})")
-        if not 0 <= self.warmup_updates <= self.updates:
-            raise ValueError("warmup_updates must be between zero and updates")
+        horizon = self.updates if self.schedule_updates is None else self.schedule_updates
+        if horizon < self.updates:
+            raise ValueError("schedule_updates must be at least updates")
+        if not 0 <= self.warmup_updates <= horizon:
+            raise ValueError("warmup_updates must be between zero and the schedule horizon")
         if self.clip_norm is not None and self.clip_norm <= 0:
             raise ValueError("clip_norm must be positive")
+        if (tuple(sorted(set(self.validation_updates))) != tuple(self.validation_updates)
+                or any(update < 1 or update > self.updates
+                       for update in self.validation_updates)):
+            raise ValueError("validation_updates must be unique, increasing, and within updates")
 
     @property
     def example_budget(self) -> int:
@@ -127,7 +136,8 @@ def _lr_multiplier(update: int, config: TrainConfig) -> float:
         return (update + 1) / config.warmup_updates
     if config.schedule == "constant":
         return 1.0
-    span = max(1, config.updates - config.warmup_updates)
+    horizon = config.updates if config.schedule_updates is None else config.schedule_updates
+    span = max(1, horizon - config.warmup_updates)
     progress = min(1.0, max(0.0, (update - config.warmup_updates) / span))
     return 0.5 * (1.0 + math.cos(math.pi * progress))
 
@@ -243,6 +253,7 @@ def run_training(shard_root: Path, split: EraSplit, config: TrainConfig, output_
     training_data_sha256 = shard.manifest.get("training_data_sha256")
     signature = _config_hash(config, split, training_data_sha256)
     logs: list[dict[str, Any]] = []
+    validation_history: list[dict[str, Any]] = []
     start_update = 0
     if resume and checkpoint_path.exists():
         saved = torch.load(checkpoint_path, map_location=device, weights_only=False)
@@ -260,6 +271,7 @@ def run_training(shard_root: Path, split: EraSplit, config: TrainConfig, output_
         if device.type == "cuda":
             torch.cuda.set_rng_state_all(saved["cuda_rng"])
         start_update, logs = int(saved["update"]), saved["logs"]
+        validation_history = saved.get("validation_history", [])
 
     limit = config.updates if stop_after_updates is None else min(config.updates, stop_after_updates)
     started = time.perf_counter()
@@ -272,7 +284,7 @@ def run_training(shard_root: Path, split: EraSplit, config: TrainConfig, output_
             "batch_stream": stream.state_dict(), "python_rng": random.getstate(),
             "numpy_rng": np.random.get_state(), "torch_rng": torch.get_rng_state(),
             "cuda_rng": torch.cuda.get_rng_state_all() if device.type == "cuda" else None,
-            "logs": logs,
+            "logs": logs, "validation_history": validation_history,
         })
         status = {"status": "checkpointed", "reason": reason, "update": update,
                   "signature": signature}
@@ -324,6 +336,19 @@ def run_training(shard_root: Path, split: EraSplit, config: TrainConfig, output_
                 if filter_diagnostics is not None:
                     row["filter"] = filter_diagnostics
                 logs.append(row)
+            if not refit and update in config.validation_updates:
+                checkpoint_predictions = _predict(
+                    model, shard, valid_indices, device, config.eval_batch_size
+                )
+                checkpoint_validation, _ = _evaluate(
+                    checkpoint_predictions, shard, valid_indices,
+                    shard.target_index(config.target), shard.benchmark_index(config.benchmark)
+                )
+                validation_history.append({
+                    "update": update,
+                    "examples": update * config.batch_size,
+                    "validation": checkpoint_validation,
+                })
             if stop_requested and update < config.updates:
                 return save_checkpoint(update, "SIGUSR1")
             if (config.checkpoint_every and update < config.updates
@@ -335,7 +360,7 @@ def run_training(shard_root: Path, split: EraSplit, config: TrainConfig, output_
                     "batch_stream": stream.state_dict(), "python_rng": random.getstate(),
                     "numpy_rng": np.random.get_state(), "torch_rng": torch.get_rng_state(),
                     "cuda_rng": torch.cuda.get_rng_state_all() if device.type == "cuda" else None,
-                    "logs": logs,
+                    "logs": logs, "validation_history": validation_history,
                 })
     finally:
         if previous_signal_handler is not None:
@@ -362,7 +387,8 @@ def run_training(shard_root: Path, split: EraSplit, config: TrainConfig, output_
         "status": "complete", "signature": signature, "split": split.to_dict(),
         "config": asdict(config), "parameter_count": sum(p.numel() for p in model.parameters()),
         "updates": config.updates, "examples": config.example_budget,
-        "validation": validation, "logs": logs, "peak_cuda_memory_bytes": peak,
+        "validation": validation, "validation_history": validation_history,
+        "logs": logs, "peak_cuda_memory_bytes": peak,
         "prediction_file": None if refit else prediction_path.name,
         "model_file": model_path.name if config.save_model else None,
         "training_data_sha256": training_data_sha256,
