@@ -103,11 +103,13 @@ have accumulated interpretable live history.
 Monitoring may be automated read-only. Automated staking, deleting model slots, changing model
 configuration, or uploading replacement artifacts is out of scope.
 
-## User actions
+## Deployment status
 
-Completed: the account exists; the unstaked `eden_eve` and `eden_adam` slots exist; and the
-dedicated API public ID and secret are stored outside Git in Bitwarden. Remaining user action:
-explicitly authorize the first two uploads. The secret must never be pasted into chat or committed.
+Completed 2026-08-20: the corrected, audited `eden_eve` and `eden_adam` callables were uploaded as
+unstaked replacements after explicit authorization. Both validated successfully and produced a
+successful live submission. Credentials remain outside Git in Bitwarden. See
+`live-artifacts/corrected-live-outcome.md` for immutable bundle hashes, upload IDs, diagnostics,
+and the stopping-selection limitation discovered after deployment.
 
 ## Success criteria
 
