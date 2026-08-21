@@ -1,8 +1,10 @@
 # Unstaked Numerai live-candidate plan
 
-Status: preparation, training, bundle export, and official-container validation are complete.
-No upload, submission, staking, deletion, or replacement of a Numerai model is authorized by
-this document. See `live-artifacts/readiness-audit.md` for the final evidence summary.
+Status: historical plan for the first fixed-20,000-update bundles. Preparation, training, bundle
+export, official-container validation, and the explicitly authorized uploads were completed. Those
+bundles were subsequently superseded by the corrected validation-selected deployment described in
+`live-artifacts/corrected-live-outcome.md`. This document itself authorizes no future upload,
+replacement, deletion, or stake change.
 
 ## Objective
 
@@ -86,7 +88,8 @@ pickles. Staking remains disabled.
 - Upload both audited Model Upload callables in the same round.
 - Verify Numerai execution logs and accepted submissions for both slots.
 - Record round, artifact hashes, slot IDs, upload time, and server status.
-- Monitor CORR20v2, BMC, MMC, drawdown, and missing/late rounds without changing either model.
+- Monitor the round's configured payout CORR and MMC, plus drawdown and missing/late rounds,
+  without changing either model. Treat BMC as an informational contribution diagnostic only.
 - Report preliminary per-round scores, but wait for multiple resolved rounds before judging
   leaderboard competitiveness.
 
